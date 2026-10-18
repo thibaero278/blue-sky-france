@@ -133,13 +133,17 @@ Un site Blue Sky (Google Sites envisagé) avec :
   `BS_site.lua` a `COLLE_ICI_LE_TOKEN`, `publier_maj.ps1` lit `circuit_site\secrets.local.ps1` (non versionné, contient le token).
   INSTALLATION.md mis à jour.
 - 19/10/2026 : **dépôt git local** dans `site\` (branche `main`, 1er commit). Ignorés : CLAUDE.md, zip, `_design_zip\`,
-  `image\` (sauf claude-design.md), `.miz`, `bakup\`, kneeboard PNG générés, secrets. Pas encore poussé sur GitHub.
+  `image\` (sauf claude-design.md), `.miz`, `bakup\`, kneeboard PNG générés, secrets. Poussé sur GitHub le 19/10/2026.
+
+- 19/10/2026 : **dépôt public https://github.com/thibaero278/blue-sky-france**, créé avec GitHub CLI (installé via winget, connecté).
+  **Site en ligne : https://thibaero278.github.io/blue-sky-france/**, publié automatiquement depuis `web/`
+  par `.github/workflows/pages.yml` à chaque push sur main.
+  Graphify : le dépôt n'apparaît pas encore dans le workspace, il faut l'ajouter depuis Graphify.
 
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
-2. **GitHub** : créer le dépôt `thibaero278/<nom>`, pousser, puis l'ajouter dans Graphify (il indexe les dépôts GitHub du compte).
-   Hébergement possible : GitHub Pages (dépôt public sur compte gratuit) — le token n'est pas dans le dépôt.
+2. Ajouter `thibaero278/blue-sky-france` dans Graphify (accès de l'app GitHub Graphify au dépôt).
 3. Déployer le circuit stats (INSTALLATION.md) puis mettre l'URL dans `web/js/config.js` → le site passe en données réelles.
 4. **Connexion DCS ↔ site (plan)** :
    - a. Stats : déjà prévu via hook + Apps Script (étape 3).
