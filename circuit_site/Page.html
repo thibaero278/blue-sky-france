@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  :root { --bg:#0e1a2b; --card:#16263d; --line:#24395a; --txt:#e8eef7; --mut:#8fa3bf; --accent:#f5c518; --blue:#3d8bfd; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--txt); font-family:Bahnschrift, "Segoe UI", sans-serif; }
+  h1 { margin:0 0 4px; font-size:22px; letter-spacing:2px; } h1 span { color:var(--accent); }
+  .info { color:var(--mut); font-size:13px; margin-bottom:14px; }
+  .online b { color:#4ade80; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .tabs button { background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; font-size:13px; }
+  .tabs button.on { background:var(--accent); color:#111; border-color:var(--accent); }
+  .wrap { overflow-x:auto; background:var(--card); border-radius:8px; border:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { padding:8px 10px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line); }
+  th:nth-child(-n+3), td:nth-child(-n+3) { text-align:left; }
+  th { color:var(--mut); font-weight:normal; font-size:12px; text-transform:uppercase; }
+  td.num { font-family:Consolas, monospace; }
+  td.key { color:var(--accent); font-weight:bold; }
+  tr:nth-child(1) td:first-child { color:var(--accent); }
+  .grade { font-size:11px; padding:2px 6px; border-radius:4px; background:var(--line); }
+  h2 { font-size:16px; margin:22px 0 8px; color:var(--accent); }
+  .log { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:4px 12px; font-size:13px; }
+  .log div { padding:6px 0; border-bottom:1px solid var(--line); } .log div:last-child { border:0; }
+  .log small { color:var(--mut); font-family:Consolas, monospace; }
+</style>
+</head>
+<body>
+  <h1>BLUE SKY <span>FRANCE</span></h1>
+  <div class="info" id="info"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="wrap"><table id="tbl"></table></div>
+  <h2>Mises a jour de la mission</h2>
+  <div class="log" id="log"></div>
+
+<script>
+  const DATA = <?!= data ?>;
+  const hm = s => { s = Math.floor(s || 0); return Math.floor(s / 3600) + 'h' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); };
+  const n = v => Number(v || 0);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const TABS = [
+    { label:'Points', key:'points', fmt:n },
+    { label:'Heures de vol', key:'totalFlightTime', fmt:hm },
+    { label:'Heures completes', key:'completedFlightTime', fmt:hm },
+    { label:'Vol le plus long', key:'maxFlightTime', fmt:hm },
+    { label:'Kills A/A', key:'airair', fmt:n },
+    { label:'Kills A/S', key:'airsol', fmt:n },
+    { label:'Appontages', key:'traps', fmt:n },
+    { label:'Ravitaillement', key:'refuelTime', fmt:hm },
+  ];
+  const COLS = [
+    ['Pts','points',n], ['Heures','totalFlightTime',hm], ['Vols','flights',n], ['A/A','airair',n],
+    ['A/S','airsol',n], ['A/M','airmer',n], ['Appont.','traps',n], ['Morts','deaths',n],
+  ];
+
+  const s = DATA.server || {};
+  const upd = s['Derniere mise a jour'] ? new Date(s['Derniere mise a jour']).toLocaleString('fr-FR') : '-';
+  document.getElementById('info').innerHTML =
+    `${DATA.pilots.length} pilotes · Mission : ${esc(s.Mission || '-')} · Maj : ${upd}` +
+    `<div class="online">En ligne : <b>${esc(s['En ligne'] || 'personne')}</b></div>`;
+
+  let cur = 0;
+  function render() {
+    const t = TABS[cur];
+    const rows = [...DATA.pilots].sort((a, b) => n(b[t.key]) - n(a[t.key]));
+    document.getElementById('tabs').innerHTML = TABS.map((x, i) =>
+      `<button class="${i === cur ? 'on' : ''}" onclick="cur=${i};render()">${x.label}</button>`).join('');
+    document.getElementById('tbl').innerHTML =
+      `<tr><th>#</th><th>Pilote</th><th>Grade</th><th>${t.label}</th>${COLS.map(c => `<th>${c[0]}</th>`).join('')}</tr>` +
+      rows.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td><span class="grade">${esc(p.rang || '-')}</span></td>` +
+        `<td class="num key">${t.fmt(p[t.key])}</td>${COLS.map(c => `<td class="num">${c[2](p[c[1]])}</td>`).join('')}</tr>`).join('');
+  }
+  render();
+
+  document.getElementById('log').innerHTML = DATA.changelog.length
+    ? DATA.changelog.map(c => `<div><small>${new Date(c.date).toLocaleDateString('fr-FR')} · ${esc(c.version)}</small><br>${esc(c.notes || c.file)}</div>`).join('')
+    : '<div>Aucune mise a jour enregistree.</div>';
+</script>
+</body>
+</html>

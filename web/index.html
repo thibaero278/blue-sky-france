@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue Sky France · Communauté DCS World</title>
+<meta name="description" content="Blue Sky France, communauté francophone de simulation de vol sur DCS World : missions organisées, entraide, classements et patrouille Blue Sky Aerobatics.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="accueil">
+
+<header class="hero home-hero">
+  <div class="hero-frame">
+    <img src="assets/forma-eiffel.webp" alt="Patrouille Blue Sky devant la tour Eiffel" style="object-position:center 42%" fetchpriority="high">
+    <div class="shade"></div>
+    <div class="hero-body">
+      <div style="max-width:540px; display:flex; flex-direction:column; gap:22px">
+        <div class="eyebrow">Communauté francophone · DCS World</div>
+        <h1>Blue Sky<br>France</h1>
+        <p class="glass-p">On vole ensemble, du débutant au pilote confirmé : missions organisées, entraide technique et progression suivie par le serveur.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:6px">
+          <a class="btn" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Rejoindre le Discord <span class="mono">→</span></a>
+          <a class="btn ghost" href="carte.html">Voir la carte live</a>
+        </div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px">
+        <a class="live-chip" href="carte.html">
+          <span class="live-badge"><i></i>EN DIRECT</span>
+          <span style="display:flex; flex-direction:column; gap:2px">
+            <span style="font-weight:600; font-size:15px" id="heroMission">Foothold · Caucase</span>
+            <span class="mono" style="font-size:12px; color:#4a556b"><span id="heroOnline">–</span> pilotes connectés · <span id="heroClock">--:--:--</span> in-game</span>
+          </span>
+        </a>
+        <div class="hero-stats">
+          <span><b id="heroMembers">–</b>membres</span>
+          <span><b id="heroDcOnline">–</b>en ligne</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="wrap section" style="display:flex; flex-wrap:wrap; gap:24px 64px">
+  <div style="flex:1 1 220px"><span class="tag">Qui sommes-nous</span></div>
+  <div style="flex:3 1 560px; display:flex; flex-direction:column; gap:28px; min-width:0">
+    <h2 class="h2">Une escadrille francophone, passionnée et carrée.</h2>
+    <p class="lead" style="max-width:680px; font-size:18px; line-height:1.65">Blue Sky France réunit les francophones qui veulent voler ensemble sur DCS World. L'ambiance est agréable : on apprend, on s'amuse, on vole en groupe, et on s'entraide pour progresser.</p>
+  </div>
+</section>
+
+<section class="wrap grid-auto" style="padding-top:56px">
+  <div class="card feature"><span class="num">01</span><h3>Missions organisées</h3><p>Missions persistantes sur Caucase et Syrie, opérations scénarisées et briefings.</p></div>
+  <div class="card feature"><span class="num">02</span><h3>Entraide technique</h3><p>Configuration, procédures, scripts : on partage ce qu'on sait, du premier démarrage à l'appontage Case I.</p></div>
+  <div class="card feature"><span class="num">03</span><h3>Progression suivie</h3><p>Heures de vol, kills, appontages et points sont exportés par le serveur. Les points font monter en grade, d'Aspirant à Général.</p></div>
+</section>
+
+<section class="wrap" style="padding-top:72px; display:flex; flex-direction:column; gap:20px">
+  <div class="label" style="font-size:12px">L'équipe</div>
+  <div class="grid-auto" style="--min:200px" id="staff"></div>
+  <div class="label" style="font-size:12px; margin-top:28px">La communauté</div>
+  <div class="tiers">
+    <div><b><i style="background:#d9b45a"></i>Vétérans</b><span>Membres de longue date, piliers du serveur.</span></div>
+    <div><b><i style="background:#2a5ca8"></i>Pilotes Blue Sky</b><span>Les habitués de la BS.</span></div>
+    <div><b><i style="background:#9fb6d8"></i>Aviateurs</b><span>Membres réguliers, souvent présents.</span></div>
+    <div><b><i style="background:#d8d3c7"></i>Visiteurs</b><span>Les nouveaux arrivants, bienvenue à bord.</span></div>
+  </div>
+</section>
+
+<section class="section" style="padding-left:16px; padding-right:16px">
+  <a class="teaser" href="aerobatics.html">
+    <img src="assets/forma-dessous.webp" alt="Blue Sky Aerobatics en formation" loading="lazy">
+    <div class="shade"></div>
+    <div class="teaser-body">
+      <div style="display:flex; flex-direction:column; gap:14px; max-width:620px">
+        <span class="mono" style="font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#cfe0f5">Patrouille de démonstration virtuelle</span>
+        <span class="display" style="font-weight:800; font-size:clamp(48px, 7vw, 96px); line-height:.9">Blue Sky Aerobatics</span>
+        <span style="font-size:17px; line-height:1.55; color:#e7eef8">Neuf F/A-18C Hornet aux couleurs Blue Sky et des démonstrations en vol serré.</span>
+      </div>
+      <span class="btn light">Découvrir la patrouille →</span>
+    </div>
+  </a>
+</section>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:32px">
+  <div class="sec-head">
+    <h2 class="h2">En ce moment</h2>
+    <span class="mono" style="font-size:12px; color:#8a91a3; letter-spacing:.06em" id="lastExport">Export serveur …</span>
+  </div>
+  <div class="grid-auto" style="--min:320px">
+    <a class="card now-card" href="carte.html">
+      <div style="display:flex; justify-content:space-between; align-items:center" class="label">
+        <span style="color:#4a556b">Serveur · Caucase</span>
+        <span style="display:flex; align-items:center; gap:6px; color:#0b7d75" id="srvState"><span class="dot"></span>En ligne</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:10px">
+        <span class="big-num" id="nowOnline">–</span><span style="font-size:15px; color:#4a556b">pilotes connectés</span>
+      </div>
+      <div class="rows" id="nowList"></div>
+      <span class="more">Ouvrir la carte live →</span>
+    </a>
+    <a class="card now-card" href="classements.html">
+      <div class="label" style="color:#4a556b; display:flex; justify-content:space-between; gap:8px"><span>Classement · points</span><span id="top3Demo"></span></div>
+      <div style="display:flex; flex-direction:column; gap:8px" id="top3"></div>
+      <span class="more">Voir les classements →</span>
+    </a>
+    <a class="card now-card dark" href="discord.html">
+      <div class="label" style="color:#9aa6ba; display:flex; justify-content:space-between; gap:8px"><span>Prochain vol</span><span id="nextDemo"></span></div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <span class="display" style="font-weight:700; font-size:34px; line-height:1" id="nextTitle">–</span>
+        <span style="font-size:14px; color:#c9d1de" id="nextWhen"></span>
+      </div>
+      <div class="countdown" id="nextCount">--:--:--</div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div class="bar dark"><div id="nextFill" style="width:0"></div></div>
+        <span class="mono" style="font-size:12px; color:#9aa6ba" id="nextReg"></span>
+      </div>
+      <span class="more">Voir le planning →</span>
+    </a>
+  </div>
+</section>
+
+<section class="wrap section">
+  <div class="cta-box">
+    <div style="display:flex; flex-direction:column; gap:20px; position:relative">
+      <span class="mono" style="font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#2a5ca8"><span id="ctaMembers">–</span> membres · <span id="ctaOnline">–</span> en ligne</span>
+      <h2>Rejoins l'escadrille sur Discord</h2>
+      <p class="lead" style="max-width:460px; color:#33415c">Salons vocaux créés à la demande, organisation des vols, entraide et annonces d'opérations. Tout se passe en français.</p>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px">
+        <a class="btn" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Rejoindre le Discord</a>
+        <button class="copy" data-copy-invite>discord.gg/zVEsRbm8h2 <span>Copier</span></button>
+      </div>
+    </div>
+    <div class="round-crest"><img src="assets/ecusson.png" alt="Écusson Blue Sky" loading="lazy"></div>
+  </div>
+</section>
+
+<script src="js/config.js"></script>
+<script src="data/evenements.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/pages/accueil.js"></script>
+</body>
+</html>

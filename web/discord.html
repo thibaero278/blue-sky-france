@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discord · Blue Sky France</title>
+<meta name="description" content="Le Discord Blue Sky France : planning des vols, salons vocaux, entraide et annonces d'opérations DCS World.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="discord">
+
+<header class="wrap" style="padding-top:72px; display:flex; flex-wrap:wrap; gap:32px; align-items:stretch">
+  <div style="flex:3 1 520px; display:flex; flex-direction:column; gap:20px; justify-content:flex-end">
+    <div class="eyebrow">Serveur Discord · en français</div>
+    <h1 class="h1">Le Discord<br>Blue Sky</h1>
+    <p class="lead" style="max-width:520px">C'est là que tout s'organise : planning des vols, salons vocaux créés à la demande, entraide technique et annonces d'opérations.</p>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:4px">
+      <a class="btn" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Rejoindre le Discord →</a>
+      <button class="copy" data-copy-invite>discord.gg/zVEsRbm8h2 <span>Copier</span></button>
+    </div>
+  </div>
+  <div class="dc-card">
+    <img src="assets/forma-dessous.webp" alt="">
+    <div class="shade"></div>
+    <div style="position:relative; margin-top:auto; padding:24px; width:100%; display:flex; flex-direction:column; gap:16px; color:#fff">
+      <div style="display:flex; align-items:center; gap:12px">
+        <div style="width:48px; height:48px; border-radius:14px; overflow:hidden; background:#ece6da; flex:none"><img src="assets/ecusson.png" alt="" style="width:100%; height:100%; object-fit:cover; transform:scale(1.4)"></div>
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <span style="font-weight:600; font-size:17px">Blue Sky France</span>
+          <span class="mono" style="font-size:11px; letter-spacing:.08em; color:#cfdcef">COMMUNAUTÉ DCS WORLD</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:28px">
+        <span style="display:flex; flex-direction:column; gap:4px"><span class="display" style="font-weight:700; font-size:48px; line-height:.9" id="cMembers">–</span><span class="mono" style="font-size:11px; letter-spacing:.1em; color:#cfdcef">MEMBRES</span></span>
+        <span style="display:flex; flex-direction:column; gap:4px"><span class="display" style="font-weight:700; font-size:48px; line-height:.9; color:#5fe3d6" id="cOnline">–</span><span class="mono" style="font-size:11px; letter-spacing:.1em; color:#cfdcef">EN LIGNE</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="wrap grid-auto" style="--min:220px; gap:12px; padding-top:40px" id="kpis"></section>
+
+<section class="wrap" style="padding-top:16px">
+  <div class="card" style="border-radius:24px; padding:clamp(20px, 3vw, 32px); display:flex; flex-direction:column; gap:24px">
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:16px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <span class="label" id="actLabel">Activité du serveur</span>
+        <span class="display" style="font-weight:700; font-size:40px; line-height:.95">Messages par jour</span>
+      </div>
+      <div class="seg mono-seg" id="periods"></div>
+    </div>
+    <div style="display:flex; gap:12px">
+      <div class="mono" style="display:flex; flex-direction:column; justify-content:space-between; height:260px; font-size:11px; color:#8a91a3; text-align:right" id="axis"></div>
+      <div class="chart" id="chart">
+        <div class="gl" style="top:0"></div><div class="gl" style="top:50%"></div><div class="gl" style="bottom:0; border-top-style:solid; border-color:#d8d3c7"></div>
+        <div class="bars" id="bars"></div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+    </div>
+    <div class="mono" style="display:flex; justify-content:space-between; padding-left:44px; font-size:11px; color:#8a91a3" id="xlabels"></div>
+    <div class="grid-auto" style="--min:200px; gap:12px; padding-top:20px; border-top:1px solid #e4e0d6" id="summary"></div>
+  </div>
+</section>
+
+<section class="wrap" style="padding-top:16px; display:flex; flex-wrap:wrap; gap:16px">
+  <div class="card" style="flex:3 1 520px; border-radius:24px; padding:clamp(20px, 3vw, 32px); display:flex; flex-direction:column; gap:20px; min-width:0">
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:12px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <span class="label">Dernières 24 heures</span>
+        <span class="display" style="font-weight:700; font-size:40px; line-height:.95">Membres en ligne</span>
+      </div>
+      <span class="tag" style="letter-spacing:.06em" id="peak"></span>
+    </div>
+    <div style="height:150px; display:flex; align-items:flex-end; gap:4px" id="hours"></div>
+    <div class="mono" style="display:flex; justify-content:space-between; font-size:11px; color:#8a91a3"><span>00 h</span><span>06 h</span><span>12 h</span><span>18 h</span><span>23 h</span></div>
+  </div>
+  <div style="flex:2 1 320px; border-radius:24px; background:#13213a; color:#fbfaf7; padding:clamp(20px, 3vw, 32px); display:flex; flex-direction:column; gap:18px">
+    <span class="label" style="color:#9aa6ba">Prochain vol</span>
+    <span class="display" style="font-weight:700; font-size:36px; line-height:1" id="nTitle">–</span>
+    <span style="font-size:14px; color:#c9d1de" id="nWhen"></span>
+    <span class="countdown" style="margin-top:auto; font-size:clamp(28px, 3vw, 36px)" id="nCount">--:--:--</span>
+    <a class="btn sm light" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener" style="text-align:center">S'inscrire sur Discord</a>
+  </div>
+</section>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:28px">
+  <div class="sec-head">
+    <div style="display:flex; flex-direction:column; gap:16px; align-items:flex-start">
+      <span class="tag">Planning</span>
+      <h2 class="h2">Prochains vols &amp; événements</h2>
+    </div>
+    <span class="mono" style="font-size:12px; color:#8a91a3" id="evNote">Planning des vols Blue Sky</span>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:10px" id="events"></div>
+</section>
+
+<section class="section" style="padding-left:16px; padding-right:16px">
+  <div class="join-banner">
+    <img src="assets/showroom.webp" alt="Hornets Blue Sky alignés place de la Concorde" loading="lazy">
+    <div class="shade"></div>
+    <div style="position:relative; padding:clamp(28px, 5vw, 64px); display:flex; flex-direction:column; gap:18px; align-items:flex-start; max-width:720px">
+      <h2 class="display" style="margin:0; font-weight:800; font-size:clamp(44px, 6vw, 80px); line-height:.9">Ta place est sur la ligne</h2>
+      <a class="btn" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Rejoindre le Discord →</a>
+    </div>
+  </div>
+</section>
+
+<script src="js/config.js"></script>
+<script src="data/evenements.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/pages/discord.js"></script>
+</body>
+</html>

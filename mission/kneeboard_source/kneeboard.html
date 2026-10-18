@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Kneeboard Blue Sky</title>
+<!-- Source des pages kneeboard (style carte de nav). Une page affichee par #numero (ex : kneeboard.html#2).
+     Regenerer les PNG : generer_kneeboard.bat -->
+<style>
+  :root {
+    --bg: #f3f3f1;
+    --ink: #111;
+    --muted: #6b6b6b;
+    --band: #e2e2df;
+    --dot: #8d8d8d;
+    --yellow: #f2c618;
+    --red: #c8102e;
+    /* code couleur des frequences */
+    --tcn: #c0157f;   /* TACAN */
+    --ils: #1f9a2a;   /* ICLS */
+    --uhf: #1d5fa6;   /* UHF */
+    --vhf: #111;      /* VHF */
+    --link: #c47a00;  /* Link 4 */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 768px; height: 1024px; overflow: hidden; background: var(--bg); color: var(--ink); }
+  body { font-family: Bahnschrift, "Segoe UI", Arial, sans-serif; }
+  .mono { font-family: Consolas, "Roboto Mono", monospace; }
+  .page { display: none; width: 768px; height: 1024px; flex-direction: column; }
+  .page.on { display: flex; }
+
+  /* ---------- bandeau ---------- */
+  .top { display: flex; align-items: stretch; height: 60px; }
+  .num {
+    background: var(--ink); color: #fff; font-size: 30px; font-weight: 700;
+    padding: 0 30px 0 14px; display: flex; align-items: center;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+  }
+  .title { font-size: 32px; font-weight: 700; padding: 0 12px; display: flex; align-items: center; flex: 1; white-space: nowrap; }
+  td.kp { width: 120px; padding-left: 4px; }
+  .info {
+    background: var(--band); color: #333; font-size: 15px; line-height: 1.25;
+    padding: 0 16px 0 30px; display: flex; flex-direction: column; justify-content: center;
+    clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
+  }
+  .info b { color: var(--ink); }
+  .tag {
+    background: var(--yellow); font-size: 20px; font-weight: 700; padding: 0 18px 0 30px;
+    display: flex; align-items: center; gap: 10px;
+    clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
+  }
+  .tag img { width: 40px; height: 40px; border-radius: 50%; }
+
+  main { flex: 1; padding: 14px 0 0; display: flex; flex-direction: column; }
+
+  /* onglet de section (comme "A-G") */
+  .sec {
+    align-self: flex-start; margin: 10px 0 0 26px;
+    background: var(--ink); color: #fff; font-size: 19px; font-weight: 700; letter-spacing: 1px;
+    padding: 5px 30px 4px 18px;
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+  }
+  .sec:first-child { margin-top: 0; }
+
+  /* ---------- tableaux ---------- */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--muted); text-align: left;
+    padding: 6px 10px 4px; border-top: 1px dotted var(--dot); border-bottom: 1px dotted var(--dot);
+  }
+  td { padding: 8px 10px; border-bottom: 1px dotted var(--dot); vertical-align: middle; }
+  td.id { width: 44px; text-align: right; color: var(--muted); font-size: 20px; padding-right: 4px; }
+  td.n { font-size: 25px; font-weight: 700; line-height: 1.05; }
+  td.n small { display: block; font-size: 15px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+  td.v { font-family: Consolas, monospace; font-size: 27px; font-weight: 700; }
+  td.band, th.band { background: var(--band); }
+  td.na { font-family: Consolas, monospace; font-size: 24px; color: #a7a7a7; }
+  .tcn { color: var(--tcn); } .ils { color: var(--ils); } .uhf { color: var(--uhf); }
+  .vhf { color: var(--vhf); } .lnk { color: var(--link); } .red { color: var(--red); }
+  td.sys { font-size: 17px; font-weight: 600; letter-spacing: 1px; }
+  td.r { text-align: right; }
+
+  td.k { width: 200px; font-size: 19px; font-weight: 700; }
+  td.t { font-size: 19px; line-height: 1.3; }
+  td.t .mono { font-size: 18px; }
+  .pill {
+    display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    padding: 2px 8px; color: #fff; background: var(--ink);
+  }
+  .pill.red { background: var(--red); color: #fff; }
+  .pill.y { background: var(--yellow); color: var(--ink); }
+
+  .note { font-size: 15px; color: #333; padding: 8px 26px 0; line-height: 1.35; }
+  .legend { display: flex; gap: 22px; padding: 10px 26px 0; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+
+  footer {
+    height: 46px; margin: 0 22px; border-top: 1.5px solid var(--red);
+    display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted);
+  }
+  footer .p { font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1 : COMMS & NAV ============ -->
+<section class="page" data-n="1">
+  <div class="top">
+    <div class="num">01</div>
+    <div class="title">Comms &amp; Nav</div>
+    <div class="info"><span><b>Caucase</b> · Multi DAY</span><span>Fréquences en MHz</span></div>
+    <div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div>
+  </div>
+  <main>
+    <div class="sec">PORTE-AVIONS</div>
+    <table>
+      <tr><th></th><th>NAVIRE</th><th class="band">TACAN</th><th>ICLS</th><th>LINK 4</th><th>ATC</th></tr>
+      <tr><td class="id">1</td><td class="n">CVN-75<small>USS Harry S. Truman</small></td>
+          <td class="v band tcn">75X</td><td class="v ils">22</td><td class="v lnk">336.50</td><td class="v vhf">127.50</td></tr>
+      <tr><td class="id">2</td><td class="n">CVN-74<small>USS John C. Stennis</small></td>
+          <td class="v band tcn">74X</td><td class="v ils">20</td><td class="v lnk">336.80</td><td class="v vhf">128.50</td></tr>
+      <tr><td class="id">3</td><td class="n">LHA-1<small>USS Tarawa</small></td>
+          <td class="v band tcn">66X</td><td class="v ils">17</td><td class="na">—</td><td class="v vhf">129.50</td></tr>
+    </table>
+
+    <div class="sec">TANKERS</div>
+    <table>
+      <tr><th></th><th>CALLSIGN</th><th>SYST.</th><th class="band">TACAN</th><th>UHF AM</th></tr>
+      <tr><td class="id">1</td><td class="n">Texaco 1-1<small>KC-135 MPRS</small></td><td class="sys">BASKET</td>
+          <td class="v band tcn">44Y</td><td class="v uhf">244.00</td></tr>
+      <tr><td class="id">2</td><td class="n">Shell 2-1<small>KC-135 Stratotanker</small></td><td class="sys">BOOM</td>
+          <td class="v band tcn">14Y</td><td class="v uhf">255.00</td></tr>
+      <tr><td class="id">3</td><td class="n">Arco 3-1<small>KC-130 Hercules</small></td><td class="sys">BASKET</td>
+          <td class="v band tcn">16Y</td><td class="v uhf">235.00</td></tr>
+      <tr><td class="id">4</td><td class="n">Arco 2-1<small>Ilyushin Il-78</small></td><td class="sys">BASKET</td>
+          <td class="na band">—</td><td class="v uhf">246.00</td></tr>
+      <tr><td class="id">5</td><td class="n">Navy One 1-1<small>S-3B Viking</small></td><td class="sys">BASKET</td>
+          <td class="v band tcn">73Y</td><td class="v uhf">250.00</td></tr>
+    </table>
+    <p class="note">Tankers sur appel uniquement : <b>F10 › TANKERS</b>. Le temps de contact au ravitaillement est enregistré dans tes stats.</p>
+
+    <div class="legend">
+      <span class="tcn">■ TACAN</span><span class="ils">■ ICLS</span><span class="lnk">■ LINK 4</span>
+      <span class="vhf">■ VHF</span><span class="uhf">■ UHF AM</span>
+    </div>
+  </main>
+  <footer><span>Blue Sky France</span><span class="p">PAGE 01</span><span>Source : briefing de mission</span></footer>
+</section>
+
+<!-- ============ 2 : MENU F10 & BAREME ============ -->
+<section class="page" data-n="2">
+  <div class="top">
+    <div class="num">02</div>
+    <div class="title">Menu F10 &amp; Barème</div>
+    <div class="info"><span><b>Caucase</b> · Multi DAY</span><span>Coalition bleue</span></div>
+    <div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div>
+  </div>
+  <main>
+    <div class="sec">MENU RADIO F10</div>
+    <table>
+      <tr><td class="k">AIR-AIR</td><td class="t mono">Mig21 1-4 · Mig29 1-4 · Su27 1-4<br>Clear hostile</td></tr>
+      <tr><td class="k">TANKERS</td><td class="t mono">S3-B · KC-135 MPRS · KC-135<br>KC-130 · IL-78</td></tr>
+      <tr><td class="k">AIR-SOL</td><td class="t mono">Reset Croix · Spawn Convoi</td></tr>
+      <tr><td class="k">STATISTIQUES</td><td class="t mono">Mes scores · Top 10 · Grades</td></tr>
+    </table>
+
+    <div class="sec">BARÈME</div>
+    <table>
+      <tr><th></th><th>CIBLE</th><th>CAT.</th><th class="band" style="text-align:right">PTS</th></tr>
+      <tr><td class="id">1</td><td class="n">Avion</td><td class="sys">A/A</td><td class="v band r">3</td></tr>
+      <tr><td class="id">2</td><td class="n">Hélicoptère</td><td class="sys">A/A</td><td class="v band r">2</td></tr>
+      <tr><td class="id">3</td><td class="n">Navire</td><td class="sys">A/M</td><td class="v band r">5</td></tr>
+      <tr><td class="id">4</td><td class="n">Défense aérienne / radar</td><td class="sys">A/S</td><td class="v band r">3</td></tr>
+      <tr><td class="id">5</td><td class="n">Véhicule / structure / statique</td><td class="sys">A/S</td><td class="v band r">1</td></tr>
+      <tr><td class="id">6</td><td class="n red">Teamkill</td><td class="sys red">TK</td><td class="v band r red">0</td></tr>
+    </table>
+
+    <div class="sec">COMPTAGE</div>
+    <table>
+      <tr><td class="k">Atterrissage</td><td class="t">Kills + points <b>validés</b> · heures complètes</td></tr>
+      <tr><td class="k">Appontage</td><td class="t">+1 sur CVN-74 / CVN-75, train intact</td></tr>
+      <tr><td class="k red">Mort / éjection</td><td class="t">Heures comptées · <b class="red">kills et points du vol perdus</b> · +1 mort</td></tr>
+      <tr><td class="k">Slot quitté en vol</td><td class="t">Heures comptées · kills du vol perdus</td></tr>
+    </table>
+  </main>
+  <footer><span>Blue Sky France</span><span class="p">PAGE 02</span><span>Points validés à l'atterrissage</span></footer>
+</section>
+
+<!-- ============ 3 : BRIEFING ============ -->
+<section class="page" data-n="3">
+  <div class="top">
+    <div class="num">03</div>
+    <div class="title">Briefing</div>
+    <div class="info"><span><b>Caucase</b> · Multi DAY</span><span>Règles &amp; situation</span></div>
+    <div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div>
+  </div>
+  <main>
+    <div class="sec">SERVEUR</div>
+    <table>
+      <tr><td class="k">Esprit</td><td class="t">Jeu et entraînement pour tous, débutants comme expérimentés.</td></tr>
+      <tr><td class="k">Missions</td><td class="t mono">AAR · CAP · STRIKE · SEAD · ANTI-SHIP</td></tr>
+      <tr><td class="k">Terrains</td><td class="t">Plusieurs aéroports bleus dynamiques, slots variés.</td></tr>
+      <tr><td class="k">Services</td><td class="t">Tanker, menaces, cibles : <b>tout par le menu F10</b>.</td></tr>
+    </table>
+
+    <div class="sec">RÈGLES</div>
+    <table>
+      <tr><td class="id">1</td><td class="kp"><span class="pill red">INTERDIT</span></td><td class="t"><b>Fox 4</b> (tir ami) sur joueurs ou IA bleues.</td></tr>
+      <tr><td class="id">2</td><td class="kp"><span class="pill red">INTERDIT</span></td><td class="t">Faire apparaître des ennemis <b>sans les engager</b>.</td></tr>
+      <tr><td class="id">3</td><td class="kp"><span class="pill">RÈGLE</span></td><td class="t">Tu fais spawn une menace : <b>tu t'en occupes</b>.</td></tr>
+      <tr><td class="id">4</td><td class="kp"><span class="pill y">CONSEIL</span></td><td class="t">« Clear hostile » une fois fini, pour les perfs.</td></tr>
+    </table>
+
+    <div class="sec">SITUATION</div>
+    <table>
+      <tr><td class="k" style="color:var(--uhf)">BLEU</td><td class="t">Renfort temporaire et <b>défensif</b> : stabilité, libre circulation aérienne et maritime, protection des alliés. Réponse à toute provocation.</td></tr>
+      <tr><td class="k red">ROUGE</td><td class="t">Voit le déploiement comme une provocation. Défenses actives : <b>toute intrusion = réponse immédiate</b>.</td></tr>
+      <tr><td class="k" style="color:var(--muted)">NEUTRES</td><td class="t">Observent les mouvements militaires, sans s'aligner.</td></tr>
+      <tr><td class="k">OBJECTIF</td><td class="t">Supériorité régionale, axes stratégiques sécurisés, aucune déstabilisation.</td></tr>
+    </table>
+  </main>
+  <footer><span>Blue Sky France</span><span class="p">PAGE 03</span><span>Bon vol à tous !</span></footer>
+</section>
+
+<script>
+  var n = (location.hash || "#1").slice(1);
+  var p = document.querySelector('.page[data-n="' + n + '"]') || document.querySelector('.page');
+  p.classList.add("on");
+</script>
+</body>
+</html>

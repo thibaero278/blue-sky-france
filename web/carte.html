@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte live · Blue Sky France</title>
+<meta name="description" content="Carte live du serveur DCS Blue Sky France : pilotes connectés, positions et météo de mission.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="carte">
+
+<header class="wrap" style="padding-top:56px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:24px">
+  <div>
+    <div class="eyebrow">Serveur Foothold · Caucase</div>
+    <h1 class="h1" style="margin-top:16px">Carte live</h1>
+  </div>
+  <div class="chips">
+    <div class="chip"><span>Serveur</span><span id="srv" style="display:flex; align-items:center; gap:8px">…</span></div>
+    <div class="chip"><span>Heure in-game</span><span id="clock">--:--:--</span></div>
+    <div class="chip"><span>Pilotes</span><span id="counts">–</span></div>
+  </div>
+</header>
+
+<main class="wrap ops">
+  <div class="mapcard">
+    <div id="map"></div>
+    <div class="legend">
+      <span><i class="lg-air"></i>En vol</span>
+      <span><i class="lg-gnd"></i>Au sol</span>
+      <span><i class="lg-af"></i>Aérodrome</span>
+      <span id="liveDemo"></span>
+    </div>
+    <div class="focus" id="focus">
+      <div class="row">
+        <div style="display:flex; flex-direction:column; gap:4px"><span class="k" id="fType"></span><span class="cs" id="fCs">—</span></div>
+        <div style="display:flex; gap:6px"><button id="followBtn">Suivre</button><button class="x" id="closeFocus" aria-label="Fermer" style="width:30px; height:30px; padding:0">✕</button></div>
+      </div>
+      <div class="grid">
+        <div><span class="k">Alt</span><span class="v" id="fAlt">—</span></div>
+        <div><span class="k">Vit</span><span class="v" id="fSpd">—</span></div>
+        <div><span class="k">Cap</span><span class="v" id="fHdg">—</span></div>
+      </div>
+      <span class="mono" style="font-size:11px; color:#9aa6ba" id="fPos">—</span>
+    </div>
+  </div>
+  <aside class="side">
+    <div class="card">
+      <div class="cardhead"><span class="label">Météo · Caucase</span><span class="mono" style="font-size:11px; color:#8a91a3">METAR mission</span></div>
+      <div class="wx" id="wx"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><span class="label">Joueurs connectés</span><span class="mono" style="font-size:12px; font-weight:600" id="total">–</span></div>
+      <div class="tabs" id="tabs"><button data-f="all" class="on">Tous</button><button data-f="air">En vol</button><button data-f="gnd">Au sol</button></div>
+      <div class="plist" id="plist"></div>
+    </div>
+  </aside>
+</main>
+<div class="wrap note"><span id="noteSrc">Positions mises à jour toutes les secondes · export serveur DCS</span><span>Clique sur un pilote pour le centrer</span></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/pages/carte.js"></script>
+</body>
+</html>

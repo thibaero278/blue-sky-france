@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue Sky Aerobatics · Blue Sky France</title>
+<meta name="description" content="Blue Sky Aerobatics, la patrouille de démonstration virtuelle de Blue Sky France sur F/A-18C Hornet.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="aerobatics">
+
+<header class="hero aero-hero">
+  <div class="hero-frame">
+    <img src="assets/nez-en-vol.webp" alt="F/A-18C Blue Sky en vol" fetchpriority="high">
+    <div class="shade"></div>
+    <div class="hero-body">
+      <div style="max-width:640px; display:flex; flex-direction:column; gap:20px">
+        <div class="eyebrow light">Équipe d'air show virtuelle</div>
+        <h1>Blue Sky<br>Aerobatics</h1>
+        <p style="margin:0; max-width:480px; font-size:clamp(16px, 1.4vw, 19px); line-height:1.55; color:#f1f5fb">La patrouille de démonstration de Blue Sky France : vol serré, fumigènes, passages bas et changements de formation.</p>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px">
+        <div class="glass-chip"><span>Avion</span><b>F/A-18C Hornet</b></div>
+        <div class="glass-chip"><span>Formation</span><b>Jusqu'à 9 appareils</b></div>
+        <div class="glass-chip"><span>Livrée</span><b>Blue Sky</b></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:36px">
+  <h2 class="h2">La livrée Blue Sky</h2>
+  <div style="display:flex; flex-wrap:wrap; gap:16px">
+    <div class="livery-photo">
+      <img src="assets/solo-ville.webp" alt="Hornet en livrée Blue Sky" loading="lazy">
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+    <div class="card" style="flex:1 1 300px; padding:30px; border-radius:24px; display:flex; flex-direction:column; gap:22px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <span class="label">Livrée</span>
+        <span class="display" style="font-weight:800; font-size:48px; line-height:.9">Blue Sky</span>
+      </div>
+      <p style="margin:0; font-size:15px; line-height:1.65; color:#4a556b">Fuselage blanc, dos bleu nuit et ventre rouge, avec un phénix doré et « Aerobatics » sur l'aile. Numéros de dérive de 1 à 9.</p>
+      <div style="display:flex; flex-direction:column; gap:12px">
+        <span class="label">Couleurs</span>
+        <div style="display:flex; flex-direction:column; gap:8px" id="swatches"></div>
+      </div>
+      <div class="mono" style="margin-top:auto; padding-top:18px; border-top:1px solid #e4e0d6; display:flex; justify-content:space-between; font-size:12px; color:#4a556b">
+        <span>F/A-18C Hornet</span><span id="photoCount"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:32px">
+  <div class="sec-head">
+    <h2 class="h2">Galerie</h2>
+    <div class="filters" id="filters"></div>
+  </div>
+  <div class="gallery" id="gallery"></div>
+</section>
+
+<section class="wrap section">
+  <div class="recruit">
+    <div style="display:flex; flex-direction:column; gap:20px; align-items:flex-start">
+      <span class="mono" style="font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#5fe3d6">Recrutement ouvert</span>
+      <h2 class="display" style="margin:0; font-weight:800; font-size:clamp(44px, 6vw, 76px); line-height:.9">Rejoindre la patrouille</h2>
+      <p style="margin:0; max-width:420px; font-size:16px; line-height:1.65; color:#c9d1de">La patrouille recrute parmi les membres du Discord. Il faut posséder le module F/A-18C Hornet et être disponible pour les entraînements en soirée.</p>
+      <a class="btn light" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener" style="margin-top:8px">Candidater sur Discord →</a>
+    </div>
+    <div>
+      <div class="step"><span class="nb" style="color:#d0342c">01</span><div><b>Rejoindre le Discord</b><span>Présente-toi et signale ton intérêt pour la patrouille dans le salon dédié.</span></div></div>
+      <div class="step"><span class="nb" style="color:#fbfaf7">02</span><div><b>Voler en formation</b><span>Participe aux entraînements avec l'équipe : tenue de position, rejointes, changements de formation.</span></div></div>
+      <div class="step"><span class="nb" style="color:#6f9be0">03</span><div><b>Recevoir ton numéro</b><span>Après validation par l'équipe, tu intègres la patrouille avec ton numéro et ta livrée.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" hidden>
+  <img id="lbImg" alt="">
+  <div class="ctl"><button id="lbPrev" aria-label="Photo précédente">←</button><span id="lbCap"></span><button id="lbNext" aria-label="Photo suivante">→</button></div>
+  <button class="close" id="lbClose" aria-label="Fermer">✕</button>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/pages/aerobatics.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classements · Blue Sky France</title>
+<meta name="description" content="Classement des pilotes du serveur DCS Blue Sky France : points, heures de vol, kills, appontages et grades.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="classements">
+
+<header class="wrap page-head">
+  <div style="display:flex; flex-direction:column; gap:18px; max-width:640px">
+    <div class="eyebrow" id="srvLabel">Serveur Foothold · Caucase</div>
+    <h1 class="h1">Classements</h1>
+    <p class="lead">Scores exportés par le script de suivi du serveur. Les points, validés à l'atterrissage, déterminent le grade de chaque pilote.</p>
+  </div>
+  <div class="status-pill" id="status"><span class="dot"></span>Dernier export · …</div>
+</header>
+
+<section class="wrap grid-auto" style="--min:220px; gap:12px; padding-top:48px" id="totals"></section>
+
+<section class="wrap" style="padding-top:72px; display:flex; flex-direction:column; gap:20px">
+  <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px">
+    <div class="seg" id="metrics"></div>
+    <label class="search"><span class="mono" style="font-size:13px; color:#8a91a3">⌕</span><input id="q" type="search" placeholder="Rechercher un pilote" autocomplete="off"></label>
+  </div>
+  <div class="grid-auto" style="--min:280px; gap:12px" id="podium"></div>
+  <div class="table"><div class="inner" id="table"></div></div>
+</section>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:32px">
+  <div class="sec-head">
+    <div style="display:flex; flex-direction:column; gap:16px; align-items:flex-start">
+      <span class="tag">Progression</span>
+      <h2 class="h2">Les grades</h2>
+    </div>
+    <p class="lead" style="max-width:420px; font-size:15px">Onze grades, de l'Aspirant au Général d'armée aérienne. Chaque palier se débloque au nombre de points indiqué, et la promotion est annoncée en jeu.</p>
+  </div>
+  <div class="grid-auto" style="--min:270px; gap:10px" id="grades"></div>
+</section>
+
+<section class="wrap section" style="display:flex; flex-direction:column; gap:24px" id="logSec" hidden>
+  <div class="sec-head">
+    <h2 class="h2">Mises à jour du serveur</h2>
+    <span class="label">Script de mission</span>
+  </div>
+  <div class="changelog" id="log"></div>
+</section>
+
+<div id="drawerRoot"></div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/pages/classements.js"></script>
+</body>
+</html>

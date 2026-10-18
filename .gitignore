@@ -1,0 +1,24 @@
+# Secrets (token, URL de déploiement)
+secrets.local.ps1
+circuit_site/.dernier_hash
+
+# Notes perso (gérées par Claude Chat)
+CLAUDE.md
+
+# Sources lourdes / archives : les versions optimisées sont dans web/assets
+*.zip
+_design_zip/
+image/*
+!image/claude-design.md
+/*.webp
+logo/*.dds
+
+# Mission : binaire + sauvegardes + kneeboard généré
+mission/*.miz
+mission/bakup/
+mission/kneeboard/*.png
+
+# Divers
+.DS_Store
+Thumbs.db
+desktop.ini
