@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 18/10/2026_
+_Dernière mise à jour : 19/10/2026_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > (`CLAUDE.md` est géré par Claude Chat : ne pas y toucher.)
@@ -115,9 +115,36 @@ Un site Blue Sky (Google Sites envisagé) avec :
 - 18/10/2026 : reset du score de vol au décollage : **déjà en place** (`StartFlight` crée un vol neuf à chaque Takeoff).
   Seul ajout : le message de décollage dit « Score de vol remis a 0 ».
 
+- 19/10/2026 : **site codé** dans `site\web\` à partir de la maquette Claude Design (`Site web serveur Discord Blue Sky.zip`,
+  format « dc » qui dépendait d'un runtime React/Babel → réécrit en HTML/CSS/JS statique, sans build).
+  - 5 pages : `index.html` (Accueil), `aerobatics.html`, `carte.html`, `classements.html`, `discord.html`.
+  - Réglages dans `web/js/config.js` ; une source vide = démo avec badge « Démo ».
+    - Stats : `statsUrl` = URL Apps Script (lit `?format=json`). Pas encore déployé → démo.
+    - Discord membres/en ligne : **réel**, via l'API publique de l'invitation `zVEsRbm8h2` (145 membres / 20 en ligne au test).
+    - Planning : `web/data/evenements.js`, à remplir à la main (exemples pour l'instant).
+    - Carte live et activité Discord (messages/jour) : démo, rien côté serveur pour l'instant.
+  - Corrections par rapport à la maquette : paliers de grades alignés sur `RANKS` du script (la maquette avait 300/800/…),
+    colonnes classement adaptées à Scores.lua (Appontages, Morts au lieu d'Éjections non suivies ; fiche pilote avec
+    heures complètes, vol le plus long, ravitaillement, teamkills), textes « Your text here » parasites supprimés,
+    phrase coupée du héros Aerobatics, fautes (« Phoénix », « Ventre »).
+  - Images compressées en WebP : 61 Mo → 3 Mo (`web/assets`). Testé desktop + mobile 375 px, aucune erreur console.
+  - Lancer en local : `python -m http.server 8080 --directory web` (config `serveur BS\.claude\launch.json`).
+- 19/10/2026 : **token sorti des fichiers versionnés** : `Code.gs` lit la propriété de script `TOKEN`,
+  `BS_site.lua` a `COLLE_ICI_LE_TOKEN`, `publier_maj.ps1` lit `circuit_site\secrets.local.ps1` (non versionné, contient le token).
+  INSTALLATION.md mis à jour.
+- 19/10/2026 : **dépôt git local** dans `site\` (branche `main`, 1er commit). Ignorés : CLAUDE.md, zip, `_design_zip\`,
+  `image\` (sauf claude-design.md), `.miz`, `bakup\`, kneeboard PNG générés, secrets. Pas encore poussé sur GitHub.
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
-2. Déployer le circuit : Sheet + Apps Script (Thibaud), coller l'URL dans `BS_site.lua` et `publier_maj.ps1`,
-   test PowerShell, puis hook chez Weefe et vérification dans `dcs.log`.
-3. Construire le Google Site (page Classement intégrée + présentation BS + réseaux).
+2. **GitHub** : créer le dépôt `thibaero278/<nom>`, pousser, puis l'ajouter dans Graphify (il indexe les dépôts GitHub du compte).
+   Hébergement possible : GitHub Pages (dépôt public sur compte gratuit) — le token n'est pas dans le dépôt.
+3. Déployer le circuit stats (INSTALLATION.md) puis mettre l'URL dans `web/js/config.js` → le site passe en données réelles.
+4. **Connexion DCS ↔ site (plan)** :
+   - a. Stats : déjà prévu via hook + Apps Script (étape 3).
+   - b. Carte live : étendre `BS_site.lua` : toutes les ~5 s, `net.dostring_in('server', …)` lit les unités des joueurs
+     (`coalition.getPlayers`, `Unit:getPoint`, `coord.LOtoLL`, cap/vitesse) → JSON au format de `liveUrl` (voir `web/js/data.js`).
+     Apps Script trop lent/limité pour 5 s → petit relais (Cloudflare Worker gratuit) ou DCSServerBot.
+   - c. Discord activité + planning auto : bot Discord (ou DCSServerBot, qui gère déjà Discord + stats + événements) —
+     demander à Weefe s'il l'utilise déjà sur le serveur.
