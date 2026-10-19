@@ -210,6 +210,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 'server': server.display_name, 'time': datetime.now(timezone.utc).isoformat(),
                 'missionTime': (data or {}).get('time'),  # secondes depuis minuit, heure de la mission
                 'map': server.current_mission.map if server.current_mission else '', 'players': players,
+                'mission': server.current_mission.name if server.current_mission else '',
+                # tous les connectés (même sans avion), pour « Serveur · N en ligne » sur le site
+                'online': [p.name for p in server.get_active_players()],
             })
 
     @live_loop.before_loop
