@@ -254,6 +254,29 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Serveur invisible en multi : pare-feu Windows OK (règles DCS TCP/UDP 10308 entrantes). Box **SFR** (192.168.1.1), PC en
     192.168.1.43 (Ethernet) **et** 192.168.1.66 (Wi-Fi) → redirection 10308 TCP+UDP à faire sur la box vers la bonne IP + bail DHCP fixe.
     IP publique 37.67.72.41 (à comparer avec l'IP WAN de la box pour écarter un CGNAT).
+  - **Fait par Thibaud** (box GR140IG) : bail statique MAC `D8:43:AE:7B:38:C5` (câble) → **192.168.1.200** (PC renouvelé, OK),
+    anciennes règles (33674, 10308 UDP → .43) supprimées, nouvelle règle « DCS » 10308 TCP/UDP → 192.168.1.200.
+    ⚠️ La box avertit que l'IPv4 utilisateur peut ne pas marcher « en raison de l'architecture de routage IPv6 WAN »
+    → IPv4 partagée probable (MAP-T / DS-Lite, plage de ports limitée).
+  - **CGNAT confirmé** (menu WAN) : IPv4 WAN de la box = **10.153.38.136** (privée), passerelle 10.153.38.137 ; l'IP publique
+    37.67.72.41 est partagée par SFR. **Aucune redirection de port ne peut marcher** : c'est la vraie raison pour laquelle personne
+    ne voit le serveur. Solution : demander à SFR une **IPv4 dédiée / « full-stack »** (service client 1023). Ensuite la règle
+    10308 → .200 déjà créée suffit. Plan B : tunnel (playit.gg, ZeroTier/Radmin) ou laisser Weefe héberger.
+
+- 19/10/2026 (nuit) : **statut serveur et équipe corrigés** (analyse du code via Graphify, dépôt indexé à 284f85d).
+  - Le bot publie le live dès que la mission tourne, même vide → le site mettait un point vert « 0 en ligne ».
+    Maintenant (`data.js` `serverLabel`, `layout.js`, `accueil.js`, `carte.js`) : vert / « EN DIRECT » **seulement avec ≥ 1 joueur** ;
+    mission vide = point gris « personne en ligne » / « SERVEUR VIDE » ; serveur éteint = « hors ligne », mission « Serveur DCS éteint ».
+  - L'heure in-game de l'Accueil et de la Carte était une **fausse horloge** (heure locale + 6 h 17) affichée même serveur éteint :
+    `fmt.gameClock` = heure envoyée par le bot (`missionTime`), horloge fictive seulement en démo, sinon `--:--:--`.
+  - « L'équipe » : n'affiche plus les insignes de grade aux points mais les **rôles fixes du Discord BS**. Le bot exporte `staff`
+    (`discord_data` → `staff_json`, réglage `staff_roles` dans `bluesky.yaml` : noms/IDs ; vide = auto, rôles affichés à part avec droits
+    de modération ; couleur du rôle Discord). Site : `loadStaff()` + `roleBadge()`, repli sur `C.staff` de `config.js` tant que le bot
+    n'a pas republié. Indicatif/prénom repris de `C.staff` si le pseudo Discord correspond.
+  - Testé en local : cas réel (serveur éteint), mission vide simulée, rôles Discord simulés. **Bot pas redémarré** (nécessaire pour `staff`), rien poussé.
+  - Lecture directe des rôles via le token du bot refusée par la sécurité de Claude Code : passer par le bot.
+- 19/10/2026 : **audit conformité juridique (étape 0)** fait, en attente des réponses de Thibaud avant rédaction
+  (mentions légales, confidentialité, cookies, CONFORMITE.md). Voir la session du 19/10.
 
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.

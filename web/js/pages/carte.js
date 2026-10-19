@@ -126,8 +126,10 @@
       demo = d.demo;
       if (d.weather) setWeather(d.weather);
       if (!demo && !d.weather) setWeather({});
-      if (d.missionTime != null) missionT0 = { t: d.missionTime, at: Date.now() };
-      $('srv').innerHTML = demo ? demoBadge() : d.offline ? '<span style="color:#8a91a3">Hors ligne</span>' : '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>';
+      missionT0 = !d.offline && d.missionTime != null ? { t: d.missionTime, at: Date.now() } : null;
+      const nOnline = (d.online || d.players || []).length;
+      $('srv').innerHTML = demo ? demoBadge() : d.offline ? '<span style="color:#8a91a3">Hors ligne</span>'
+        : nOnline ? '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>' : '<span style="color:#8a91a3">Personne en ligne</span>';
       $('liveDemo').innerHTML = demo ? demoBadge('Démo · export live à venir') : '';
       $('noteSrc').textContent = d.offline ? 'Serveur DCS arrêté ou sans mission · la carte se remplit dès qu’une mission tourne'
         : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les 30 s environ'
@@ -141,7 +143,6 @@
     if (demo) setInterval(demoTick, 1000);
     else setInterval(load, 15000);
   });
-  // Heure in-game : envoyée par le serveur (secondes depuis minuit), sinon horloge de démo
-  const hms = s => { s = Math.floor(s) % 86400; return [s / 3600, s % 3600 / 60, s % 60].map(x => String(Math.floor(x)).padStart(2, '0')).join(':'); };
-  setInterval(() => ($('clock').textContent = missionT0 ? hms(missionT0.t + (Date.now() - missionT0.at) / 1000) : fmt.missionClock(Date.now())), 1000);
+  // Heure in-game : envoyée par le serveur (secondes depuis minuit), horloge fictive en démo, « --:--:-- » serveur éteint
+  setInterval(() => ($('clock').textContent = fmt.gameClock(missionT0, demo)), 1000);
 })();
