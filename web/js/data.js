@@ -257,10 +257,20 @@
     }).catch(err => { console.warn('[BS] live indisponible :', err); return { ...demoLive(), error: String(err) }; });
   }
 
+  // État du serveur DCS d'après le live du bot (relevé toutes les 30 s) : { demo, up, online:[pseudos], mission }
+  let serverP = null;
+  function loadServer() {
+    return serverP || (serverP = loadLive().then(l => {
+      if (l.error || l.offline) return { demo: false, up: false, online: [], mission: '' };
+      const online = l.online || (l.players || []).map(p => p.callsign);
+      return { demo: !!l.demo, up: true, online, mission: l.mission || '' };
+    }));
+  }
+
   const demoBadge = (txt = 'Démo') => '<span class="demo-badge" title="Source pas encore branchée : données d\'exemple">' + esc(txt) + '</span>';
 
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, loadServer, demoBadge };
 })();

@@ -1,6 +1,6 @@
 // Barre de navigation et pied de page communs. La page indique son onglet par <body data-page="...">.
 (function () {
-  const { C, esc, loadStats } = window.BS;
+  const { C, esc, loadServer } = window.BS;
   const PAGES = [
     ['accueil', 'Accueil', 'index.html'],
     ['aerobatics', 'Aerobatics', 'aerobatics.html'],
@@ -35,9 +35,9 @@
     btn.setAttribute('aria-expanded', open);
   });
 
-  loadStats().then(s => {
-    const n = s.server.online.length;
-    nav.querySelector('#navPillTxt').textContent = 'Serveur · ' + n + ' en ligne';
+  loadServer().then(srv => {
+    nav.querySelector('#navPill .dot').classList.toggle('off', !srv.up);
+    nav.querySelector('#navPillTxt').textContent = srv.up ? 'Serveur · ' + srv.online.length + ' en ligne' : 'Serveur · hors ligne';
   });
 
   const invShort = C.discordInvite.replace(/^https?:\/\//, '');

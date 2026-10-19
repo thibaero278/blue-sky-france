@@ -236,6 +236,25 @@ Un site Blue Sky (Google Sites envisagé) avec :
   `?format=json` / `?format=live` OK, page Classements locale en vraies données. Site poussé (GitHub Pages).
   Reste : redémarrer le bot (STOP/GO) pour charger le plugin, `feed_channel` à remplir, test en jeu.
 
+- 19/10/2026 (soir) : **premier test réel DCS ↔ bot ↔ site** (mission lancée en multi sur le PC de Thibaud). Diagnostic :
+  - Le bot **s'est bien connecté** à DCS (événements, slot F/A-18, `bsGetLive`), mais `max_hung_minutes: 0` (censé désactiver,
+    d'après la doc) était lu comme « 0 minute » par DCSServerBot 3.0.4.27 → serveur déclaré planté au bout d'1 min, passé en
+    SHUTDOWN, plus aucune carte live / joueurs en ligne. **Corrigé** dans `bot\DCSServerBot\services\monitoring\service.py`
+    (`if max_hung and …`). DCS lancé en client (pas `-w`) → le bot ne trouve pas le processus : normal, sans conséquence maintenant.
+  - `/classement` « Thibaud 0 pt » : le bot lit le `Scores.lua` **du PC** (`Saved Games\DCS`), qui ne contenait que le vol du jour.
+    Pire : au démarrage le bot l'a publié → le relais (et le site) n'avaient plus qu'1 pilote. **Corrigé** : `mission\Scores.lua`
+    (22 pilotes) fusionné avec le vol du jour → `Saved Games\DCS\Scores.lua` (sauvegarde `bakup\Scores_PC-Thibaud_2026-10-19_avant-fusion.lua`),
+    puis republié au relais (22 pilotes vérifiés). ⚠️ Le Scores.lua de la machine qui fait tourner le bot = la vérité du site.
+  - La mission réellement lancée était une **vieille copie** : `Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\` (18/10 20:08,
+    script sans grades ni sauvegarde sûre). La .miz de `site\mission\` contenait aussi un script antérieur → **script actuel injecté**
+    (nom interne `l10n/DEFAULT/multi jours thib.lua`, sauvegarde `bakup\…_2026-10-19_17-51-26.miz.bak`). Lancer **cette** .miz.
+  - Site : le point vert « Serveur · N en ligne » était **codé en dur**. Maintenant `loadServer()` (`data.js`) lit le live du bot :
+    hors ligne si données > 3 min (point gris), sinon nombre de connectés. Le bot ajoute `online` (tous les connectés) et `mission`
+    au live. Accueil (« En ce moment ») branché dessus aussi. Testé en local (cas hors ligne), **pas encore poussé**.
+  - Serveur invisible en multi : pare-feu Windows OK (règles DCS TCP/UDP 10308 entrantes). Box **SFR** (192.168.1.1), PC en
+    192.168.1.43 (Ethernet) **et** 192.168.1.66 (Wi-Fi) → redirection 10308 TCP+UDP à faire sur la box vers la bonne IP + bail DHCP fixe.
+    IP publique 37.67.72.41 (à comparer avec l'IP WAN de la box pour écarter un CGNAT).
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).

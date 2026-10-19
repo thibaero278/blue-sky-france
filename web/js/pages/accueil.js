@@ -1,5 +1,5 @@
 (function () {
-  const { C, esc, fmt, num, insignia, gradeFor, loadStats, loadDiscord, loadEvents, demoBadge } = window.BS;
+  const { C, esc, fmt, num, insignia, gradeFor, loadStats, loadServer, loadDiscord, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
   loadStats().then(s => {
@@ -10,17 +10,20 @@
       return `<div class="staff">${insignia(g, 'lg')}<div style="min-width:0"><b>${esc(m.callsign)}</b><small>${esc(m.name ? m.name + ' · ' + m.role : m.role)}</small></div></div>`;
     }).join('');
 
-    const online = s.server.online;
-    $('heroOnline').textContent = online.length;
-    num($('nowOnline'), online.length);
-    if (s.server.mission) $('heroMission').textContent = s.server.mission;
-    $('nowList').innerHTML = online.slice(0, 4).map(n => {
-      const p = byName[n.toLowerCase()];
-      return `<div><span style="font-weight:600">${esc(n)}</span><span class="mono" style="font-size:12px; color:#4a556b">${p ? esc(p.grade.name) : 'Nouveau pilote'}</span></div>`;
-    }).join('') || '<div><span style="color:#8a91a3">Personne en ligne pour le moment</span></div>';
-    const fresh = s.server.updated && Date.now() - s.server.updated.getTime() < 15 * 60e3;
-    $('srvState').innerHTML = fresh ? '<span class="dot"></span>En ligne' : '<span class="dot off"></span>Hors ligne';
-    $('srvState').style.color = fresh ? '#0b7d75' : '#8a91a3';
+    // Serveur : état réel d'après le live du bot (et non l'export des scores, qui ne bouge qu'aux atterrissages)
+    loadServer().then(srv => {
+      const online = srv.online;
+      $('heroOnline').textContent = online.length;
+      num($('nowOnline'), online.length);
+      const mission = srv.mission || s.server.mission;
+      if (mission) $('heroMission').textContent = mission;
+      $('nowList').innerHTML = online.slice(0, 4).map(n => {
+        const p = byName[n.toLowerCase()];
+        return `<div><span style="font-weight:600">${esc(n)}</span><span class="mono" style="font-size:12px; color:#4a556b">${p ? esc(p.grade.name) : 'Nouveau pilote'}</span></div>`;
+      }).join('') || `<div><span style="color:#8a91a3">${srv.up ? 'Personne en ligne pour le moment' : 'Serveur DCS éteint'}</span></div>`;
+      $('srvState').innerHTML = srv.up ? '<span class="dot"></span>En ligne' : '<span class="dot off"></span>Hors ligne';
+      $('srvState').style.color = srv.up ? '#0b7d75' : '#8a91a3';
+    });
     $('lastExport').innerHTML = (s.demo ? demoBadge() + ' ' : '') + 'Export serveur ' + (s.server.updated ? fmt.ago(s.server.updated) : '—');
 
     $('top3').innerHTML = [...s.pilots].sort((a, b) => b.points - a.points).slice(0, 3).map((p, i) => `
