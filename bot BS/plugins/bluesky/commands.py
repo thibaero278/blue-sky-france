@@ -40,6 +40,9 @@ DEFAULTS = {
     'discord_invite': 'https://discord.gg/zVEsRbm8h2',
     'relay': {'url': '', 'token': ''},
     'export_dir': '',
+    # Rôles Discord affichés dans « L'équipe » du site (noms ou IDs, du plus haut au plus bas).
+    # Vide = automatique : rôles affichés à part dans la liste des membres, avec droits de modération.
+    'staff_roles': [],
 }
 METRICS = {
     'points': 'Points', 'totalFlightTime': 'Heures de vol', 'airair': 'Kills air-air', 'airsol': 'Kills air-sol',
@@ -271,7 +274,28 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             'events': [self.event_json(e) for e in sorted(await guild.fetch_scheduled_events(with_counts=True),
                                                           key=lambda e: e.start_time)
                        if e.status in (discord.EventStatus.scheduled, discord.EventStatus.active)],
+            'staff': self.staff_json(guild),
         }
+
+    def staff_json(self, guild: discord.Guild) -> list[dict]:
+        """Équipe du serveur Discord : [{name, role, color}], chaque membre une fois, sous son rôle le plus haut."""
+        wanted = [str(r).strip().lower() for r in self.cfg()['staff_roles'] or []]
+        if wanted:
+            roles = [r for r in guild.roles if r.name.lower() in wanted or str(r.id) in wanted]
+        else:
+            p = discord.Permissions
+            mod = p(administrator=True).value | p(manage_guild=True).value | p(manage_messages=True).value \
+                | p(kick_members=True).value | p(moderate_members=True).value
+            roles = [r for r in guild.roles if r.hoist and not r.managed and not r.is_default() and r.permissions.value & mod]
+        out, seen = [], set()
+        for role in sorted(roles, key=lambda r: -r.position):
+            for m in sorted(role.members, key=lambda m: m.display_name.lower()):
+                if m.bot or m.id in seen:
+                    continue
+                seen.add(m.id)
+                out.append({'name': m.display_name, 'role': role.name,
+                            'color': f'#{role.color.value:06x}' if role.color.value else None})
+        return out[:20]
 
     @staticmethod
     def event_json(e: discord.ScheduledEvent) -> dict:

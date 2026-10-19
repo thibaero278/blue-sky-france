@@ -14,3 +14,5 @@ DEFAULT:
     url: ''                       # https://script.google.com/macros/s/.../exec
     token: ''                     # = propriété TOKEN de l'Apps Script
   export_dir: ''                  # dossier où écrire stats.json / live.json / discord.json (vide = non)
+  staff_roles: []                 # rôles Discord de « L'équipe » sur le site, ex. [Fondateur, Admin, Modérateur, Helper]
+                                  # vide = auto (rôles affichés à part avec droits de modération)

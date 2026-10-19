@@ -51,7 +51,10 @@
       const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
       return (d ? 'J-' + d + ' · ' : '') + pad(h) + ':' + pad(m) + ':' + pad(s % 60);
     },
-    missionClock: t => { const d = new Date(t + 6 * 3600e3 + 17 * 60e3); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+    missionClock: t => { const d = new Date(t + 6 * 3600e3 + 17 * 60e3); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); },
+    hms: s => { s = Math.floor(s) % 86400; return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60); },
+    // Heure in-game : réelle si le serveur l'envoie (t0 = { t: secondes depuis minuit, at }), horloge fictive en démo, sinon rien
+    gameClock: (t0, demo) => t0 ? fmt.hms(t0.t + (Date.now() - t0.at) / 1000) : demo ? fmt.missionClock(Date.now()) : '--:--:--'
   };
 
   // Générateur pseudo-aléatoire stable (mêmes données de démo à chaque chargement)
@@ -258,19 +261,37 @@
   }
 
   // État du serveur DCS d'après le live du bot (relevé toutes les 30 s) : { demo, up, online:[pseudos], mission }
+  // up = mission qui tourne ; « en ligne » (point vert) seulement s'il y a au moins un joueur connecté.
   let serverP = null;
   function loadServer() {
     return serverP || (serverP = loadLive().then(l => {
-      if (l.error || l.offline) return { demo: false, up: false, online: [], mission: '' };
-      const online = l.online || (l.players || []).map(p => p.callsign);
-      return { demo: !!l.demo, up: true, online, mission: l.mission || '' };
+      if (l.error || l.offline) return { demo: false, up: false, online: [], mission: '', clock: null };
+      const online = (l.online || (l.players || []).map(p => p.callsign)).filter(Boolean);
+      const clock = l.missionTime != null ? { t: l.missionTime, at: Date.now() } : null;
+      return { demo: !!l.demo, up: true, online, mission: l.mission || '', clock };
     }));
   }
+  const serverLabel = srv => !srv.up ? 'Serveur · hors ligne' : srv.online.length ? 'Serveur · ' + srv.online.length + ' en ligne' : 'Serveur · personne en ligne';
+
+  // ---------- l'équipe : rôles fixes du Discord Blue Sky (exportés par le bot), sinon C.staff ----------
+  // Un membre : { name, role, color (#rrggbb ou null), sub? }
+  function loadStaff() {
+    const fromConfig = () => ({ source: 'config', list: (C.staff || []).map(m => ({ name: m.callsign, sub: m.name, role: m.role, color: m.roleColor || null })) });
+    return discordData().then(d => d && Array.isArray(d.staff) && d.staff.length
+      ? { source: 'discord', list: d.staff.map(m => {
+          // pseudo Discord « Breakdown | Thibaud » : on reprend l'indicatif et le prénom de C.staff s'il correspond
+          const known = (C.staff || []).find(s => [s.discord, s.callsign, s.pseudo, s.name].filter(Boolean).some(n => m.name.toLowerCase().includes(n.toLowerCase())));
+          return { name: known ? known.callsign : m.name, sub: known ? known.name : null, role: m.role, color: m.color };
+        }) }
+      : fromConfig()).catch(fromConfig);
+  }
+  // Pastille du rôle : initiale du rôle sur la couleur du rôle Discord
+  const roleBadge = m => '<span class="role-badge" title="' + esc(m.role) + '" style="--rc:' + esc(m.color || '#d9b45a') + '">' + esc((m.role || '?').trim().charAt(0).toUpperCase()) + '</span>';
 
   const demoBadge = (txt = 'Démo') => '<span class="demo-badge" title="Source pas encore branchée : données d\'exemple">' + esc(txt) + '</span>';
 
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, loadServer, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, demoBadge };
 })();

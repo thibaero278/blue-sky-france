@@ -104,6 +104,7 @@ button { font-family: var(--f-text); }
 .live-chip:hover { background: #fff; color: var(--ink); }
 .live-badge { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: var(--ink); color: var(--hud); font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; }
 .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--hud); }
+.live-badge.off { background: #4a556b; color: #dfe3ea; }
 .hero-stats { display: flex; gap: 28px; color: #fff; font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 .hero-stats > span { display: flex; flex-direction: column; gap: 2px; }
 .hero-stats b { font-family: var(--f-display); font-size: 40px; font-weight: 700; letter-spacing: 0; line-height: 1; }
@@ -116,6 +117,9 @@ button { font-family: var(--f-text); }
 .staff { padding: 24px; border-radius: 22px; border: 1px solid var(--line); display: flex; align-items: center; gap: 18px; }
 .staff b { display: block; font-family: var(--f-display); font-weight: 700; font-size: 30px; line-height: 1; text-transform: uppercase; }
 .staff small { font-size: 14px; color: var(--ink2); }
+/* Pastille du rôle Discord de l'équipe (--rc = couleur du rôle) */
+.role-badge { width: 56px; height: 56px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--ink); color: var(--rc); border: 2px solid var(--rc); font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1; }
 .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 1px; border-radius: 22px; border: 1px solid var(--line); background: var(--line); overflow: hidden; }
 .tiers > div { padding: 24px; display: flex; flex-direction: column; gap: 10px; background: var(--card); }
 .tiers b { display: flex; align-items: center; gap: 8px; font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1; text-transform: uppercase; }
