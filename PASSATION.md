@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 19/10/2026_
+_Dernière mise à jour : 19/10/2026 (commerce triangulaire)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > (`CLAUDE.md` est géré par Claude Chat : ne pas y toucher.)
@@ -162,11 +162,80 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - À faire par Weefe, **serveur arrêté** : remplacer `Saved Games\...\Scores.lua` par `mission\Scores.lua`, et mettre le
     nouveau script dans la .miz (nom interne `l10n/DEFAULT/multi jours thib.lua`).
 
+- 19/10/2026 : **paquet bot de Weefe reçu** : `site\BlueSky-Founder-Package-20261019-142713.zip` (1,4 Go, intact, SHA256 OK).
+  (`Bot discord.zip` = juste Python 3.12, pas de code.) **CONFIDENTIEL** : vrai token Discord (`config\dcssb\.secret\token.pkl`),
+  mots de passe PostgreSQL (`config\secrets\`), sauvegarde de la base. Ignoré par git (`*.zip`) : ne jamais le committer/partager.
+  - Contenu : DCSServerBot v3.0.4.27 + plugin perso **`blueskytraining`** (cours T-45 : T45-01 actif, T45-02 à 08 vides ;
+    demande d'instructeur sur Discord, liaison de compte `/linkme`, onboarding), config réelle (`config\dcssb`), installateurs
+    hors ligne (Python, PostgreSQL 18, wheels, mod VNAO T-45), missions `BlueSky_T45-01_Marianas_CLEAN/DEV.miz`, docs, outils.
+    Installation : `INSTALLER-FONDATEUR.cmd` puis `BLUE-SKY-CONTROL.cmd` (voir `README_FONDATEUR.md`). Un seul bot actif à la fois.
+  - Ce qui n'y est pas : plugin **`restapi`** non configuré (seulement admin, blueskytraining, cloud, scheduler) ; salons
+    status/chat/admin à `-1` dans `servers.yaml` ; aucun lien avec la mission Caucase / Scores.lua ; rien sur le vocal
+    join-to-create ni l'autorole (YAGPDB est un bot séparé). DCS World non inclus.
+- 19/10/2026 : **squelette du bot** dans `serveur BS\bot BS\` (hors dépôt git public, voir son `README.md`), demandé par Thibaud :
+  structure du bot de Weefe **sans ses fonctionnalités** ni le mod T-45.
+  - Gardé : moteur DCSServerBot 3.0.4.27 (avec les 3 petits correctifs de Weefe : mode sans Discord, scheduler),
+    installateurs hors ligne (Python 3.12, PostgreSQL 18, wheels), panneau GO/STOP, scripts d'install/lancement.
+  - Retiré : plugin `blueskytraining` (cours T-45, popups, appel instructeur), mod VNAO T-45, missions Marianas,
+    sauvegarde de la base (base neuve), secrets (token/mots de passe à refaire), outils de mission/onboarding.
+  - Nouveau plugin **vide** `plugins\bluesky\` (exemples en commentaire). Install : `INSTALLER.cmd` →
+    `CONFIGURER-DISCORD.cmd` (token masqué, IDs serveur/propriétaire repris de Weefe) → `BLUE-SKY-CONTROL.cmd`.
+  - **Aucun message automatique à la connexion** : DCSServerBot en envoie de base → patch « off » dans
+    `plugins\mission\listener.py` et `plugins\cloud\listener.py` + `greeting_message_*: 'off'` dans `servers.yaml`,
+    et plugin `help` retiré de `main.yaml` (il envoyait « Use -help for commands »).
+  - Vérifié : install pip hors ligne OK (Python 3.12), configs générées validées par le schéma strict DCSServerBot,
+    plugin importé avec le moteur, scripts PowerShell sans erreur de syntaxe (BOM UTF-8 ajouté pour les accents).
+    **Pas installé ni lancé en réel** (PostgreSQL, token, connexion Discord non testés).
+- 19/10/2026 : dossier **déplacé par Thibaud dans `site\bot BS\`** (dans le dépôt git : le `.gitignore` de `bot BS`
+  exclut bien secrets, config générée, installateurs — vérifié avec `git check-ignore`). **Installé sur le PC de Thibaud** :
+  Python 3.12 + venv `%USERPROFILE%\.dcssb`, PostgreSQL 18 (service `postgresql-x64-18`, auto), base `dcsserverbot`, plugin déployé.
+  Corrigé dans `Initialize-PostgreSQL.ps1` (bugs du script de Weefe) : mot de passe généré avec des API PowerShell 7 seulement
+  (`RandomNumberGenerator.Fill`, `Convert.ToHexString`) → version 5.1 ; chemin du fichier d'options non guillemeté
+  (cassait avec les espaces de « serveur BS »/« bot BS »).
+  Reste : `CONFIGURER-DISCORD.cmd` (Thibaud colle le token lui-même), puis lancer **seulement si le bot est arrêté chez Weefe**.
+- 19/10/2026 : **config Discord faite par Thibaud** et vérifiée : nœud `MSI`, serveur DCS « Blue sky » (lu dans serverSettings.lua),
+  configs validées par le schéma strict, `Test-BlueSkyEnvironment.ps1 -RequireDiscord` OK. Token valide (test REST lecture seule) :
+  bot **BlueSkyDCSServeurBot**, présent sur le serveur « ~Blue Sky~ ». Aucun secret visible par git.
+  **Bot jamais démarré** (GO non cliqué) : à faire seulement quand la copie de Weefe est arrêtée (même token).
+  Salons status/chat/admin encore à `-1` dans `servers.yaml`.
+- 19/10/2026 : **bot démarré et connecté à Discord** sur le PC de Thibaud (log : « Discord Bot started, accepting commands »,
+  plugin BlueSky chargé, serveur DCS « Blue sky » détecté). Bug corrigé dans `tools\bluesky_control_center.py` : le bouton GO
+  passait le chemin du lanceur sans guillemets → cassé par les espaces du chemin, le panneau tournait dans le vide.
+  `CHANGER-TOKEN.cmd` ajouté (= `CONFIGURER-DISCORD.cmd -ReplaceExisting`). Intents du bot : Members + Message Content ON
+  (Presence non requis par DCSServerBot).
+  `cloud.yaml` (config + modèle) : `register: false` (plus d'envoi des stats d'usage / IP publique au cloud DCSServerBot,
+  demandé par Thibaud) ; `upload_errors: true` gardé (rapports de plantage). Prend effet au prochain redémarrage du bot.
+
+- 19/10/2026 : **commerce triangulaire DCS ↔ bot Discord ↔ site** (demandé par Thibaud), le bot est le pivot.
+  Schéma et mise en route : `circuit_site\INSTALLATION.md` § 0.
+  - Plugin `bot BS\plugins\bluesky` v1.1 : `scores.py` (lecture Scores.lua + grades), `commands.py` (boucles + slash),
+    `listener.py` (chat en jeu), `lua\` (callbacks → charge `mission.lua` qui lit position/cap/alt/vitesse des joueurs,
+    appelé par `send_to_dcs_sync({'command':'bsGetLive'})`), `db\` (tables activité/présence, `update_v1.0.sql` pour l'install existante).
+  - DCS → site : stats (à chaque changement de Scores.lua), joueurs en ligne, carte live toutes les 30 s, heure in-game.
+    DCS → Discord : fil promotions / bilans / vols perdus (diff de Scores.lua, salon `feed_channel`, coupé par défaut),
+    `/pilote` (autocomplétion), `/classement [critère]`, `/enligne`.
+    Discord → site : messages/jour (compteur `on_message`, démarre à 0 : pas d'historique), moyenne en ligne par heure
+    (relevé toutes les 15 min), nouveaux membres 30 j, planning = **événements Discord** (lignes `Type :`, `Carte :`, `Places :`).
+    Discord → DCS : `/annonce` (DCS Admin), popup en jeu à la création d'un événement (`announce_events_ingame`).
+    Chat en jeu : `-discord`, `-site`, `-stats` (aucun message automatique à la connexion, conforme à la demande).
+  - `Code.gs` : accepte `stats` (= `scores`), `live`, `discord` (gardés en propriétés de script, ≤ 9 ko), `?format=live`,
+    `discord` ajouté à `?format=json`. **À redéployer** (nouvelle version) quand l'Apps Script sera créé.
+  - Site : `data.js` une seule requête relais pour stats + Discord ; `loadEvents()` (événements Discord sinon `evenements.js`) ;
+    carte : « Hors ligne » si données > 3 min, heure in-game réelle, noms d'avions lisibles, rafraîchie toutes les 15 s ;
+    `config.js` : `liveFile`, `discordFile` (sources fichier optionnelles).
+  - Config locale `bot BS\config\dcssb\plugins\bluesky.yaml` créée (valeurs par défaut, relais vide).
+  - Vérifié : import du plugin avec le moteur (4 slash, 3 commandes chat), lecture du vrai Scores.lua (22 pilotes),
+    fil simulé (promotion, bilan, vol perdu), événement Discord simulé, export fichier, syntaxe Lua (luaparse 5.1),
+    Code.gs (node), pages Discord / Accueil / Carte testées dans le navigateur avec des JSON du bot simulés (+ cas hors ligne
+    et mode démo sans source), aucune erreur console.
+    **Pas testé en réel** : bot pas redémarré avec le plugin, Apps Script pas encore déployé, positions DCS jamais relevées en jeu.
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
 2. Ajouter `thibaero278/blue-sky-france` dans Graphify (accès de l'app GitHub Graphify au dépôt).
-3. Déployer le circuit stats (INSTALLATION.md) puis mettre l'URL dans `web/js/config.js` → le site passe en données réelles.
+3. Déployer l'Apps Script (INSTALLATION.md § 1), remplir `relay` (+ `feed_channel`) dans `bluesky.yaml`, redémarrer le bot,
+   mettre l'URL dans `web/js/config.js` → site en données réelles. Tester en jeu : `-stats`, carte live, `/annonce`.
 4. **Connexion DCS ↔ site (plan)** :
    - a. Stats : déjà prévu via hook + Apps Script (étape 3).
    - b. Carte live : étendre `BS_site.lua` : toutes les ~5 s, `net.dostring_in('server', …)` lit les unités des joueurs

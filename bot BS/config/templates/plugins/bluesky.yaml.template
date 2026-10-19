@@ -1,0 +1,16 @@
+# Plugin Blue Sky : lien DCS <-> Discord <-> site web.
+# A copier en config\dcssb\plugins\bluesky.yaml (non versionné : il contient le token du relais).
+# Tout est optionnel : sans ce fichier, le plugin tourne avec ces valeurs par défaut.
+DEFAULT:
+  scores_file: Scores.lua         # écrit par script Caucase.lua, relatif à Saved Games\DCS de l'instance
+  stats_interval: 60              # s entre deux lectures de Scores.lua
+  live_interval: 30               # s entre deux relevés des positions (carte live) ; 0 = coupé
+  discord_interval: 15            # min entre deux envois de l'activité Discord et du planning
+  feed_channel: -1                # ID du salon Discord pour promotions / bilans de vol ; -1 = coupé
+  announce_events_ingame: true    # nouvel événement Discord -> message dans DCS
+  site_url: https://thibaero278.github.io/blue-sky-france/
+  discord_invite: https://discord.gg/zVEsRbm8h2
+  relay:                          # Apps Script (site\circuit_site\Code.gs), voir INSTALLATION.md
+    url: ''                       # https://script.google.com/macros/s/.../exec
+    token: ''                     # = propriété TOKEN de l'Apps Script
+  export_dir: ''                  # dossier où écrire stats.json / live.json / discord.json (vide = non)

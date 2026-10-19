@@ -1,7 +1,7 @@
 (function () {
   const { esc, fmt, airfields, loadLive, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
-  let players = [], selected = null, follow = false, filter = 'all', demo = true;
+  let players = [], selected = null, follow = false, filter = 'all', demo = true, missionT0 = null;
 
   const map = L.map('map', { minZoom: 6, maxZoom: 12, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
@@ -22,10 +22,17 @@
     return L.divIcon({ className: '', html: '<div class="ac' + sel + '"><span class="arrow" style="transform:rotate(' + Math.round(p.hdg) + 'deg)"></span><span class="tg">' + esc(p.callsign) + ' <i>' + fl(p) + '</i></span></div>', iconSize: [0, 0] });
   };
 
+  // Noms internes DCS (envoyés par le serveur) → noms lisibles
+  const TYPES = { 'FA-18C_hornet': 'F/A-18C', 'F-16C_50': 'F-16C', 'A-10C_2': 'A-10C II', 'AV8BNA': 'AV-8B', 'F-15ESE': 'F-15E',
+    'AH-64D_BLK_II': 'AH-64D', 'Mirage-F1EE': 'Mirage F1', 'M-2000C': 'Mirage 2000C', 'F-14B': 'F-14B', 'F-14A-135-GR': 'F-14A',
+    'Ka-50_3': 'Ka-50', 'Mi-24P': 'Mi-24P', 'UH-1H': 'UH-1H', 'T-45': 'T-45C', 'JF-17': 'JF-17', 'MiG-29 Fulcrum': 'MiG-29' };
+  const acName = t => TYPES[t] || String(t || '').replace(/_/g, ' ');
+
   // Met à jour les joueurs à partir d'une liste (réelle ou démo), en gardant marqueurs et traînées
   function sync(list) {
     const seen = new Set();
     list.forEach(n => {
+      n = { ...n, aircraft: acName(n.aircraft) };
       seen.add(n.callsign);
       let p = players.find(x => x.callsign === n.callsign);
       if (!p) { p = { ...n, trail: [] }; players.push(p); }
@@ -118,9 +125,13 @@
     return loadLive().then(d => {
       demo = d.demo;
       if (d.weather) setWeather(d.weather);
-      $('srv').innerHTML = demo ? demoBadge() : '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>';
+      if (!demo && !d.weather) setWeather({});
+      if (d.missionTime != null) missionT0 = { t: d.missionTime, at: Date.now() };
+      $('srv').innerHTML = demo ? demoBadge() : d.offline ? '<span style="color:#8a91a3">Hors ligne</span>' : '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>';
       $('liveDemo').innerHTML = demo ? demoBadge('Démo · export live à venir') : '';
-      $('noteSrc').textContent = demo ? 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions' : 'Positions exportées par le serveur DCS';
+      $('noteSrc').textContent = d.offline ? 'Serveur DCS arrêté ou sans mission · la carte se remplit dès qu’une mission tourne'
+        : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les 30 s environ'
+        : 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions';
       sync(d.players || []);
       after();
     });
@@ -128,7 +139,9 @@
 
   load().then(() => {
     if (demo) setInterval(demoTick, 1000);
-    else setInterval(load, 5000);
+    else setInterval(load, 15000);
   });
-  setInterval(() => ($('clock').textContent = fmt.missionClock(Date.now())), 1000);
+  // Heure in-game : envoyée par le serveur (secondes depuis minuit), sinon horloge de démo
+  const hms = s => { s = Math.floor(s) % 86400; return [s / 3600, s % 3600 / 60, s % 60].map(x => String(Math.floor(x)).padStart(2, '0')).join(':'); };
+  setInterval(() => ($('clock').textContent = missionT0 ? hms(missionT0.t + (Date.now() - missionT0.at) / 1000) : fmt.missionClock(Date.now())), 1000);
 })();

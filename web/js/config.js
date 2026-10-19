@@ -1,7 +1,8 @@
 // Réglages du site Blue Sky France.
 // Une source laissée vide => la page affiche des données de démonstration, avec un badge « Démo ».
 window.BS_CONFIG = {
-  // URL de l'application Web Apps Script (circuit_site/Code.gs), sans ?format=json.
+  // URL du relais Apps Script (circuit_site/Code.gs), sans ?format=… — alimenté par le bot Discord (plugin bluesky).
+  // Donne d'un coup : stats pilotes, joueurs en ligne, carte live (?format=live), activité et événements Discord.
   // Ex. : 'https://script.google.com/macros/s/XXXX/exec'
   statsUrl: '',
 
@@ -20,11 +21,11 @@ window.BS_CONFIG = {
   // Pseudos par défaut de DCS, jamais affichés au classement
   ignorePilots: ['Player', 'Joueur'],
 
-  // Positions des joueurs pour la carte live (pas encore exporté par le serveur).
-  liveUrl: '',
-
-  // Statistiques d'activité Discord (messages/jour, en ligne sur 24 h) : viendra du bot Discord.
-  discordActivityUrl: '',
+  // Sources directes, seulement si on n'utilise pas le relais (fichiers écrits par le bot dans son export_dir).
+  liveUrl: '',             // URL d'un live.json
+  liveFile: '',            // ex. 'data/live.json'
+  discordFile: '',         // ex. 'data/discord.json' (activité + événements Discord)
+  discordActivityUrl: '',  // ancien réglage, gardé pour compatibilité
 
   discordInvite: 'https://discord.gg/zVEsRbm8h2',
   discordInviteCode: 'zVEsRbm8h2',   // sert à lire le nombre de membres / en ligne via l'API publique Discord

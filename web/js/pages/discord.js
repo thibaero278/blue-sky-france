@@ -1,5 +1,5 @@
 (function () {
-  const { esc, fmt, loadDiscord, loadActivity, events, demoBadge } = window.BS;
+  const { C, esc, fmt, loadDiscord, loadActivity, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   let A = null, D = null, period = 30, hover = null;
 
@@ -22,7 +22,8 @@
         <span class="label" style="display:flex; align-items:center; gap:8px">${live ? '<span class="dot"></span>' : ''}${l}${demo ? ' ' + demoBadge() : ''}</span>
         <b style="font-size:56px" data-count="${v}" data-key="kpi-${i}">${fmt.n(v)}</b><small style="color:${col}">${note}</small>
       </div>`).join('');
-    $('actLabel').innerHTML = 'Activité du serveur' + (A.demo ? ' ' + demoBadge() : '');
+    $('actLabel').innerHTML = 'Activité du serveur' + (A.demo ? ' ' + demoBadge() : '') +
+      (!A.demo && A.since ? ' <span class="mono" style="font-size:11px; color:#8a91a3; text-transform:none; letter-spacing:0">· comptée par le bot depuis le ' + fmt.dateShort(A.since) + '</span>' : '');
   }
 
   // Les barres poussent depuis le bas la première fois qu'on les voit
@@ -86,8 +87,7 @@
   loadActivity().then(a => { A = a; renderKpis(); renderChart(); renderHours(); });
 
   // ---------- planning ----------
-  const ev = events();
-  if (ev.demo) $('evNote').innerHTML = demoBadge('Exemple') + ' Planning à remplir dans data/evenements.js';
+  let ev = { list: [] };
   let evSig = '';
   function renderEvents() {
     const now = Date.now();
@@ -96,7 +96,8 @@
     if (sig === evSig) return;
     evSig = sig;
     $('events').innerHTML = list.map(e => {
-      const full = e.registered >= e.slots;
+      const full = !!e.slots && e.registered >= e.slots;
+      const fill = e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0;
       const days = Math.ceil((e.date.getTime() - now) / 86400000);
       return `<div class="card event">
         <div class="date"><span class="mono" style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#2a5ca8">${fmt.dayShort(e.date)}</span><b>${e.date.getDate()}</b><span class="mono" style="font-size:11px; text-transform:uppercase; color:#4a556b">${fmt.month(e.date)}</span></div>
@@ -105,10 +106,10 @@
           <span style="font-size:19px; font-weight:600">${esc(e.title)}</span>
         </div>
         <div style="flex:0 1 200px; display:flex; flex-direction:column; gap:8px; min-width:160px">
-          <div class="mono" style="display:flex; justify-content:space-between; font-size:12px; color:#4a556b"><span>${e.registered} / ${e.slots} pilotes</span><span>${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
-          <div class="bar"><div style="width:${Math.min(100, Math.round(e.registered / e.slots * 100))}%; background:${full ? '#d0342c' : '#2a5ca8'}"></div></div>
+          <div class="mono" style="display:flex; justify-content:space-between; font-size:12px; color:#4a556b"><span>${e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '')}</span><span>${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
+          <div class="bar"><div style="width:${fill}%; background:${full ? '#d0342c' : '#2a5ca8'}"></div></div>
         </div>
-        ${full ? '<span class="btn muted">Complet</span>' : '<a class="btn outline" href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">S\'inscrire</a>'}
+        ${full ? '<span class="btn muted">Complet</span>' : '<a class="btn outline" href="' + esc(e.url || C.discordInvite) + '" target="_blank" rel="noopener">S\'inscrire</a>'}
       </div>`;
     }).join('') || '<div class="card empty">Aucun vol prévu pour le moment. Les annonces arrivent sur le Discord.</div>';
     const ne = list[0];
@@ -119,7 +120,12 @@
     const ne = ev.list.find(e => e.date.getTime() > Date.now() - 3 * 3600e3);
     $('nCount').textContent = ne ? fmt.countdown(ne.date.getTime() - Date.now()) : '—';
   }
-  renderEvents(); tick();
-  setInterval(tick, 1000);
-  setInterval(renderEvents, 60000);
+  loadEvents().then(x => {
+    ev = x;
+    if (ev.demo) $('evNote').innerHTML = demoBadge('Exemple') + ' Planning à remplir dans data/evenements.js';
+    else if (ev.source === 'discord') $('evNote').textContent = 'Événements du Discord · inscris-toi avec « Intéressé »';
+    renderEvents(); tick();
+    setInterval(tick, 1000);
+    setInterval(renderEvents, 60000);
+  });
 })();

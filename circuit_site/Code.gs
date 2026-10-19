@@ -1,5 +1,6 @@
 // BLUE SKY - Apps Script (a coller dans Extensions > Apps Script de la feuille "BS Stats")
-// Recoit les stats du hook BS_site.lua et le changelog, sert la page classement.
+// Relais entre le serveur (bot Discord plugin bluesky, ou hook BS_site.lua) et le site :
+// recoit stats / positions live / activite Discord / changelog, sert le JSON au site et la page classement.
 
 // Token partagé avec le hook et publier_maj : Paramètres du projet > Propriétés du script > TOKEN
 const TOKEN = PropertiesService.getScriptProperties().getProperty('TOKEN');
@@ -24,7 +25,7 @@ function doPost(e) {
   try { d = JSON.parse(e.postData.contents); } catch (err) { return text_('bad json'); }
   if (d.token !== TOKEN) return text_('forbidden');
 
-  if (d.type === 'scores') {
+  if (d.type === 'scores' || d.type === 'stats') {
     const sh = sheet_('Pilotes', HEADERS);
     const rows = (d.pilots || []).map(p => COLS.map(c => p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : 0)));
     rows.sort((a, b) => b[2] - a[2]);
@@ -41,6 +42,17 @@ function doPost(e) {
     return text_('ok');
   }
 
+  // Envois frequents (carte live toutes les ~30 s, Discord toutes les ~15 min) : gardes en propriete de script,
+  // pas dans la feuille (plus rapide, limite 9 ko par valeur -> on coupe la liste si besoin).
+  if (d.type === 'live' || d.type === 'discord') {
+    delete d.token;
+    let json = JSON.stringify(d);
+    while (json.length > 9000 && d.players && d.players.length) { d.players.pop(); json = JSON.stringify(d); }
+    if (d.type === 'discord') json = JSON.stringify(shrinkDiscord_(d));
+    PropertiesService.getScriptProperties().setProperty(d.type.toUpperCase(), json);
+    return text_('ok');
+  }
+
   if (d.type === 'changelog') {
     sheet_('Changelog', ['Date', 'Fichier', 'Version', 'Hash', 'Notes'])
       .appendRow([new Date(), d.file || '', d.version || '', d.hash || '', d.notes || '']);
@@ -49,10 +61,15 @@ function doPost(e) {
   return text_('unknown type');
 }
 
-// Page publique : ?format=json pour les donnees brutes, sinon la page HTML (a integrer dans Google Sites)
+// Page publique : ?format=json (stats + Discord), ?format=live (carte), sinon la page HTML (Google Sites)
 function doGet(e) {
+  const fmt = e && e.parameter.format;
+  if (fmt === 'live') {
+    return ContentService.createTextOutput(PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   const data = getData_();
-  if (e && e.parameter.format === 'json') {
+  if (fmt === 'json') {
     return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
   }
   const t = HtmlService.createTemplateFromFile('Page');
@@ -72,7 +89,17 @@ function getData_() {
   const server = Object.fromEntries(read('Serveur').map(r => [r[0], r[1] instanceof Date ? r[1].toISOString() : r[1]]));
   const changelog = read('Changelog').reverse().slice(0, 20)
     .map(r => ({ date: r[0] instanceof Date ? r[0].toISOString() : r[0], file: r[1], version: r[2], notes: r[4] }));
-  return { pilots, server, changelog };
+  const discord = JSON.parse(PropertiesService.getScriptProperties().getProperty('DISCORD') || 'null');
+  return { pilots, server, changelog, discord };
+}
+
+// 90 jours d'activite + planning tiennent dans 9 ko ; sinon on raccourcit les descriptions puis l'historique
+function shrinkDiscord_(d) {
+  const size = () => JSON.stringify(d).length;
+  (d.events || []).forEach(ev => { delete ev.end; });
+  while (size() > 9000 && d.activity && d.activity.days.length > 30) d.activity.days.shift();
+  while (size() > 9000 && d.events && d.events.length) d.events.pop();
+  return d;
 }
 
 function text_(s) { return ContentService.createTextOutput(s); }

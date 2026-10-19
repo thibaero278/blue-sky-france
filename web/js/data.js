@@ -135,12 +135,22 @@
       .catch(err => { console.warn('[BS] stats.json indisponible, démo affichée :', err); return { ...demoStats(), error: String(err) }; });
   }
 
+  // Relais Apps Script (circuit_site/Code.gs), alimenté par le bot Discord : une seule requête pour stats + Discord
+  const relayUrl = fmtName => C.statsUrl + (C.statsUrl.includes('?') ? '&' : '?') + 'format=' + fmtName;
+  const getJson = url => fetch(url, { cache: 'no-store' }).then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); });
+  let relayP = null;
+  const relay = () => relayP || (relayP = C.statsUrl ? getJson(relayUrl('json')) : Promise.reject(new Error('statsUrl vide')));
+  // Données Discord exportées par le bot : relais, sinon fichier discordFile, sinon null
+  let discordDataP = null;
+  const discordData = () => discordDataP || (discordDataP = relay().then(d => d.discord || Promise.reject(new Error('pas de données Discord')))
+    .catch(() => C.discordFile ? getJson(C.discordFile) : null)
+    .catch(err => { console.warn('[BS] données Discord du bot indisponibles :', err); return null; }));
+
   let statsP = null;
   function loadStats() {
     if (statsP) return statsP;
     if (!C.statsUrl) return (statsP = statsFromFile());
-    statsP = fetch(C.statsUrl + (C.statsUrl.includes('?') ? '&' : '?') + 'format=json', { cache: 'no-store' })
-      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+    statsP = relay()
       .then(d => {
         const s = d.server || {};
         const upd = s['Derniere mise a jour'] ? new Date(s['Derniere mise a jour']) : null;
@@ -184,17 +194,26 @@
     });
     return { demo: true, days, online24h, newMembers30d: 9 };
   }
+  // Format (bot, plugin bluesky) : { since, days:[{date:'AAAA-MM-JJ', value}], online24h:[{hour, value}], newMembers30d }
   function loadActivity() {
-    if (!C.discordActivityUrl) return Promise.resolve(demoActivity());
-    return fetch(C.discordActivityUrl, { cache: 'no-store' }).then(r => r.json())
-      .then(j => ({ demo: false, days: j.days.map(d => ({ date: new Date(d.date), value: d.value })), online24h: j.online24h, newMembers30d: j.newMembers30d }))
-      .catch(() => demoActivity());
+    const src = C.discordActivityUrl ? getJson(C.discordActivityUrl) : discordData().then(d => d && d.activity);
+    return src.then(j => {
+      if (!j || !j.days) return demoActivity();
+      const day = s => { const [y, m, dd] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, dd); };
+      return { demo: false, since: j.since ? day(j.since) : null, days: j.days.map(d => ({ date: day(d.date), value: d.value })), online24h: j.online24h, newMembers30d: j.newMembers30d };
+    }).catch(() => demoActivity());
   }
 
-  // ---------- planning (data/evenements.js) ----------
+  // ---------- planning : événements Discord (via le bot), sinon data/evenements.js ----------
+  // Un événement : { title, date, type, map, host, registered, slots (null = pas de limite), url }
   function events() {
     const E = window.BS_EVENTS || { demo: true, events: [] };
-    return { demo: !!E.demo, list: E.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) };
+    return { demo: !!E.demo, source: 'file', list: E.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) };
+  }
+  function loadEvents() {
+    return discordData().then(d => d && Array.isArray(d.events)
+      ? { demo: false, source: 'discord', list: d.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) }
+      : events());
   }
 
   // ---------- carte live ----------
@@ -227,11 +246,15 @@
       ]
     };
   }
-  // Format attendu de liveUrl : { time, weather:{...}, players:[{callsign, aircraft, air, lat, lon, hdg, alt(ft), spd(kt), base}] }
+  // Format (bot, plugin bluesky) : { time (ISO), missionTime (s), weather?:{...}, players:[{callsign, aircraft, air, lat, lon, hdg, alt(ft), spd(kt), base}] }
+  // liveUrl, sinon relais ?format=live, sinon fichier liveFile. Données de plus de 3 min => serveur hors ligne.
   function loadLive() {
-    if (!C.liveUrl) return Promise.resolve(demoLive());
-    return fetch(C.liveUrl, { cache: 'no-store' }).then(r => r.json()).then(j => ({ demo: false, ...j }))
-      .catch(err => { console.warn('[BS] live indisponible :', err); return { ...demoLive(), error: String(err) }; });
+    const url = C.liveUrl || (C.statsUrl ? relayUrl('live') : C.liveFile);
+    if (!url) return Promise.resolve(demoLive());
+    return getJson(url).then(j => {
+      const age = j.time ? Date.now() - new Date(j.time).getTime() : Infinity;
+      return age > 180e3 ? { demo: false, offline: true, players: [] } : { demo: false, ...j };
+    }).catch(err => { console.warn('[BS] live indisponible :', err); return { ...demoLive(), error: String(err) }; });
   }
 
   const demoBadge = (txt = 'Démo') => '<span class="demo-badge" title="Source pas encore branchée : données d\'exemple">' + esc(txt) + '</span>';
@@ -239,5 +262,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, airfields, loadLive, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, demoBadge };
 })();

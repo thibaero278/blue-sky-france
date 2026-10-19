@@ -1,5 +1,5 @@
 (function () {
-  const { C, esc, fmt, num, insignia, gradeFor, loadStats, loadDiscord, events, demoBadge } = window.BS;
+  const { C, esc, fmt, num, insignia, gradeFor, loadStats, loadDiscord, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
   loadStats().then(s => {
@@ -37,8 +37,7 @@
     ['heroDcOnline', 'ctaOnline'].forEach(id => num($(id), d.online));
   });
 
-  const ev = events();
-  if (ev.demo) $('nextDemo').innerHTML = demoBadge('Exemple');
+  let ev = { list: [] };
   function tick() {
     const now = Date.now();
     $('heroClock').textContent = fmt.missionClock(now);
@@ -47,8 +46,12 @@
     $('nextTitle').textContent = e.title;
     $('nextWhen').textContent = fmt.dateLong(e.date) + ' · ' + fmt.hour(e.date) + ' · ' + e.map;
     $('nextCount').textContent = fmt.countdown(e.date.getTime() - now);
-    $('nextFill').style.width = Math.round(e.registered / e.slots * 100) + '%';
-    $('nextReg').textContent = e.registered + ' / ' + e.slots + ' inscrits';
+    $('nextFill').style.width = (e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0) + '%';
+    $('nextReg').textContent = e.slots ? e.registered + ' / ' + e.slots + ' inscrits' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '') + ' sur Discord';
   }
-  tick(); setInterval(tick, 1000);
+  loadEvents().then(x => {
+    ev = x;
+    if (ev.demo) $('nextDemo').innerHTML = demoBadge('Exemple');
+    tick(); setInterval(tick, 1000);
+  });
 })();
