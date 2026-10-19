@@ -65,7 +65,8 @@
     const points = n('points');
     return {
       id: i, callsign: String(r.name ?? '?'), points,
-      hours: n('totalFlightTime') / 3600, completedHours: n('completedFlightTime') / 3600,
+      // ancien format (sans heures totales) : on se rabat sur le vol le plus long
+      hours: (r.totalFlightTime != null ? n('totalFlightTime') : n('maxFlightTime')) / 3600, completedHours: n('completedFlightTime') / 3600,
       longest: n('maxFlightTime'), flights: n('flights'),
       airKills: n('airair'), groundKills: n('airsol'), navalKills: n('airmer'),
       traps: n('traps'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
@@ -100,10 +101,44 @@
     };
   }
 
+  // Regroupe les pseudos d'une même personne (C.pilotAliases) et retire les pseudos génériques (C.ignorePilots)
+  function mergePilots(list) {
+    const alias = {};
+    Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.concat(cs).forEach(n => (alias[n.toLowerCase()] = cs)));
+    const ignore = new Set((C.ignorePilots || []).map(n => n.toLowerCase()));
+    const out = new Map();
+    list.forEach(p => {
+      if (p.name == null || p.name === '' || ignore.has(String(p.name).toLowerCase())) return;
+      const cs = alias[String(p.name).toLowerCase()] || String(p.name);
+      const cur = out.get(cs);
+      if (!cur) { out.set(cs, { ...p, name: cs }); return; }
+      Object.entries(p).forEach(([k, v]) => {
+        if (typeof v !== 'number') { if (cur[k] == null || cur[k] === 'ROOKIE') cur[k] = v; return; }
+        cur[k] = k === 'maxFlightTime' ? Math.max(cur[k] || 0, v) : (cur[k] || 0) + v;
+      });
+    });
+    return [...out.values()].map(normPilot);
+  }
+
+  // Instantané Scores.lua converti par tools/scores_to_json.py
+  function statsFromFile() {
+    if (!C.statsFile) return Promise.resolve(demoStats());
+    return fetch(C.statsFile, { cache: 'no-store' })
+      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(d => ({
+        demo: false, source: 'file',
+        legacy: !(d.pilots || []).some(p => p.totalFlightTime != null),
+        pilots: mergePilots(d.pilots || []),
+        server: { updated: d.updated ? new Date(d.updated) : null, name: C.serverName, mission: '', online: [] },
+        changelog: []
+      }))
+      .catch(err => { console.warn('[BS] stats.json indisponible, démo affichée :', err); return { ...demoStats(), error: String(err) }; });
+  }
+
   let statsP = null;
   function loadStats() {
     if (statsP) return statsP;
-    if (!C.statsUrl) return (statsP = Promise.resolve(demoStats()));
+    if (!C.statsUrl) return (statsP = statsFromFile());
     statsP = fetch(C.statsUrl + (C.statsUrl.includes('?') ? '&' : '?') + 'format=json', { cache: 'no-store' })
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
       .then(d => {
@@ -111,12 +146,12 @@
         const upd = s['Derniere mise a jour'] ? new Date(s['Derniere mise a jour']) : null;
         return {
           demo: false,
-          pilots: (d.pilots || []).filter(p => p.name !== '' && p.name != null).map(normPilot),
+          pilots: mergePilots(d.pilots || []),
           server: { updated: upd, name: s['Serveur'] || C.serverName, mission: s['Mission'] || '', online: String(s['En ligne'] || '').split(',').map(x => x.trim()).filter(Boolean) },
           changelog: (d.changelog || []).map(c => ({ ...c, date: new Date(c.date) }))
         };
       })
-      .catch(err => { console.warn('[BS] stats indisponibles, démo affichée :', err); return { ...demoStats(), error: String(err) }; });
+      .catch(err => { console.warn('[BS] Apps Script indisponible, on lit stats.json :', err); return statsFromFile(); });
     return statsP;
   }
 

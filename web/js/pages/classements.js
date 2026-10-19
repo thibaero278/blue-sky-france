@@ -75,6 +75,7 @@
     const upd = S.server.updated;
     st.innerHTML = (S.demo ? demoBadge() : '<span class="dot"></span>') + ' Dernier export · ' + (upd ? fmt.ago(upd) : '—');
     if (S.error) st.title = 'Stats injoignables : ' + S.error;
+    if (S.legacy) st.innerHTML += ' · ancien format : heures = vol le plus long';
     if (S.server.mission) $('srvLabel').textContent = 'Serveur ' + S.server.mission;
 
     if (S.changelog.length) {

@@ -140,6 +140,16 @@ Un site Blue Sky (Google Sites envisagé) avec :
   par `.github/workflows/pages.yml` à chaque push sur main.
   Graphify : le dépôt n'apparaît pas encore dans le workspace, il faut l'ajouter depuis Graphify.
 
+- 19/10/2026 : **animations du site** (`web/css/motion.css`, `web/js/motion.js`) : transitions entre pages, apparitions au défilement,
+  compteurs, tri animé, survols ; coupées si « réduire les animations ».
+- 19/10/2026 : **Weefe utilise DCSServerBot**. Son plugin REST API (`restapi`) expose stats, serveurs et météo, mais aussi des
+  commandes (start/stop, upload mission…) → ne jamais l'exposer au site public. Plan : script planifié chez Weefe qui lit l'API
+  en local et pousse un JSON nettoyé (Apps Script ou fichier). Questions envoyées à Weefe : restapi activé ? api_key ? port ?
+  server_name ? plugins actifs ? OK pour un script planifié ?
+- 19/10/2026 : **vraies stats sur le site** : `tools/scores_to_json.py "Scores.lua"` → `web/data/stats.json` (Scores.lua du serveur,
+  ancien format sans heures totales → heures = vol le plus long, signalé sur la page). Le site lit statsUrl, sinon stats.json, sinon démo.
+  `config.js` : `pilotAliases` (fusion des pseudos d'une même personne) et `ignorePilots` (Player, Joueur). 25 pseudos → 19 pilotes.
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).

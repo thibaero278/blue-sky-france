@@ -5,6 +5,21 @@ window.BS_CONFIG = {
   // Ex. : 'https://script.google.com/macros/s/XXXX/exec'
   statsUrl: '',
 
+  // Sinon : instantané de Scores.lua, à régénérer avec  python tools/scores_to_json.py "Scores.lua"
+  statsFile: 'data/stats.json',
+
+  // Une même personne sous plusieurs pseudos en jeu → un seul pilote (nom affiché = la clé).
+  pilotAliases: {
+    'Breakdown': ['Breakdown 1-1 | Thibaud', '[ BS ]Thibaud | Breakdown'],
+    'Branch': ['Branch 1-1 | Weefe'],
+    'Smokey': ['Xerion I Smokey'],
+    'Redman': ['Redman 1-1 | Titirex'],
+    'Lixx': ['Napster 1-1 | Lixx', 'Napster1-1 | Lixx'],
+    'DEX': ['WAVE OFF 1-1 l DEX', 'DEX WAVE OFF 1-1']
+  },
+  // Pseudos par défaut de DCS, jamais affichés au classement
+  ignorePilots: ['Player', 'Joueur'],
+
   // Positions des joueurs pour la carte live (pas encore exporté par le serveur).
   liveUrl: '',
 

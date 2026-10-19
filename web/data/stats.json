@@ -1,0 +1,256 @@
+{
+ "source": "Scores.lua",
+ "updated": "2026-10-19T12:04:28.709189+00:00",
+ "pilots": [
+  {
+   "name": "PilteBen",
+   "traps": 0,
+   "airair": 1,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 2,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1425
+  },
+  {
+   "name": "Conde I CXNTURY",
+   "traps": 1,
+   "airair": 2,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 6,
+   "grade": "ROOKIE",
+   "maxFlightTime": 844
+  },
+  {
+   "name": "WAVE OFF 1-1 l DEX",
+   "traps": 3,
+   "airair": 11,
+   "airsol": 33,
+   "airmer": 0,
+   "points": 90,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1970
+  },
+  {
+   "name": "Gugus30",
+   "traps": 5,
+   "airair": 13,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 39,
+   "grade": "ROOKIE",
+   "maxFlightTime": 2210
+  },
+  {
+   "name": "Hadronn 1-1 | Wataru",
+   "traps": 0,
+   "airair": 26,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 78,
+   "grade": "ROOKIE",
+   "maxFlightTime": 2058
+  },
+  {
+   "name": "[BS] Xyrox | Templier 1-1",
+   "traps": 0,
+   "airair": 2,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 6,
+   "grade": "ROOKIE",
+   "maxFlightTime": 0
+  },
+  {
+   "name": "DEX WAVE OFF 1-1",
+   "traps": 10,
+   "airair": 35,
+   "airsol": 40,
+   "airmer": 3,
+   "points": 179,
+   "grade": "ROOKIE",
+   "maxFlightTime": 3996
+  },
+  {
+   "name": "LayZz",
+   "traps": 0,
+   "airair": 13,
+   "airsol": 6,
+   "airmer": 0,
+   "points": 47,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1458
+  },
+  {
+   "name": "Xerion I Smokey",
+   "traps": 2,
+   "airair": 2,
+   "airsol": 16,
+   "airmer": 2,
+   "points": 32,
+   "grade": "ROOKIE",
+   "maxFlightTime": 4432
+  },
+  {
+   "name": "Breakdown 1-1 | Thibaud",
+   "traps": 3,
+   "airair": 20,
+   "airsol": 4,
+   "airmer": 0,
+   "points": 62,
+   "grade": "ROOKIE",
+   "maxFlightTime": 5844
+  },
+  {
+   "name": "MR WHITE",
+   "traps": 0,
+   "airair": 0,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 0,
+   "grade": "ROOKIE",
+   "maxFlightTime": 0
+  },
+  {
+   "name": "Napster 1-1 | Lixx",
+   "traps": 0,
+   "airair": 5,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 15,
+   "grade": "ROOKIE",
+   "maxFlightTime": 5173
+  },
+  {
+   "name": "Tom",
+   "traps": 0,
+   "airair": 2,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 6,
+   "grade": "ROOKIE",
+   "maxFlightTime": 0
+  },
+  {
+   "name": "Redman 1-1 | Titirex",
+   "traps": 0,
+   "airair": 0,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 0,
+   "grade": "ROOKIE",
+   "maxFlightTime": 460
+  },
+  {
+   "name": "Peace Alps I CXNTURY",
+   "traps": 0,
+   "airair": 9,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 26,
+   "grade": "ROOKIE",
+   "maxFlightTime": 288
+  },
+  {
+   "name": "neyrox",
+   "traps": 0,
+   "airair": 2,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 6,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1568
+  },
+  {
+   "name": "Branch 1-1 | Weefe",
+   "traps": 28,
+   "airair": 76,
+   "airsol": 91,
+   "airmer": 4,
+   "points": 357,
+   "grade": "ROOKIE",
+   "maxFlightTime": 5281
+  },
+  {
+   "name": "Joshua",
+   "traps": 0,
+   "airair": 6,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 18,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1584
+  },
+  {
+   "name": "Player",
+   "traps": 0,
+   "airair": 2,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 6,
+   "grade": "ROOKIE",
+   "maxFlightTime": 522
+  },
+  {
+   "name": "Seigneur-Perceval",
+   "traps": 0,
+   "airair": 0,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 0,
+   "grade": "ROOKIE",
+   "maxFlightTime": 4070
+  },
+  {
+   "name": "Napster1-1 | Lixx",
+   "traps": 1,
+   "airair": 7,
+   "airsol": 3,
+   "airmer": 0,
+   "points": 23,
+   "grade": "ROOKIE",
+   "maxFlightTime": 3574
+  },
+  {
+   "name": "Woose",
+   "traps": 0,
+   "airair": 1,
+   "airsol": 14,
+   "airmer": 1,
+   "points": 21,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1044
+  },
+  {
+   "name": "Joueur",
+   "traps": 0,
+   "airair": 0,
+   "airsol": 0,
+   "airmer": 0,
+   "points": 0,
+   "grade": "ROOKIE",
+   "maxFlightTime": 0
+  },
+  {
+   "name": "[ BS ]Thibaud | Breakdown",
+   "traps": 5,
+   "airair": 3,
+   "airsol": 12,
+   "airmer": 1,
+   "points": 24,
+   "grade": "ROOKIE",
+   "maxFlightTime": 1718
+  },
+  {
+   "name": "Branch",
+   "traps": 20,
+   "airair": 0,
+   "airsol": 12,
+   "airmer": 0,
+   "points": 15,
+   "grade": "INTERMEDIATE",
+   "maxFlightTime": 146
+  }
+ ]
+}
