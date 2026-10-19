@@ -11,38 +11,38 @@
     const avg = arr => Math.round(arr.reduce((s, a) => s + a.value, 0) / Math.max(1, arr.length));
     const avg30 = avg(days.slice(-30)), prev30 = avg(days.slice(-60, -30));
     const delta = prev30 ? Math.round((avg30 / prev30 - 1) * 100) : 0;
-    const badge = A.demo ? ' ' + demoBadge() : '';
     const kpis = [
       ['Membres', D.members, !A.demo && A.newMembers30d != null ? '+' + A.newMembers30d + ' ce mois-ci' : 'Discord · temps réel', '#0b7d75', false, D.demo],
       ['En ligne', D.online, Math.round(D.online / D.members * 100) + ' % des membres', '#4a556b', true, D.demo],
-      ["Messages aujourd'hui", fmt.n(today), 'Depuis minuit', '#4a556b', true, A.demo],
-      ['Moyenne / jour', fmt.n(avg30), (delta >= 0 ? '+' : '') + delta + ' % vs 30 j précédents', delta >= 0 ? '#0b7d75' : '#d0342c', false, A.demo]
+      ["Messages aujourd'hui", today, 'Depuis minuit', '#4a556b', true, A.demo],
+      ['Moyenne / jour', avg30, (delta >= 0 ? '+' : '') + delta + ' % vs 30 j précédents', delta >= 0 ? '#0b7d75' : '#d0342c', false, A.demo]
     ];
-    $('kpis').innerHTML = kpis.map(([l, v, note, col, live, demo]) => `
+    $('kpis').innerHTML = kpis.map(([l, v, note, col, live, demo], i) => `
       <div class="card kpi">
         <span class="label" style="display:flex; align-items:center; gap:8px">${live ? '<span class="dot"></span>' : ''}${l}${demo ? ' ' + demoBadge() : ''}</span>
-        <b style="font-size:56px">${v}</b><small style="color:${col}">${note}</small>
+        <b style="font-size:56px" data-count="${v}" data-key="kpi-${i}">${fmt.n(v)}</b><small style="color:${col}">${note}</small>
       </div>`).join('');
-    $('actLabel').innerHTML = 'Activité du serveur' + badge;
+    $('actLabel').innerHTML = 'Activité du serveur' + (A.demo ? ' ' + demoBadge() : '');
   }
+
+  // Les barres poussent depuis le bas la première fois qu'on les voit
+  function growOnView(el) {
+    if (!window.BSMotion || BSMotion.reduced) return;
+    el.classList.add('pre');
+    BSMotion.onVisible(el, () => { el.classList.remove('pre'); el.classList.add('grow'); }, 0.3);
+  }
+
+  const barColor = (a, i, n) => hover === i ? '#13213a' : i === n - 1 ? '#2a5ca8' : [5, 6].includes(a.date.getDay()) ? '#9fb6d8' : '#c9d6ea';
 
   function renderChart() {
     const days = A.days, slice = days.slice(-period);
     const top = Math.ceil(Math.max(...slice.map(a => a.value)) / 100) * 100 || 100;
-    $('periods').innerHTML = [7, 30, 90].map(p => `<button data-p="${p}"${p === period ? ' class="on"' : ''}>${p} j</button>`).join('');
+    $('periods').querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.p) === period));
     $('axis').innerHTML = `<span>${fmt.n(top)}</span><span>${fmt.n(top / 2)}</span><span>0</span>`;
     $('bars').style.gap = period > 60 ? '1px' : period > 20 ? '3px' : '8px';
-    $('bars').innerHTML = slice.map((a, i) => {
-      const last = i === slice.length - 1, wk = [5, 6].includes(a.date.getDay());
-      const c = hover === i ? '#13213a' : last ? '#2a5ca8' : wk ? '#9fb6d8' : '#c9d6ea';
-      return `<div data-i="${i}"><i style="height:${(a.value / top * 100).toFixed(1)}%; background:${c}"></i></div>`;
-    }).join('');
-    const tip = $('tip');
-    if (hover != null && slice[hover]) {
-      tip.hidden = false;
-      tip.style.left = ((hover + 0.5) / slice.length * 100) + '%';
-      tip.innerHTML = `<span class="mono" style="font-size:11px; color:#9aa6ba">${fmtD(slice[hover].date)}</span><span style="font-weight:600; font-size:15px">${fmt.n(slice[hover].value)} messages</span>`;
-    } else tip.hidden = true;
+    $('bars').innerHTML = slice.map((a, i) =>
+      `<div data-i="${i}" style="--i:${i}"><i style="height:${(a.value / top * 100).toFixed(1)}%; background:${barColor(a, i, slice.length)}"></i></div>`).join('');
+    renderHover();
     $('xlabels').innerHTML = Array.from({ length: 5 }, (_, k) => {
       const idx = Math.round(k * (slice.length - 1) / 4);
       return '<span>' + (idx === slice.length - 1 ? "Aujourd'hui" : slice[idx].date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span>';
@@ -58,26 +58,43 @@
     ].map(([l, v]) => `<div style="display:flex; flex-direction:column; gap:4px"><span class="label" style="letter-spacing:.1em">${l}</span><span style="font-size:17px; font-weight:600">${v}</span></div>`).join('');
   }
 
+  // Survol : on recolore les barres existantes au lieu de tout reconstruire
+  function renderHover() {
+    const slice = A.days.slice(-period), tip = $('tip');
+    $('bars').querySelectorAll('i').forEach((el, i) => (el.style.background = barColor(slice[i], i, slice.length)));
+    if (hover != null && slice[hover]) {
+      tip.hidden = false;
+      tip.style.left = ((hover + 0.5) / slice.length * 100) + '%';
+      tip.innerHTML = `<span class="mono" style="font-size:11px; color:#9aa6ba">${fmtD(slice[hover].date)}</span><span style="font-weight:600; font-size:15px">${fmt.n(slice[hover].value)} messages</span>`;
+    } else tip.hidden = true;
+  }
+
   function renderHours() {
     const h24 = A.online24h, max = Math.max(...h24.map(h => h.value)) || 1, cur = new Date().getHours();
-    $('hours').innerHTML = h24.map(h => `<div title="${String(h.hour).padStart(2, '0')} h · ${h.value} en ligne" style="flex:1; min-height:3px; border-radius:3px 3px 0 0; height:${(h.value / max * 100).toFixed(1)}%; background:${h.hour === cur ? '#2a5ca8' : h.hour >= 20 && h.hour <= 23 ? '#9fb6d8' : '#c9d6ea'}"></div>`).join('');
+    $('hours').innerHTML = h24.map((h, i) => `<div title="${String(h.hour).padStart(2, '0')} h · ${h.value} en ligne" style="--i:${i * 2}; flex:1; min-height:3px; border-radius:3px 3px 0 0; height:${(h.value / max * 100).toFixed(1)}%; background:${h.hour === cur ? '#2a5ca8' : h.hour >= 20 && h.hour <= 23 ? '#9fb6d8' : '#c9d6ea'}"></div>`).join('');
     const pk = h24.reduce((m, h) => h.value > m.value ? h : m, h24[0]);
     $('peak').textContent = 'Pic : ' + pk.value + ' à ' + String(pk.hour).padStart(2, '0') + ' h';
   }
 
-  $('periods').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) { period = Number(b.dataset.p); hover = null; renderChart(); } });
-  $('bars').addEventListener('mouseover', e => { const b = e.target.closest('[data-i]'); if (b && Number(b.dataset.i) !== hover) { hover = Number(b.dataset.i); renderChart(); } });
-  $('chart').addEventListener('mouseleave', () => { hover = null; renderChart(); });
+  $('periods').innerHTML = [7, 30, 90].map(p => `<button data-p="${p}"${p === period ? ' class="on"' : ''}>${p} j</button>`).join('');
+  $('periods').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b && Number(b.dataset.p) !== period) { period = Number(b.dataset.p); hover = null; renderChart(); } });
+  $('bars').addEventListener('mouseover', e => { const b = e.target.closest('[data-i]'); if (b && Number(b.dataset.i) !== hover) { hover = Number(b.dataset.i); renderHover(); } });
+  $('chart').addEventListener('mouseleave', () => { hover = null; if (A) renderHover(); });
 
-  loadDiscord().then(d => { D = d; $('cMembers').textContent = d.members; $('cOnline').textContent = d.online; renderKpis(); });
+  growOnView($('bars')); growOnView($('hours'));
+  loadDiscord().then(d => { D = d; BS.num($('cMembers'), d.members); BS.num($('cOnline'), d.online); renderKpis(); });
   loadActivity().then(a => { A = a; renderKpis(); renderChart(); renderHours(); });
 
   // ---------- planning ----------
   const ev = events();
   if (ev.demo) $('evNote').innerHTML = demoBadge('Exemple') + ' Planning à remplir dans data/evenements.js';
+  let evSig = '';
   function renderEvents() {
     const now = Date.now();
     const list = ev.list.filter(e => e.date.getTime() > now - 3 * 3600e3);
+    const sig = list.map(e => e.title + Math.ceil((e.date.getTime() - now) / 86400000)).join('|');
+    if (sig === evSig) return;
+    evSig = sig;
     $('events').innerHTML = list.map(e => {
       const full = e.registered >= e.slots;
       const days = Math.ceil((e.date.getTime() - now) / 86400000);

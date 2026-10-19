@@ -40,10 +40,10 @@
       return `<button data-f="${id}"${id === filter ? ' class="on"' : ''}>${label} <small>${n}</small></button>`;
     }).join('');
     const list = filter === 'all' ? PHOTOS : PHOTOS.filter(p => p.cat === filter);
-    $('gallery').innerHTML = list.map((p, i) => `<button data-i="${i}"><img src="${p.src}" alt="${esc(p.caption)}" loading="lazy"><span>${CATS[p.cat]}</span></button>`).join('');
+    $('gallery').innerHTML = list.map((p, i) => `<button data-i="${i}" style="--i:${i}"><img src="${p.src}" alt="${esc(p.caption)}" loading="lazy"><span>${CATS[p.cat]}</span></button>`).join('');
     $('gallery').onclick = e => { const b = e.target.closest('[data-i]'); if (b) open(list, Number(b.dataset.i)); };
   }
-  $('filters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) { filter = b.dataset.f; renderGallery(); } });
+  $('filters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b && b.dataset.f !== filter) { filter = b.dataset.f; renderGallery(); if (window.BSMotion) BSMotion.replay($('gallery'), 'swap'); } });
 
   function open(list, i) { lbList = list; lbIdx = i; showLb(); }
   function showLb() {
@@ -51,6 +51,7 @@
     if (lbIdx == null) { lb.hidden = true; document.body.style.overflow = ''; return; }
     const p = lbList[lbIdx];
     $('lbImg').src = p.src; $('lbImg').alt = p.caption;
+    if (window.BSMotion) BSMotion.replay($('lbImg'), 'show');
     $('lbCap').textContent = p.caption + ' · ' + (lbIdx + 1) + ' / ' + lbList.length;
     lb.hidden = false; document.body.style.overflow = 'hidden';
   }

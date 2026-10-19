@@ -1,0 +1,148 @@
+/* Blue Sky France — mouvements et transitions.
+   Principe : courts, doux, une seule fois. Tout est coupé si le système demande moins d'animations.
+   La classe html.motion est posée dans le <head> ; sans elle (JS absent), rien n'est masqué. */
+:root {
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-soft: cubic-bezier(.2, .7, .2, 1);
+  --lift: 0 18px 40px -26px rgba(19,33,58,.45);
+}
+
+/* ---------- transitions entre pages (navigateurs récents) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+.navwrap { view-transition-name: bs-nav; }
+.links a.on { view-transition-name: bs-tab; }
+::view-transition-old(root) { animation: vt-out .2s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-new(root) { animation: vt-in .42s var(--ease-out) .05s both; }
+::view-transition-group(bs-tab) { animation-duration: .45s; animation-timing-function: var(--ease-out); }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(10px); } }
+@supports not (view-transition-name: none) {
+  .motion body { animation: fade-in .45s ease-out both; }
+}
+
+/* ---------- arrivée sur la page ---------- */
+.motion .hero-body > div:first-child > *,
+.motion body > header.wrap > div:first-child > *,
+.motion body > header.wrap > .chips,
+.motion body > header.wrap > .status-pill { animation: rise .8s var(--ease-soft) both; }
+.motion .hero-body > div:first-child > :nth-child(2), .motion body > header.wrap > div:first-child > :nth-child(2) { animation-delay: .08s; }
+.motion .hero-body > div:first-child > :nth-child(3), .motion body > header.wrap > div:first-child > :nth-child(3) { animation-delay: .16s; }
+.motion .hero-body > div:first-child > :nth-child(4), .motion body > header.wrap > div:first-child > :nth-child(4) { animation-delay: .24s; }
+.motion body > header.wrap > .chips, .motion body > header.wrap > .status-pill { animation-delay: .2s; }
+.motion .hero-body > div:last-child { animation: rise .9s var(--ease-soft) .35s both; }
+
+/* Le trait rouge des surtitres se trace */
+.motion .eyebrow::before { transform-origin: left; animation: draw .7s var(--ease-out) .25s both; }
+
+/* Photos du héros : léger recul à l'ouverture, puis parallaxe (translate posé par motion.js) */
+.hero-frame > img, .teaser > img, .join-banner > img, .dc-card > img { scale: 1.08; will-change: translate; }
+.motion .hero-frame > img { animation: settle 1.8s var(--ease-soft) both; }
+@keyframes settle { from { scale: 1.16; opacity: .6; } }
+
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes draw { from { transform: scaleX(0); } }
+
+/* ---------- apparition au défilement ---------- */
+.motion .rv { opacity: 0; translate: 0 16px; transition: opacity .6s var(--ease-soft), translate .6s var(--ease-soft); }
+.motion .rv.in { opacity: 1; translate: none; }
+
+/* ---------- navigation ---------- */
+.nav { transition: box-shadow .3s ease, background .3s ease, border-color .3s ease; }
+.navwrap.scrolled .nav { background: rgba(251,250,247,.96); box-shadow: 0 14px 34px -20px rgba(19,33,58,.45); }
+.links a { transition: color .2s ease, background .2s ease; }
+.links.open { animation: menu-in .28s var(--ease-out) both; transform-origin: top center; }
+.links.open a { animation: rise .35s var(--ease-out) both; }
+.links.open a:nth-child(2) { animation-delay: .03s; } .links.open a:nth-child(3) { animation-delay: .06s; }
+.links.open a:nth-child(4) { animation-delay: .09s; } .links.open a:nth-child(5) { animation-delay: .12s; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+.menubtn { transition: background .2s, transform .2s; }
+.menubtn:active { transform: scale(.92); }
+
+/* ---------- boutons et liens ---------- */
+.btn, .copy, .pill { transition: background .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease, transform .25s var(--ease-out); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -14px rgba(19,33,58,.6); }
+.btn:active, .copy:active, .filters button:active, .seg button:active, .tabs button:active { transform: scale(.97); transition-duration: .08s; }
+.btn.muted:hover { transform: none; box-shadow: none; }
+.arr { display: inline-block; transition: transform .3s var(--ease-out); }
+a:hover .arr, button:hover .arr, .teaser:hover .arr, .now-card:hover .arr { transform: translateX(4px); }
+.filters button, .seg button, .tabs button { transition: background .25s ease, color .25s ease, border-color .25s ease, transform .2s var(--ease-out); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+
+/* Indicateur glissant des sélecteurs (Points / Heures…, 7 j / 30 j…, Tous / En vol…) */
+.seg, .tabs { position: relative; }
+.seg button, .tabs button { position: relative; z-index: 1; }
+.seg-ind { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 999px; background: var(--ink); pointer-events: none;
+  transition: transform .42s var(--ease-out), width .42s var(--ease-out), height .42s var(--ease-out), opacity .2s; }
+.has-ind button.on { background: transparent !important; }
+
+/* ---------- cartes ---------- */
+.now-card, .podium, .staff, .feature, .grade-card, .kpi, .event, .top3 { transition: transform .35s var(--ease-out), box-shadow .35s var(--ease-out), border-color .25s ease, background .25s ease; }
+.now-card:hover, .podium:hover { transform: translateY(-3px); box-shadow: var(--lift); }
+.now-card.dark:hover { box-shadow: 0 22px 44px -24px rgba(19,33,58,.7); }
+.feature:hover, .staff:hover, .grade-card:hover, .event:hover { border-color: #d3cdbf; }
+.teaser { transition: box-shadow .4s var(--ease-out); }
+.teaser:hover { box-shadow: 0 30px 60px -34px rgba(19,33,58,.6); }
+.teaser > img { transition: transform 1s var(--ease-soft); }
+.teaser:hover > img { transform: scale(1.025); }
+.round-crest { transition: transform .8s var(--ease-soft); }
+.cta-box:hover .round-crest { transform: rotate(-4deg) scale(1.02); }
+
+/* Témoin « en ligne » : une onde discrète */
+.dot { position: relative; }
+.dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit; animation: ping 2.6s cubic-bezier(0, 0, .2, 1) infinite; }
+.dot.off::after { display: none; }
+.live-badge i { position: relative; }
+.live-badge i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit; animation: ping 2.6s cubic-bezier(0, 0, .2, 1) infinite; }
+@keyframes ping { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(2.8); opacity: 0; } }
+
+/* Barres de progression et graphiques */
+.bar > div { transition: width .9s var(--ease-out); }
+.event .bar > div, .drawer .bar > div { transform-origin: left; animation: grow-x 1s var(--ease-out) .15s both; }
+@keyframes grow-x { from { transform: scaleX(0); } }
+.bars.pre > div > i, .hbars.pre > div { transform: scaleY(0); }
+.bars > div > i, .hbars > div { transform-origin: bottom; }
+.bars.grow > div > i, .hbars.grow > div { animation: grow-y .8s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 9ms); }
+@keyframes grow-y { from { transform: scaleY(0); } }
+.chart .bars > div > i { transition: background .18s ease, height .45s var(--ease-out); }
+.tip { transition: left .18s var(--ease-out), opacity .15s; }
+
+/* ---------- classements ---------- */
+.tr.row { transition: background .2s ease, box-shadow .2s ease; }
+.tr.row:hover { box-shadow: inset 3px 0 0 var(--blue); }
+.tr .n { transition: color .3s ease; }
+.podium-swap > * { animation: rise .5s var(--ease-out) both; }
+.podium-swap > :nth-child(2) { animation-delay: .06s; } .podium-swap > :nth-child(3) { animation-delay: .12s; }
+.overlay { animation: fade-in .25s ease both; }
+.drawer { animation: drawer-in .45s var(--ease-out) both; }
+.drawer .stat-grid > div { animation: rise .5s var(--ease-out) both; }
+.drawer .stat-grid > :nth-child(n+4) { animation-delay: .05s; } .drawer .stat-grid > :nth-child(n+7) { animation-delay: .1s; }
+.closing .overlay { animation: fade-out .22s ease both; }
+.closing .drawer { animation: drawer-out .24s cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes drawer-in { from { transform: translateX(48px); opacity: 0; } }
+@keyframes drawer-out { to { transform: translateX(48px); opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+
+/* ---------- galerie, visionneuse, carte ---------- */
+.gallery img, .livery-photo > img, .thumbs img { transition: transform .8s var(--ease-soft), opacity .6s ease; }
+.gallery button:hover img { transform: scale(1.04); }
+.gallery button span { transition: transform .35s var(--ease-out); }
+.gallery button:hover span { transform: translateY(-2px); }
+.motion img.lazy { opacity: 0; }
+.motion img.lazy.loaded { opacity: 1; }
+.gallery.swap > button { animation: rise .5s var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 10) * 35ms); }
+.lightbox:not([hidden]) { animation: fade-in .25s ease both; }
+.lightbox img.show { animation: zoom-in .45s var(--ease-out) both; }
+@keyframes zoom-in { from { opacity: 0; transform: scale(.97); } }
+.focus.show { animation: rise .35s var(--ease-out) both; }
+.p { transition: background .2s ease; }
+
+/* ---------- moins d'animations demandé par le système ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .motion .rv, .motion img.lazy { opacity: 1 !important; translate: none !important; }
+  .bars.pre > div > i, .hbars.pre > div { transform: none !important; }
+  .hero-frame > img, .teaser > img, .join-banner > img, .dc-card > img { scale: 1; translate: none !important; }
+}

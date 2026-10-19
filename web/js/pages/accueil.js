@@ -1,5 +1,5 @@
 (function () {
-  const { C, esc, fmt, insignia, gradeFor, loadStats, loadDiscord, events, demoBadge } = window.BS;
+  const { C, esc, fmt, num, insignia, gradeFor, loadStats, loadDiscord, events, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
   loadStats().then(s => {
@@ -12,7 +12,7 @@
 
     const online = s.server.online;
     $('heroOnline').textContent = online.length;
-    $('nowOnline').textContent = online.length;
+    num($('nowOnline'), online.length);
     if (s.server.mission) $('heroMission').textContent = s.server.mission;
     $('nowList').innerHTML = online.slice(0, 4).map(n => {
       const p = byName[n.toLowerCase()];
@@ -27,14 +27,14 @@
       <div class="top3">
         <span class="display" style="font-weight:700; font-size:28px; width:20px; color:#2a5ca8">${i + 1}</span>
         <span style="display:flex; flex-direction:column; flex:1; min-width:0"><span style="font-weight:600; font-size:16px">${esc(p.callsign)}</span><span style="font-size:12px; color:#4a556b">${esc(p.grade.name)}</span></span>
-        <span class="mono" style="font-size:14px; font-weight:600">${fmt.n(p.points)}</span>
+        <span class="mono" style="font-size:14px; font-weight:600" data-count="${p.points}">${fmt.n(p.points)}</span>
       </div>`).join('');
     if (s.demo) $('top3Demo').innerHTML = demoBadge();
   });
 
   loadDiscord().then(d => {
-    ['heroMembers', 'ctaMembers'].forEach(id => ($(id).textContent = d.members));
-    ['heroDcOnline', 'ctaOnline'].forEach(id => ($(id).textContent = d.online));
+    ['heroMembers', 'ctaMembers'].forEach(id => num($(id), d.members));
+    ['heroDcOnline', 'ctaOnline'].forEach(id => num($(id), d.online));
   });
 
   const ev = events();

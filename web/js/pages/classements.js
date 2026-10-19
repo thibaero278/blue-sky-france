@@ -16,7 +16,13 @@
   const params = new URLSearchParams(location.search);
   let S = null, metric = METRICS.some(m => m.id === params.get('tri')) ? params.get('tri') : 'points', q = '';
 
-  function render() {
+  // animate : le tri a changé → les lignes glissent vers leur nouvelle place
+  function render(animate) {
+    if (animate && window.BSMotion) {
+      BSMotion.flip('#table .tr.row', 'data-id', () => render(false));
+      BSMotion.replay($('podium'), 'podium-swap');
+      return;
+    }
     const ranked = [...S.pilots].sort((a, b) => b[metric] - a[metric] || b.points - a.points);
     const unit = METRICS.find(m => m.id === metric).unit;
 
@@ -57,7 +63,7 @@
       ['Appontages', fmt.n(sum('traps'))],
       ['Pilotes classés', S.pilots.length]
     ];
-    $('totals').innerHTML = totals.map(([l, v]) => `<div class="card kpi"><span class="label">${l}</span><b>${v}</b></div>`).join('');
+    $('totals').innerHTML = totals.map(([l, v]) => `<div class="card kpi"><span class="label">${l}</span><b data-count="${String(v).replace(/\D/g, '')}">${v}</b></div>`).join('');
 
     $('grades').innerHTML = GRADES.map(g => `
       <div class="card grade-card">${insignia(g, 'md')}
@@ -127,12 +133,17 @@
     document.body.style.overflow = 'hidden';
     $('drawerRoot').querySelector('.xbtn').focus();
   }
-  function closePilot() { $('drawerRoot').innerHTML = ''; document.body.style.overflow = ''; }
+  function closePilot() {
+    const r = $('drawerRoot');
+    if (!r.firstChild || r.classList.contains('closing')) return;
+    const end = () => { r.innerHTML = ''; r.classList.remove('closing'); document.body.style.overflow = ''; };
+    if (window.BSMotion && !BSMotion.reduced) { r.classList.add('closing'); setTimeout(end, 230); } else end();
+  }
 
   document.addEventListener('click', e => {
     if (!S) return;
     const m = e.target.closest('[data-m]');
-    if (m) { metric = m.dataset.m; render(); return; }
+    if (m) { if (m.dataset.m !== metric) { metric = m.dataset.m; render(true); } return; }
     if (e.target.closest('[data-close]')) { closePilot(); return; }
     const r = e.target.closest('[data-id]');
     if (r) openPilot(Number(r.dataset.id));

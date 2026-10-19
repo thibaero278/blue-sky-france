@@ -201,5 +201,8 @@
 
   const demoBadge = (txt = 'Démo') => '<span class="demo-badge" title="Source pas encore branchée : données d\'exemple">' + esc(txt) + '</span>';
 
-  window.BS = { C, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, airfields, loadLive, demoBadge };
+  // Affiche un nombre (compteur animé si motion.js est chargé)
+  const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
+
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, airfields, loadLive, demoBadge };
 })();
