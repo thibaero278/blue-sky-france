@@ -4,7 +4,7 @@ window.BS_CONFIG = {
   // URL du relais Apps Script (circuit_site/Code.gs), sans ?format=… — alimenté par le bot Discord (plugin bluesky).
   // Donne d'un coup : stats pilotes, joueurs en ligne, carte live (?format=live), activité et événements Discord.
   // Ex. : 'https://script.google.com/macros/s/XXXX/exec'
-  statsUrl: '',
+  statsUrl: 'https://script.google.com/macros/s/AKfycbyTW5T54LWVUvsy-mKAArZf-J3dsQ_GV6eBYCgB5-sxTKwoEWTaiNCBR2ZiBYNlPCfg5w/exec',
 
   // Sinon : instantané de Scores.lua, à régénérer avec  python tools/scores_to_json.py "Scores.lua"
   statsFile: 'data/stats.json',
