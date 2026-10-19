@@ -230,6 +230,12 @@ Un site Blue Sky (Google Sites envisagé) avec :
     et mode démo sans source), aucune erreur console.
     **Pas testé en réel** : bot pas redémarré avec le plugin, Apps Script pas encore déployé, positions DCS jamais relevées en jeu.
 
+- 19/10/2026 : **Apps Script déployé par Thibaud** (feuille « BS Stats », propriété TOKEN, Application Web « Tout le monde »).
+  URL mise dans `web/js/config.js` (statsUrl), `bluesky.yaml` (relay.url + token) et `secrets.local.ps1`.
+  Testé : POST stats (22 pilotes de `mission/Scores.lua`) et live → `ok`, mauvais token → `forbidden`,
+  `?format=json` / `?format=live` OK, page Classements locale en vraies données. Site poussé (GitHub Pages).
+  Reste : redémarrer le bot (STOP/GO) pour charger le plugin, `feed_channel` à remplir, test en jeu.
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
