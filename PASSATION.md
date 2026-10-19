@@ -150,6 +150,18 @@ Un site Blue Sky (Google Sites envisagé) avec :
   ancien format sans heures totales → heures = vol le plus long, signalé sur la page). Le site lit statsUrl, sinon stats.json, sinon démo.
   `config.js` : `pilotAliases` (fusion des pseudos d'une même personne) et `ignorePilots` (Player, Joueur). 25 pseudos → 19 pilotes.
 
+- 19/10/2026 : **Scores.lua optimisé et migré v2**.
+  - `script Caucase.lua` (sauvegarde d'avant : `bakup\script Caucase_2026-10-19_avant-sauvegarde-sure.lua`) :
+    sauvegarde sûre (écrit `Scores.lua.tmp` puis remplace ; récupère le .tmp au chargement si crash entre les deux ;
+    repli en écriture directe si le module `os` est bloqué par MissionScripting.lua), pilotes triés par points,
+    pseudos par défaut (Player, Joueur, New callsign) jamais sauvegardés. Syntaxe OK (luaparse 5.1), **pas testé en jeu**.
+  - `tools/migrer_scores.py "ancien Scores.lua"` → `mission\Scores.lua` au format v2 exact (champs lus dans le script,
+    rang recalculé, tri, retire Player/Joueur/profils vides). Ancien format : vol le plus long (vol atterri) utilisé comme
+    minimum pour heures totales/complètes, flights = 1. Généré depuis le Scores.lua du serveur : 22 pilotes (retirés : MR WHITE, Player, Joueur).
+  - Les doublons de pseudos ne sont **pas** fusionnés dans le fichier (la clé doit rester le pseudo en jeu) : fusion côté site seulement.
+  - À faire par Weefe, **serveur arrêté** : remplacer `Saved Games\...\Scores.lua` par `mission\Scores.lua`, et mettre le
+    nouveau script dans la .miz (nom interne `l10n/DEFAULT/multi jours thib.lua`).
+
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).

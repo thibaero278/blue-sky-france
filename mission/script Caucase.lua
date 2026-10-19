@@ -104,16 +104,26 @@ end
 ------------------------------------------------------------
 -- SAUVEGARDE / CHARGEMENT
 ------------------------------------------------------------
+-- Pseudos par defaut de DCS : jamais sauvegardes
+local IGNORED_PLAYERS = { ["player"] = true, ["joueur"] = true, ["new callsign"] = true }
+
+-- Ecrit d'abord un fichier temporaire puis remplace Scores.lua : un crash pendant l'ecriture
+-- (ou le hook du site qui lit en meme temps) ne tombe jamais sur un fichier a moitie ecrit.
 function SaveScores()
-    local file = io.open(SAVE_FILE, "w")
-    if not file then
-        env.error("BLUESKY : echec sauvegarde " .. SAVE_FILE)
-        trigger.action.outText("ECHEC sauvegarde Scores.lua", 10)
-        return
+    local names = {}
+    for playerName in pairs(Scores) do
+        if not IGNORED_PLAYERS[string.lower(playerName)] then names[#names + 1] = playerName end
     end
+    -- Tri par points puis par nom : fichier lisible et stable d'une sauvegarde a l'autre
+    table.sort(names, function(a, b)
+        local pa, pb = Scores[a].points or 0, Scores[b].points or 0
+        if pa ~= pb then return pa > pb end
+        return string.lower(a) < string.lower(b)
+    end)
 
     local out = { "return {\n" }
-    for playerName, s in pairs(Scores) do
+    for _, playerName in ipairs(names) do
+        local s = Scores[playerName]
         out[#out + 1] = string.format("    [%q] = {\n", playerName)
         for _, field in ipairs(SCORE_FIELDS) do
             out[#out + 1] = string.format("        %s = %d,\n", field, math.floor(s[field] or 0))
@@ -125,11 +135,34 @@ function SaveScores()
     end
     out[#out + 1] = "}\n"
 
+    -- Sans le module os (MissionScripting.lua le bloque par defaut) : ecriture directe
+    local atomic = os and os.rename and os.remove
+    local tmp = atomic and (SAVE_FILE .. ".tmp") or SAVE_FILE
+    local file = io.open(tmp, "w")
+    if not file then
+        env.error("BLUESKY : echec sauvegarde " .. tmp)
+        trigger.action.outText("ECHEC sauvegarde Scores.lua", 10)
+        return
+    end
     file:write(table.concat(out))
     file:close()
+    if not atomic then return end
+
+    -- Sous Windows, os.rename echoue si la cible existe : on la retire juste avant
+    os.remove(SAVE_FILE)
+    local ok, err = os.rename(tmp, SAVE_FILE)
+    if not ok then
+        env.error("BLUESKY : echec remplacement Scores.lua : " .. tostring(err))
+        trigger.action.outText("ECHEC sauvegarde Scores.lua", 10)
+    end
 end
 
 function LoadScores()
+    -- Crash entre la suppression et le renommage : la derniere sauvegarde est restee en .tmp
+    if lfs.attributes(SAVE_FILE .. ".tmp") and not lfs.attributes(SAVE_FILE) and os and os.rename then
+        os.rename(SAVE_FILE .. ".tmp", SAVE_FILE)
+    end
+
     local file = io.open(SAVE_FILE, "r")
     if not file then
         Scores = {}

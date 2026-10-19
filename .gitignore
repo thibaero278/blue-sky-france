@@ -22,3 +22,7 @@ mission/kneeboard/*.png
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Scores du serveur (donnees, pas du code)
+mission/Scores.lua
+mission/Scores.lua.tmp
