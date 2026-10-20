@@ -1,0 +1,18 @@
+/* Pages légales (mentions, confidentialité, cookies) — complète style.css */
+.legal-h1 { font-size: clamp(40px, 6vw, 76px); }
+.legal-date { margin: 0; font-size: 12px; letter-spacing: .08em; color: var(--mute); }
+.legal { max-width: 860px; padding-top: 32px; font-size: 16px; line-height: 1.7; color: var(--ink3); }
+.legal .lead { margin-bottom: 8px; }
+.legal h2 { margin: 44px 0 10px; font-family: var(--f-display); font-weight: 800; font-size: 28px; line-height: 1.1; text-transform: uppercase; color: var(--ink); }
+.legal p { margin: 0 0 14px; }
+.legal ul { margin: 0 0 14px; padding-left: 22px; }
+.legal li { margin-bottom: 8px; }
+.legal code { font-family: var(--f-mono); font-size: .88em; background: var(--sand2); padding: 1px 6px; border-radius: 6px; }
+.legal .tablewrap { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.legal table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; line-height: 1.55; }
+.legal th, .legal td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line2); }
+.legal th { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); background: var(--sand2); }
+.legal tr:last-child td { border-bottom: 0; }
+.legal mark.todo { background: #fff2c2; color: #5a4300; padding: 1px 6px; border-radius: 6px; font-weight: 600; }
+.footer .bottom a { color: #c9d1de; text-decoration: none; }
+.footer .bottom a:hover { color: #fff; text-decoration: underline; }

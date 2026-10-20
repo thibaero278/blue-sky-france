@@ -66,7 +66,7 @@
         <span class="mono" style="font-size:12px; color:#9aa6ba">${esc(invShort)}</span>
       </div>
     </div>
-    <div class="bottom"><span>© ${new Date().getFullYear()} Blue Sky France</span><span>Fondé par Breakdown · Beynost, France</span></div>`;
+    <div class="bottom"><span>© ${new Date().getFullYear()} Blue Sky France</span><span><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="cookies.html">Cookies</a></span><span>Fondé par Breakdown · Beynost, France</span></div>`;
   document.body.append(footer);
 
   // Bouton « copier l'invitation » (accueil, discord)
