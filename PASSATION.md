@@ -342,7 +342,7 @@ Un site Blue Sky (Google Sites envisagé) avec :
 - 21/10/2026 (soir) : **premier vrai test de publication réussi** (sondage posté, 2 votes). Mais le site restait à « 0 présent » :
   le bot n'envoyait qu'au moment de la publication puis toutes les 15 min. Plugin **v1.3** :
   - chaque vote/retrait de vote dans un sondage d'inscription (`on_raw_poll_vote_add/remove`) déclenche un envoi au relais
-    **5 min** après (réglage `vote_delay`, demandé par Thibaud ; tous les votes de ces 5 min = un seul envoi) ;
+    **1 min** après (réglage `vote_delay` ; tous les votes de cette minute = un seul envoi) ;
   - **nombre de places** demandé à la publication (fenêtre après le choix de l'événement, vide = illimité, prérempli par
     « Places : N » de la description) ; colonne `slots` de `bluesky_missions` (`update_v1.2.sql`), affiché dans le message du
     sondage et sur le site (« 2 présents / 8 », « Complet »).
