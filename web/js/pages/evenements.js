@@ -24,15 +24,17 @@
         : e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : plural(e.registered, 'intéressé');
       const chip = (n, cls, title) => `<span class="${cls}"${title ? ' title="' + title + '"' : ''}>${esc(n)}</span>`;
       const who = s && (s.yes.length || wait.length || s.maybe.length) ? `<div class="who-list">${s.yes.map(n => chip(n, 'yes', e.slots ? 'Retenu' : 'Présent')).join('')}${wait.map(n => chip(n, 'wait', e.slots && !s.yes.length ? 'Candidat : choix du staff à venir' : 'Liste d\'attente')).join('')}${s.maybe.map(n => chip(n, 'maybe', 'Peut-être')).join('')}</div>` : '';
-      return `<div class="card event">
+      // Photo de fond : bannière de l'événement Discord, sinon 1re photo du briefing ; lien expiré → carte blanche
+      const bg = e.image ? `<img class="ev-bg" src="${esc(e.image)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-img'); this.remove()">` : '';
+      return `<div class="card event${e.image ? ' has-img' : ''}">${bg}
         <div class="date"><span class="mono" style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#2a5ca8">${fmt.dayShort(e.date)}</span><b>${e.date.getDate()}</b><span class="mono" style="font-size:11px; text-transform:uppercase; color:#4a556b">${fmt.month(e.date)}</span></div>
         <div style="flex:1 1 280px; display:flex; flex-direction:column; gap:8px; min-width:0">
-          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px"><span class="kind">${esc(e.type)}</span><span class="mono" style="font-size:12px; color:#8a91a3">${[fmt.hour(e.date), esc(e.map), e.host && 'par ' + esc(e.host)].filter(Boolean).join(' · ')}</span></div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px"><span class="kind">${esc(e.type)}</span><span class="mono ev-meta" style="font-size:12px">${[fmt.hour(e.date), esc(e.map), e.host && 'par ' + esc(e.host)].filter(Boolean).join(' · ')}</span></div>
           <span style="font-size:19px; font-weight:600">${esc(e.title)}</span>
           ${who}
         </div>
         <div style="flex:0 1 200px; display:flex; flex-direction:column; gap:8px; min-width:160px">
-          <div class="mono" style="display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#4a556b"><span>${count}</span><span style="white-space:nowrap">${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
+          <div class="mono ev-count" style="display:flex; justify-content:space-between; gap:8px; font-size:12px"><span>${count}</span><span style="white-space:nowrap">${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
           <div class="bar"><div style="width:${fill}%; background:${full ? '#d0342c' : '#2a5ca8'}"></div></div>
         </div>
         <div class="ev-actions">

@@ -287,6 +287,21 @@ button { font-family: var(--f-text); }
 .event .date { width: 72px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 0; border-radius: 16px; background: var(--blue-soft); flex: none; }
 .event .date b { font-family: var(--f-display); font-weight: 800; font-size: 36px; line-height: .95; }
 .event .kind { padding: 4px 10px; border-radius: 999px; border: 1px solid #d8d3c7; font-family: var(--f-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink2); }
+.event .ev-meta { color: #8a91a3; }
+.event .ev-count { color: #4a556b; }
+/* Carte d'événement avec photo en fond (bannière Discord ou 1re photo du briefing), assombrie côté texte */
+.event.has-img { position: relative; overflow: hidden; isolation: isolate; color: #fbfaf7; border-color: transparent; background: #13213a; }
+.event.has-img > .ev-bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.event.has-img::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(19,33,58,.9) 0%, rgba(19,33,58,.72) 45%, rgba(19,33,58,.5) 100%); }
+.event.has-img .ev-meta { color: #cfdcef; }
+.event.has-img .ev-count { color: #e6ecf5; }
+.event.has-img .kind { border-color: rgba(255,255,255,.45); color: #fbfaf7; }
+.event.has-img .bar { background: rgba(255,255,255,.22); }
+.event.has-img .who-list .maybe { color: #e6ecf5; border-color: rgba(255,255,255,.55); }
+.event.has-img .btn.outline { border-color: #fbfaf7; color: #fbfaf7; }
+.event.has-img .btn.outline:hover { background: #fbfaf7; color: var(--ink); }
+.event.has-img .btn:not(.outline):not(.muted) { background: #fbfaf7; color: var(--ink); }
+.event.has-img .btn:not(.outline):not(.muted):hover { background: #fff; color: var(--blue); }
 .event .ev-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .event .ev-actions .btn:not(.outline):not(.muted) { padding: 12px 18px; font-size: 14px; }
 .who-list { display: flex; flex-wrap: wrap; gap: 6px; }
