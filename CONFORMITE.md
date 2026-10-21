@@ -64,3 +64,18 @@ _Dernière mise à jour : 21/10/2026_
 - Exception domestique (RGPD art. 2.2.c) : ne s'applique pas, car les données sont publiées sur Internet.
 - Transferts hors UE : GitHub, Google, Discord déclarent le Data Privacy Framework UE–États-Unis (vérifié dans leurs politiques).
 - Références vérifiées sur Légifrance le 21/10/2026 : LCEN art. 1-1 II et 1-2 (loi SREN 2024-449). Ne pas citer l'ancien art. 6 III.
+  L'art. 1-1 II n'exige que le **nom et l'adresse** de l'hébergeur : pas besoin de son téléphone en régime anonyme.
+
+## 7. Repris de la version du 20/10 (autre session, remplacée par celle-ci le 21/10)
+Une première version des pages avait été mise en ligne le 20-21/10, avant les réponses de Thibaud
+(placeholders publics, Google Fonts, sans formulaire). Elle est remplacée ; ses remarques encore utiles :
+- **`web/data/stats.json` est dans un dépôt public** : un pseudo effacé reste lisible dans l'historique Git.
+  Effacement complet = réécrire l'historique, ou ne plus versionner ce fichier (le site lit déjà le relais Apps Script).
+- **Weefe** fait tourner le serveur et sa copie du bot : si vous décidez ensemble de l'usage des données, c'est une
+  responsabilité conjointe (RGPD art. 26), à formaliser par un petit accord écrit entre vous.
+- Demander l'accord de chaque membre de l'équipe affiché (indicatif, prénom). « Thibaud, Fondateur » sur l'accueil réduit l'anonymat : à toi de voir.
+- Discord Developer Portal : mettre l'URL de `confidentialite.html` dans la fiche du bot. Chiffrement au repos de la base PostgreSQL : non traité.
+- GitHub a aussi une entité européenne (GitHub B.V., Amsterdam) : je n'ai pas vérifié laquelle des deux fournit GitHub Pages en France.
+  Pour l'instant, c'est GitHub, Inc. qui figure sur le site.
+- Chaînes TikTok/YouTube liées : si elles deviennent monétisées, faire confirmer par un juriste que le site reste non professionnel.
+- Les pages sans données (mentions, confidentialité, cookies) appellent quand même Apps Script pour la pastille du serveur : on pourrait l'éviter.
