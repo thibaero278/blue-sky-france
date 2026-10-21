@@ -336,7 +336,8 @@ Un site Blue Sky (Google Sites envisagé) avec :
     Code du planning déplacé de `discord.js` vers `pages/evenements.js` ; la page Discord garde un lien vers l'onglet.
     Accueil, page mission et message du sondage pointent vers `evenements.html`.
   - Équipe : icônes de rôle (`C.roleIcons` : CAG =✪=, AWACS 📡, ATC 🌐), nom de rôle sans décorations, couleurs trop claires
-    assombries, Joshua masqué (`C.staffHidden` + `staff_roles` dans `bluesky.yaml` : CAG, AWACS, ATC).
+    assombries, Joshua gardé finalement (rôle MIAOU, icône 🐱) ; `staff_roles` dans `bluesky.yaml` : CAG, AWACS, ATC, MIAOU ;
+    `C.staffHidden` permet de masquer quelqu'un si besoin.
   - Communauté : Vétérans violet, Pilotes Blue Sky vert clair, Aviateurs bleu, Visiteurs vert foncé.
 
 ## Prochaines étapes
