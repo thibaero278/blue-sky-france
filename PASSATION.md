@@ -291,7 +291,8 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Testé en local (pages, mobile, formulaire simulé, carte, Code.gs simulé). Détails et reste à faire : `CONFORMITE.md`.
   - **Poussé et en ligne** (vérifié sur GitHub Pages). Une autre session avait mis en ligne une 1re version le 20-21/10
     (placeholders publics, Google Fonts) : remplacée à la fusion, ses remarques utiles reprises dans `CONFORMITE.md` § 7.
-  - Formulaire de suppression **inactif tant que Code.gs n'est pas redéployé** (nouvelle version, autoriser l'envoi d'e-mails).
+  - Apps Script **redéployé par Thibaud** + `testMail` lancé pour autoriser les e-mails : formulaire et mail testés, **tout marche**.
+    Demandes → onglet « Demandes » de BS Stats + e-mail. Une ligne TEST y a été créée par Claude (à effacer).
 
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.

@@ -32,10 +32,10 @@ _Dernière mise à jour : 21/10/2026_
 - Outil `tools/supprimer_pilote.py` (testé sur une copie : 22 → 21 pilotes, Lua valide).
 
 ## 4. Reste à faire par Thibaud
-1. **Redéployer l'Apps Script** : coller le nouveau `circuit_site/Code.gs`, puis Déployer > Gérer les déploiements > modifier > **Nouvelle version**
+1. ✅ **Fait le 21/10** (formulaire + mails testés par Thibaud). **Redéployer l'Apps Script** : coller le nouveau `circuit_site/Code.gs`, puis Déployer > Gérer les déploiements > modifier > **Nouvelle version**
    (même URL). Google demandera l'autorisation d'envoyer des e-mails (pour te prévenir des demandes) : accepter.
    Tant que ce n'est pas fait, le formulaire répond « la demande n'est pas passée » et renvoie vers Discord.
-2. **Pousser le site** (git push) pour mettre les pages en ligne.
+2. ✅ Site poussé et en ligne (21/10).
 3. **Anonymat : GitHub doit vraiment avoir ton identité.** L'art. 1-1 II exige que tu aies communiqué à l'hébergeur tes nom, prénoms,
    domicile et téléphone. Un compte GitHub avec juste un e-mail ne le prouve pas. Piste : remplir tes informations de facturation
    (GitHub > Settings > Billing and licensing > Payment information). Sinon, publier ton identité dans les mentions légales.
