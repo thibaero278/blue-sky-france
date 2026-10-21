@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supprimer mes stats · Blue Sky France</title>
+<meta name="description" content="Demander l'effacement de vos statistiques DCS et de vos données chez Blue Sky France.">
+<link rel="icon" href="assets/ecusson.png">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/motion.css">
+<script>document.documentElement.classList.add('motion');setTimeout(function(){if(!window.BSMotion)document.documentElement.classList.remove('motion')},3000)</script>
+</head>
+<body data-page="mes-donnees">
+
+<main class="wrap legal">
+  <div class="eyebrow">Mes données</div>
+  <h1 class="h1">Supprimer mes stats</h1>
+  <p class="maj">Dernière mise à jour : 21 octobre 2026</p>
+
+  <p class="intro">Tu veux que tes stats disparaissent du classement, ou que Blue Sky efface tout ce qu'il a sur toi ? Remplis ce formulaire : on efface tout sous un mois.</p>
+
+  <form class="form" id="supprForm" novalidate>
+    <label>Pseudo en jeu (DCS) <small>Exactement comme dans le classement. Plusieurs pseudos ? Sépare-les par des virgules.</small>
+      <input name="pseudo" maxlength="60" required autocomplete="off">
+    </label>
+    <label>Pseudo Discord <small>Pour te prévenir quand c'est fait, et vérifier que c'est bien toi.</small>
+      <input name="discord" maxlength="60" required autocomplete="off">
+    </label>
+    <label>Message <small>Facultatif : autre demande (accès, correction…) ou précision.</small>
+      <textarea name="message" maxlength="500" rows="4"></textarea>
+    </label>
+    <label class="hp" aria-hidden="true">Site web <input name="site" tabindex="-1" autocomplete="off"></label>
+    <p class="msg" id="supprMsg" hidden></p>
+    <div><button class="btn" type="submit" id="supprBtn">Envoyer la demande</button></div>
+  </form>
+  <p style="font-size:14px; color:var(--mute); margin-top:16px">Ces informations servent uniquement à traiter ta demande et sont gardées 1 an après son traitement. Détails : <a href="confidentialite.html">politique de confidentialité</a>.</p>
+
+  <h2>Ce qui est effacé</h2>
+  <ul>
+    <li>Tes stats de jeu : points, grade, heures de vol, victoires, appontages… sur le site, sur Discord et en jeu.</li>
+    <li>Ce que le bot du serveur garde sur toi : identifiant DCS, adresses IP, historique, liaison avec ton compte Discord.</li>
+  </ul>
+  <p>Si tu reviens voler sur le serveur après l'effacement, de nouvelles stats repartiront de zéro.</p>
+
+  <h2>Autre moyen</h2>
+  <p>Tu peux aussi envoyer un message privé au rôle « Fondateur » sur le <a href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Discord Blue Sky France</a>.</p>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/pages/mes-donnees.js"></script>
+</body>
+</html>

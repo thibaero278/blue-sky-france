@@ -277,6 +277,18 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Lecture directe des rôles via le token du bot refusée par la sécurité de Claude Code : passer par le bot.
 - 19/10/2026 : **audit conformité juridique (étape 0)** fait, en attente des réponses de Thibaud avant rédaction
   (mentions légales, confidentialité, cookies, CONFORMITE.md). Voir la session du 19/10.
+- 21/10/2026 : **audit refait et enregistré dans `CONFORMITE.md`** (celui du 19/10 n'avait pas été écrit), analyse via Graphify (commit 249fa05).
+  Site sans connexion, sans cookie, sans traceur, sans contenu publié par les visiteurs → pas de bandeau cookies.
+  Tiers recevant l'IP des visiteurs : Google Fonts, unpkg, OpenStreetMap, Discord, Apps Script. Le bot stocke UCID + IP des joueurs.
+  Prévu : liens « Mentions légales · Confidentialité · Cookies » dans le pied de page bleu. En attente des réponses de Thibaud (§ 2 de CONFORMITE.md).
+- 21/10/2026 : **mise en conformité faite** (Thibaud : particulier, non monétisé, anonyme, hébergeur GitHub, pas d'âge minimum).
+  - Pages `mentions-legales.html`, `confidentialite.html`, `cookies.html`, `mes-donnees.html` (formulaire « Supprimer mes stats ») ;
+    liens dans le pied de page de toutes les pages (`layout.js` : colonne « Infos légales » + dernière ligne), « Beynost » retiré.
+  - Polices (`web/assets/fonts/`) et Leaflet (`web/assets/leaflet/`) hébergés sur le site : plus d'appel à Google Fonts / unpkg.
+  - `Code.gs` : type `suppression` sans token → onglet « Demandes » + e-mail. **À redéployer** (nouvelle version) par Thibaud.
+  - `tools/supprimer_pilote.py` : retire un pilote de Scores.lua (sauvegarde dans bakup) et de stats.json.
+  - Durées proposées (Thibaud voulait « à l'infini », non permis) : stats 3 ans sans connexion, base du bot 12 mois. À valider.
+  - Testé en local (pages, mobile, formulaire simulé, carte, Code.gs simulé). **Rien poussé.** Détails et reste à faire : `CONFORMITE.md`.
 
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.

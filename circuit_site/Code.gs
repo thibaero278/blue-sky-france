@@ -23,6 +23,8 @@ function sheet_(name, headers) {
 function doPost(e) {
   let d;
   try { d = JSON.parse(e.postData.contents); } catch (err) { return text_('bad json'); }
+  // Seul envoi sans token : le formulaire public « Mes données » du site
+  if (d.type === 'suppression') return suppression_(d);
   if (d.token !== TOKEN) return text_('forbidden');
 
   if (d.type === 'scores' || d.type === 'stats') {
@@ -100,6 +102,30 @@ function shrinkDiscord_(d) {
   while (size() > 9000 && d.activity && d.activity.days.length > 30) d.activity.days.shift();
   while (size() > 9000 && d.events && d.events.length) d.events.pop();
   return d;
+}
+
+// Demande d'effacement des stats (RGPD art. 17), envoyee par web/mes-donnees.html.
+// Rangee dans l'onglet « Demandes » + e-mail au proprietaire du script. Aucune IP n'est connue d'Apps Script.
+function suppression_(d) {
+  if (d.site) return text_('ok');   // champ piege rempli = robot, on ignore sans le dire
+  const clean = (s, max) => String(s || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max);
+  const pseudo = clean(d.pseudo, 60), discord = clean(d.discord, 60), message = clean(d.message, 500);
+  if (!pseudo || !discord) return text_('missing');
+  // Anti-abus : 30 demandes par heure au plus, tous visiteurs confondus
+  const cache = CacheService.getScriptCache();
+  const n = Number(cache.get('suppr') || 0);
+  if (n >= 30) return text_('busy');
+  cache.put('suppr', String(n + 1), 3600);
+  // « = + - @ » en tete de cellule seraient lus comme une formule par Sheets
+  const cell = s => /^[=+\-@]/.test(s) ? "'" + s : s;
+  sheet_('Demandes', ['Date', 'Pseudo en jeu', 'Pseudo Discord', 'Message', 'Statut'])
+    .appendRow([new Date(), cell(pseudo), cell(discord), cell(message), 'A traiter']);
+  try {
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Blue Sky : demande de suppression de stats',
+      'Pseudo en jeu : ' + pseudo + '\nPseudo Discord : ' + discord + '\nMessage : ' + message +
+      '\n\nA traiter sous un mois (voir CONFORMITE.md, procedure de suppression).');
+  } catch (err) { /* la demande reste dans la feuille */ }
+  return text_('ok');
 }
 
 function text_(s) { return ContentService.createTextOutput(s); }
