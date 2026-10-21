@@ -1,3 +1,3 @@
 """Version du plugin, utilisée par DCSServerBot pour ses mises à jour de base."""
 
-__version__ = "1.3"
+__version__ = "1.4"

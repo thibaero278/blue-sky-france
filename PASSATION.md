@@ -347,6 +347,18 @@ Un site Blue Sky (Google Sites envisagé) avec :
     « Places : N » de la description) ; colonne `slots` de `bluesky_missions` (`update_v1.2.sql`), affiché dans le message du
     sondage et sur le site (« 2 présents / 8 », « Complet »).
   - Testé hors ligne (fenêtre, envoi groupé). Plugin déployé ; **STOP/GO du bot nécessaire**.
+- 21/10/2026 (soir) : **liste d'attente + choix manuel des participants** (demande de Weefe ; les sondages Discord ne permettent
+  pas de bloquer « Présent » ni de retirer un vote). Plugin **v1.4** :
+  - Sans limite de places : tous les ✅ Présent participent (inchangé).
+  - Avec limite : les ✅ Présent sont candidats ; le staff choisit par **clic droit sur le sondage → Applications →
+    Choisir les participants** (cases à cocher, au plus N, 25 candidats max par liste Discord). Table `bluesky_selected`.
+    Les non choisis = liste d'attente. Un choisi qui retire son vote sort des retenus.
+  - Message « ✈️ Participants (x/N) / ⏳ Liste d'attente » posté en réponse au sondage (noms sans notification), modifié à
+    chaque changement (`status_message_id`). Message du sondage : explique places limitées ou illimitées.
+  - Site : « 1 retenu / 1 · 2 en attente », pastilles ⏳ jaunes, bouton « Liste d'attente » quand c'est plein.
+    Bug corrigé : un vol ce soir affichait « Demain » (calcul en tranches de 24 h → jours calendaires).
+  - Confidentialité § 5 : retenus / liste d'attente sur le site et dans le salon.
+  - Testé hors ligne (répartition, message, liste à cocher) + site avec données simulées. Plugin déployé ; **STOP/GO nécessaire**.
 
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un

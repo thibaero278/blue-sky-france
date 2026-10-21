@@ -92,6 +92,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         self._push_soon: asyncio.Task | None = None
         self._publish_menu = app_commands.ContextMenu(name='Publier sur le site', callback=self.publish_mission)
         self.bot.tree.add_command(self._publish_menu)
+        self._choose_menu = app_commands.ContextMenu(name='Choisir les participants', callback=self.choose_players)
+        self.bot.tree.add_command(self._choose_menu)
 
     # ---------- réglages ----------
     def cfg(self, server: Server | None = None) -> dict:
@@ -128,6 +130,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self._publish_menu.name, type=self._publish_menu.type)
+        self.bot.tree.remove_command(self._choose_menu.name, type=self._choose_menu.type)
         self.stats_loop.cancel()
         self.live_loop.cancel()
         self.discord_loop.cancel()
@@ -364,9 +367,14 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                                         (date.today() - timedelta(days=90),))
             voice = {row[0]: row[1] for row in await cursor.fetchall()}
             await conn.execute("DELETE FROM bluesky_missions WHERE start_time < NOW() - INTERVAL '7 days'")
-            cursor = await conn.execute('SELECT event_id, channel_id, message_id, poll_channel_id, poll_message_id, slots '
-                                        'FROM bluesky_missions')
+            await conn.execute('DELETE FROM bluesky_selected WHERE event_id NOT IN (SELECT event_id FROM bluesky_missions)')
+            cursor = await conn.execute('SELECT event_id, channel_id, message_id, poll_channel_id, poll_message_id, slots, '
+                                        'status_message_id FROM bluesky_missions')
             linked = {row[0]: row[1:] for row in await cursor.fetchall()}
+            cursor = await conn.execute('SELECT event_id, user_id FROM bluesky_selected')
+            selected: dict[int, set[int]] = {}
+            for event_id, user_id in await cursor.fetchall():
+                selected.setdefault(event_id, set()).add(user_id)
         self._polls = {row[3] for row in linked.values() if row[3]}
         today = datetime.now(PARIS).date()
         days = [today - timedelta(days=89 - i) for i in range(90)]
@@ -376,7 +384,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 continue
             ev = self.event_json(e)
             if e.id in linked:
-                await self.add_mission(guild, e, ev, linked[e.id], missions)
+                await self.add_mission(guild, e, ev, linked[e.id], selected.get(e.id, set()), missions)
             events.append(ev)
         return {
             'updated': now.isoformat(),
@@ -410,27 +418,40 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         except (discord.NotFound, discord.Forbidden):
             return None
 
+    async def poll_voters(self, guild: discord.Guild, poll_msg: discord.Message) -> dict[str, list]:
+        """{yes: [membres], maybe: [membres], no: nombre} d'un sondage d'inscription."""
+        out = {}
+        for answer, (key, _, _) in zip(poll_msg.poll.answers, POLL_ANSWERS):
+            if key == 'no':  # absents : seulement le nombre, pas de noms sur le site
+                out[key] = answer.vote_count
+                continue
+            out[key] = [guild.get_member(u.id) or u async for u in answer.voters()]
+        return out
+
+    @staticmethod
+    def split_yes(yes: list, slots: int | None, chosen: set[int]) -> tuple[list, list]:
+        """(retenus, liste d'attente). Sans limite : tous les « Présent » sont retenus.
+        Avec limite : retenus = ceux choisis par le staff (et toujours « Présent »), les autres attendent."""
+        if not slots:
+            return yes, []
+        return [u for u in yes if u.id in chosen], [u for u in yes if u.id not in chosen]
+
     async def add_mission(self, guild: discord.Guild, e: discord.ScheduledEvent, ev: dict, row: tuple,
-                          missions: list[dict]) -> None:
+                          chosen: set[int], missions: list[dict]) -> None:
         """Complète l'événement (inscrits du sondage) et ajoute sa mission (message de #missions-dcs)."""
-        channel_id, message_id, poll_channel_id, poll_message_id, slots = row
+        channel_id, message_id, poll_channel_id, poll_message_id, slots, status_id = row
         if slots:  # places choisies à la publication (prioritaires sur « Places : » de la description)
             ev['slots'] = slots
         poll_msg = await self.fetch_message(poll_channel_id, poll_message_id) if poll_message_id else None
         if poll_msg and poll_msg.poll:
             ev['signupUrl'] = poll_msg.jump_url
-            signups = {}
-            for answer, (key, _, _) in zip(poll_msg.poll.answers, POLL_ANSWERS):
-                if key == 'no':  # absents : seulement le nombre, pas de noms sur le site
-                    signups[key] = answer.vote_count
-                    continue
-                names = []
-                async for user in answer.voters():
-                    member = guild.get_member(user.id)
-                    names.append((member or user).display_name)
-                signups[key] = names
-            ev['signups'] = signups
-            ev['registered'] = len(signups.get('yes', []))
+            votes = await self.poll_voters(guild, poll_msg)
+            kept, waiting = self.split_yes(votes['yes'], ev['slots'], chosen)
+            ev['signups'] = {'yes': [u.display_name for u in kept], 'waiting': [u.display_name for u in waiting],
+                             'maybe': [u.display_name for u in votes['maybe']], 'no': votes['no']}
+            ev['registered'] = len(kept)
+            if ev['slots']:
+                await self.update_status(e, poll_msg, ev['slots'], kept, waiting, status_id)
         msg = await self.fetch_message(channel_id, message_id)
         if not msg:
             return
@@ -444,6 +465,77 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             'messageUrl': msg.jump_url, 'signupUrl': ev.get('signupUrl'),
             'updated': datetime.now(timezone.utc).isoformat(),
         })
+
+    async def update_status(self, e: discord.ScheduledEvent, poll_msg: discord.Message, slots: int,
+                            kept: list, waiting: list, status_id: int | None) -> None:
+        """Message « participants / liste d'attente » sous le sondage (événement à places limitées).
+        Créé au premier « Présent », modifié ensuite seulement s'il change. Noms sans notification."""
+        if not status_id and not kept and not waiting:
+            return
+        names = lambda users: ', '.join(u.mention for u in users)
+        content = (f'✈️ **Participants · {e.name}** ({len(kept)}/{slots})\n'
+                   + (names(kept) if kept else '_Pas encore choisis par le staff._') + '\n'
+                   + f'⏳ **Liste d\'attente** ({len(waiting)}) : ' + (names(waiting) if waiting else 'personne') + '\n'
+                   + '-# Le staff choisit les participants parmi les ✅ Présent : clic droit sur le sondage '
+                     '→ Applications → Choisir les participants.')
+        quiet = discord.AllowedMentions.none()
+        msg = await self.fetch_message(poll_msg.channel.id, status_id) if status_id else None
+        if msg:
+            if msg.content != content:
+                await msg.edit(content=content, allowed_mentions=quiet)
+            return
+        msg = await poll_msg.reply(content, allowed_mentions=quiet, mention_author=False)
+        async with self.apool.connection() as conn:
+            await conn.execute('UPDATE bluesky_missions SET status_message_id = %s WHERE event_id = %s', (msg.id, e.id))
+
+    # ---------- #inscription : clic droit sur le sondage > Applications > Choisir les participants ----------
+    async def choose_players(self, interaction: discord.Interaction, message: discord.Message):
+        # noinspection PyUnresolvedReferences
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        reply = interaction.followup.send
+        if not self.can_publish(interaction):
+            await reply('Réservé au staff (rôle DCS Admin de bot.yaml, ou administrateur du serveur).', ephemeral=True)
+            return
+        async with self.apool.connection() as conn:
+            cursor = await conn.execute('SELECT event_id, slots FROM bluesky_missions WHERE poll_message_id = %s',
+                                        (message.id,))
+            row = await cursor.fetchone()
+            cursor = await conn.execute('SELECT user_id FROM bluesky_selected WHERE event_id = %s', (row[0] if row else 0,))
+            chosen = {r[0] for r in await cursor.fetchall()}
+        if not row or not message.poll:
+            await reply('Fais le clic droit sur un **sondage d\'inscription** posté par le bot.', ephemeral=True)
+            return
+        event_id, slots = row
+        try:
+            event = await interaction.guild.fetch_scheduled_event(event_id)
+        except discord.NotFound:
+            await reply('L\'événement de ce sondage n\'existe plus.', ephemeral=True)
+            return
+        slots = slots or self.event_json(event)['slots']
+        if not slots:
+            await reply('Pas de limite de places pour cet événement : tous les ✅ Présent participent.', ephemeral=True)
+            return
+        yes = (await self.poll_voters(interaction.guild, message))['yes']
+        if not yes:
+            await reply('Personne n\'a encore voté ✅ Présent.', ephemeral=True)
+            return
+        await reply(f'**{event.name}** · {slots} places · {len(yes)} candidat(s). Coche les participants :',
+                    view=PlayersPicker(self, event, message, slots, yes, chosen), ephemeral=True)
+
+    async def save_players(self, interaction: discord.Interaction, event: discord.ScheduledEvent,
+                           poll_msg: discord.Message, slots: int, ids: set[int]) -> None:
+        async with self.apool.connection() as conn:
+            await conn.execute('DELETE FROM bluesky_selected WHERE event_id = %s', (event.id,))
+            for uid in ids:
+                await conn.execute('INSERT INTO bluesky_selected (event_id, user_id) VALUES (%s, %s)', (event.id, uid))
+            cursor = await conn.execute('SELECT status_message_id FROM bluesky_missions WHERE event_id = %s', (event.id,))
+            status_id = (await cursor.fetchone() or [None])[0]
+        yes = (await self.poll_voters(interaction.guild, poll_msg))['yes']
+        kept, waiting = self.split_yes(yes, slots, ids)
+        await self.update_status(event, poll_msg, slots, kept, waiting, status_id)
+        await interaction.followup.send(f'✅ {len(kept)}/{slots} participant(s) retenu(s), {len(waiting)} en liste '
+                                        f'd\'attente. Site à jour dans la minute.', ephemeral=True)
+        self.push_soon(10)
 
     # ---------- #missions-dcs → site : clic droit sur le briefing > Applications > Publier sur le site ----------
     def can_publish(self, interaction: discord.Interaction) -> bool:
@@ -503,7 +595,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             ts = int(event.start_time.timestamp())
             poll_msg = await channel.send(
                 f'## 📋 Inscriptions : {event.name}\n🗓️ <t:{ts}:F> (<t:{ts}:R>)\n'
-                + (f'👥 Places : {slots}\n' if slots else '')
+                + (f'👥 Places : {slots} · le staff choisit parmi les ✅ Présent, les autres sont en liste d\'attente\n'
+                   if slots else '👥 Places illimitées : tous les ✅ Présent participent\n')
                 + f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}evenements.html',
                 poll=poll)
         async with self.apool.connection() as conn:
@@ -693,6 +786,29 @@ class EventPicker(discord.ui.View):
         event = self.events[interaction.data['values'][0]]
         # noinspection PyUnresolvedReferences
         await interaction.response.send_modal(PlacesModal(self.plugin, self.message, event))
+        self.stop()
+
+
+class PlayersPicker(discord.ui.View):
+    """Cases à cocher : les ✅ Présent retenus (au plus « slots »), visibles seulement par le staff qui choisit."""
+
+    def __init__(self, plugin: BlueSky, event: discord.ScheduledEvent, poll_msg: discord.Message, slots: int,
+                 yes: list, chosen: set[int]):
+        super().__init__(timeout=600)
+        self.plugin, self.event, self.poll_msg, self.slots = plugin, event, poll_msg, slots
+        yes = yes[:25]  # limite Discord d'une liste
+        select = discord.ui.Select(placeholder='Participants retenus', min_values=0,
+                                   max_values=min(slots, len(yes)), options=[
+            discord.SelectOption(label=u.display_name[:100], value=str(u.id), default=u.id in chosen) for u in yes])
+        select.callback = self.chosen
+        self.add_item(select)
+
+    async def chosen(self, interaction: discord.Interaction):
+        ids = {int(v) for v in interaction.data['values']}
+        # noinspection PyUnresolvedReferences
+        await interaction.response.edit_message(content=f'Enregistrement des participants de **{self.event.name}**…',
+                                                view=None)
+        await self.plugin.save_players(interaction, self.event, self.poll_msg, self.slots, ids)
         self.stop()
 
 
