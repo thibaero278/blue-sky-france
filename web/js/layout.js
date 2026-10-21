@@ -36,10 +36,18 @@
     btn.setAttribute('aria-expanded', open);
   });
 
-  loadServer().then(srv => {
+  const navPill = () => loadServer().then(srv => {
     nav.querySelector('#navPill .dot').classList.toggle('off', !srv.online.length);
     nav.querySelector('#navPillTxt').textContent = serverLabel(srv);
   });
+  navPill();
+  document.addEventListener('bs:refresh', navPill);
+
+  // Données du site relues toutes les 30 s tant que l'onglet est affiché (et dès qu'on y revient) : plus besoin de F5
+  let lastRefresh = Date.now();
+  const refreshIfDue = () => { if (!document.hidden && Date.now() - lastRefresh >= 29e3) { lastRefresh = Date.now(); window.BS.refresh(); } };
+  setInterval(refreshIfDue, 30e3);
+  document.addEventListener('visibilitychange', refreshIfDue);
 
   const invShort = C.discordInvite.replace(/^https?:\/\//, '');
   const footer = document.createElement('footer');

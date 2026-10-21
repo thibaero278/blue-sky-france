@@ -161,4 +161,6 @@
     const pilot = params.get('pilote');
     if (pilot) { const p = s.pilots.find(x => x.callsign.toLowerCase() === pilot.toLowerCase()); if (p) openPilot(p.id); }
   });
+  // Scores relus sans F5 (la fiche pilote ouverte reste telle quelle jusqu'à sa fermeture)
+  document.addEventListener('bs:refresh', () => loadStats().then(s => { S = s; renderStatic(); render(); }));
 })();

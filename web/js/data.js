@@ -182,10 +182,8 @@
   }
 
   // Vocaux en cours (bot) : [{ name, count, since, url }]. Données de plus de 20 min = bot arrêté → null
-  // fresh = relire le relais (rafraîchissement de la page ouverte) au lieu des données du chargement
-  function loadVoiceLive(fresh) {
-    const src = fresh && C.statsUrl ? getJson(relayUrl('json')).then(d => d.discord).catch(() => null) : discordData();
-    return src.then(d => d && Array.isArray(d.voiceLive) && d.updated && Date.now() - new Date(d.updated) < 20 * 60e3
+  function loadVoiceLive() {
+    return discordData().then(d => d && Array.isArray(d.voiceLive) && d.updated && Date.now() - new Date(d.updated) < 20 * 60e3
       ? d.voiceLive.map(v => ({ ...v, since: new Date(v.since) })) : null);
   }
 
@@ -307,6 +305,13 @@
   }
   const serverLabel = srv => !srv.up ? 'Serveur · hors ligne' : srv.online.length ? 'Serveur · ' + srv.online.length + ' en ligne' : 'Serveur · personne en ligne';
 
+  // Rafraîchissement sans F5 : on oublie les données déjà lues, les pages écoutent « bs:refresh » et relisent
+  function refresh() {
+    relayP = discordDataP = statsP = discordP = serverP = null;
+    if (window.BSMotion) window.BSMotion.quiet = true;
+    document.dispatchEvent(new Event('bs:refresh'));
+  }
+
   // ---------- l'équipe : rôles fixes du Discord Blue Sky (exportés par le bot), sinon C.staff ----------
   // Un membre : { name, role, color (#rrggbb ou null), sub? }
   function loadStaff() {
@@ -344,5 +349,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
+  window.BS = { C, refresh, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
 })();
