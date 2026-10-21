@@ -16,7 +16,7 @@ Ce n'est pas qu'une vitrine : le site **publie des données de joueurs**.
 ## Ce qui a été fait
 
 - Pages `web/mentions-legales.html`, `web/confidentialite.html`, `web/cookies.html`, avec date de mise à jour, et `web/css/legal.css`.
-- Liens « Mentions légales · Confidentialité · Cookies » dans le pied de page commun (`web/js/layout.js`), donc sur toutes les pages.
+- Colonne « Informations légales » (Mentions légales, Politique de confidentialité, Cookies) dans le pied de page commun (`web/js/layout.js`), donc visible sur toutes les pages du site.
 - Mentions légales en mode **non professionnel anonyme** (LCEN art. 1-1, II) : seul l'hébergeur est indiqué.
 - Pas de bandeau cookies : aucun traceur soumis à consentement.
 
@@ -34,6 +34,7 @@ Ce n'est pas qu'une vitrine : le site **publie des données de joueurs**.
 - **Garanties de transfert hors UE** de Google, Discord, unpkg, OpenStreetMap : seule la certification Data Privacy Framework de GitHub est vérifiée (déclaration de GitHub).
 - **Équipe affichée** : accord de chaque personne pour son indicatif et son prénom.
 - **Anonymat (LCEN art. 1-1, II)** : il suppose que tu as réellement communiqué ton identité à GitHub (nom du compte/de facturation). Sinon la mention est fausse. De plus, le pied de page indique « Fondé par Breakdown · Beynost, France » et l'accueil « Thibaud, Fondateur » : cela réduit l'anonymat que tu as choisi. À toi de décider si tu les gardes.
+- **Statut non professionnel** : tes liens TikTok et YouTube sont affichés sur le site. Si ces chaînes sont monétisées (récompenses TikTok, par exemple), un juriste doit confirmer que le site reste hors du régime professionnel, car le critère est l'existence d'une contrepartie économique liée au site.
 - **Hébergeur** : GitHub a aussi une entité européenne, GitHub B.V. (Amsterdam). Je n'ai pas pu établir laquelle héberge GitHub Pages pour la France ; j'ai mis GitHub, Inc.
 - **Discord Developer Policy** : renseigner l'URL de `confidentialite.html` dans la fiche du bot (Developer Portal). Vérifier le chiffrement au repos de la base PostgreSQL (non traité dans la politique que j'ai lue).
 
