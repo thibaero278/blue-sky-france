@@ -53,6 +53,6 @@ window.BS_CONFIG = {
     { callsign: 'Breakdown', name: 'Thibaud', role: 'Fondateur', pseudo: 'Breakdown' },
     { callsign: 'Branch', name: 'Weefe', role: 'Second · Admin serveur DCS', pseudo: 'Branch' },
     { callsign: 'Smokey', name: 'Xerion', role: 'Modérateur', pseudo: 'Smokey' },
-    { callsign: 'Redman', name: null, role: 'Helper', pseudo: 'Redman' }
+    { callsign: 'Redman', name: 'Titirex', role: 'Helper', pseudo: 'Redman' }
   ]
 };

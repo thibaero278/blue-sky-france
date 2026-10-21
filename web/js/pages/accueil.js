@@ -3,12 +3,14 @@
   const $ = id => document.getElementById(id);
 
   // L'équipe : rôles fixes du Discord Blue Sky (pas les grades aux points du serveur DCS)
-  // Couleur de rôle Discord trop claire sur fond clair (ex. #e7dcaf) → assombrie pour rester lisible
+  // Couleur de rôle Discord trop claire sur fond clair (ex. #e7dcaf) → assombrie juste ce qu'il faut pour rester lisible
+  // (couleur vive : luminance ramenée à 165, un jaune reste jaune au lieu de virer au kaki ; couleur terne : 120)
   const readable = c => {
     const m = /^#([0-9a-f]{6})$/i.exec(c || '');
     if (!m) return c || 'inherit';
     const n = parseInt(m[1], 16), r = n >> 16, g = n >> 8 & 255, b = n & 255;
-    const k = 0.2126 * r + 0.7152 * g + 0.0722 * b > 170 ? 0.55 : 1;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b, hi = Math.max(r, g, b);
+    const target = hi && (hi - Math.min(r, g, b)) / hi > 0.6 ? 165 : 120, k = lum > target ? target / lum : 1;
     return 'rgb(' + [r, g, b].map(v => Math.round(v * k)).join(',') + ')';
   };
   function load() {
