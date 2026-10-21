@@ -87,6 +87,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         self._mtime: dict[str, datetime] = {}
         self._live_ok: dict[str, bool] = {}
         self._voice: dict[int, datetime] = {}  # membre en vocal → depuis quand (temps pas encore compté)
+        self._polls: set[int] = set()          # messages des sondages d'inscription (pour réagir aux votes)
+        self._push_soon: asyncio.Task | None = None
         self._publish_menu = app_commands.ContextMenu(name='Publier sur le site', callback=self.publish_mission)
         self.bot.tree.add_command(self._publish_menu)
 
@@ -361,9 +363,10 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                                         (date.today() - timedelta(days=90),))
             voice = {row[0]: row[1] for row in await cursor.fetchall()}
             await conn.execute("DELETE FROM bluesky_missions WHERE start_time < NOW() - INTERVAL '7 days'")
-            cursor = await conn.execute('SELECT event_id, channel_id, message_id, poll_channel_id, poll_message_id '
+            cursor = await conn.execute('SELECT event_id, channel_id, message_id, poll_channel_id, poll_message_id, slots '
                                         'FROM bluesky_missions')
             linked = {row[0]: row[1:] for row in await cursor.fetchall()}
+        self._polls = {row[3] for row in linked.values() if row[3]}
         today = datetime.now(PARIS).date()
         days = [today - timedelta(days=89 - i) for i in range(90)]
         events, missions = [], []
@@ -409,7 +412,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     async def add_mission(self, guild: discord.Guild, e: discord.ScheduledEvent, ev: dict, row: tuple,
                           missions: list[dict]) -> None:
         """Complète l'événement (inscrits du sondage) et ajoute sa mission (message de #missions-dcs)."""
-        channel_id, message_id, poll_channel_id, poll_message_id = row
+        channel_id, message_id, poll_channel_id, poll_message_id, slots = row
+        if slots:  # places choisies à la publication (prioritaires sur « Places : » de la description)
+            ev['slots'] = slots
         poll_msg = await self.fetch_message(poll_channel_id, poll_message_id) if poll_message_id else None
         if poll_msg and poll_msg.poll:
             ev['signupUrl'] = poll_msg.jump_url
@@ -475,8 +480,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                     ephemeral=True)
 
     async def link_mission(self, interaction: discord.Interaction, message: discord.Message,
-                           event: discord.ScheduledEvent) -> None:
-        """Lie le briefing à l'événement et poste le sondage d'inscription (un seul par événement)."""
+                           event: discord.ScheduledEvent, slots: int | None = None) -> None:
+        """Lie le briefing à l'événement et poste le sondage d'inscription (un seul par événement).
+        slots = nombre de places (None = illimité)."""
         async with self.apool.connection() as conn:
             cursor = await conn.execute('SELECT poll_channel_id, poll_message_id FROM bluesky_missions '
                                         'WHERE event_id = %s', (event.id,))
@@ -496,19 +502,44 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             ts = int(event.start_time.timestamp())
             poll_msg = await channel.send(
                 f'## 📋 Inscriptions : {event.name}\n🗓️ <t:{ts}:F> (<t:{ts}:R>)\n'
-                f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}evenements.html',
+                + (f'👥 Places : {slots}\n' if slots else '')
+                + f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}evenements.html',
                 poll=poll)
         async with self.apool.connection() as conn:
             await conn.execute("""
-                INSERT INTO bluesky_missions (event_id, channel_id, message_id, poll_channel_id, poll_message_id, start_time)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO bluesky_missions (event_id, channel_id, message_id, poll_channel_id, poll_message_id, start_time, slots)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (event_id) DO UPDATE SET channel_id = EXCLUDED.channel_id, message_id = EXCLUDED.message_id,
                     poll_channel_id = EXCLUDED.poll_channel_id, poll_message_id = EXCLUDED.poll_message_id,
-                    start_time = EXCLUDED.start_time
-            """, (event.id, message.channel.id, message.id, poll_msg.channel.id, poll_msg.id, event.start_time))
-        await interaction.followup.send(f'✅ Mission liée à **{event.name}**. Sondage : {poll_msg.jump_url}\n'
-                                        f'Le site se met à jour d\'ici une minute.', ephemeral=True)
-        asyncio.create_task(self.push_discord())
+                    start_time = EXCLUDED.start_time, slots = EXCLUDED.slots
+            """, (event.id, message.channel.id, message.id, poll_msg.channel.id, poll_msg.id, event.start_time, slots))
+        self._polls.add(poll_msg.id)
+        self.push_soon(5)
+        await interaction.followup.send(f'✅ Mission liée à **{event.name}**'
+                                        + (f' ({slots} places)' if slots else ' (places illimitées)')
+                                        + f'. Sondage : {poll_msg.jump_url}\nLe site se met à jour d\'ici une minute.',
+                                        ephemeral=True)
+
+    # ---------- vote dans un sondage d'inscription → site à jour en moins d'une minute ----------
+    def push_soon(self, delay: int = 30) -> None:
+        """Envoi groupé : plusieurs votes rapprochés = un seul envoi au relais."""
+        if self._push_soon and not self._push_soon.done():
+            return
+
+        async def later():
+            await asyncio.sleep(delay)
+            await self.push_discord()
+        self._push_soon = asyncio.create_task(later())
+
+    @commands.Cog.listener()
+    async def on_raw_poll_vote_add(self, payload: discord.RawPollVoteActionEvent):
+        if payload.message_id in self._polls:
+            self.push_soon()
+
+    @commands.Cog.listener()
+    async def on_raw_poll_vote_remove(self, payload: discord.RawPollVoteActionEvent):
+        if payload.message_id in self._polls:
+            self.push_soon()
 
     def staff_json(self, guild: discord.Guild) -> list[dict]:
         """Équipe du serveur Discord : [{name, role, color}], chaque membre une fois, sous son rôle le plus haut."""
@@ -660,9 +691,34 @@ class EventPicker(discord.ui.View):
     async def chosen(self, interaction: discord.Interaction):
         event = self.events[interaction.data['values'][0]]
         # noinspection PyUnresolvedReferences
-        await interaction.response.edit_message(content=f'Publication de la mission pour **{event.name}**…', view=None)
-        await self.plugin.link_mission(interaction, self.message, event)
+        await interaction.response.send_modal(PlacesModal(self.plugin, self.message, event))
         self.stop()
+
+
+class PlacesModal(discord.ui.Modal):
+    """Après le choix de l'événement : nombre de places (vide = illimité)."""
+
+    def __init__(self, plugin: BlueSky, message: discord.Message, event: discord.ScheduledEvent):
+        super().__init__(title=f'Places · {event.name}'[:45], timeout=300)
+        self.plugin, self.message, self.event = plugin, message, event
+        # valeur proposée : ligne « Places : 16 » de la description de l'événement, s'il y en a une
+        found = re.search(r'^\s*(?:places|slots)\s*:\s*(\d+)', event.description or '', re.I | re.M)
+        self.places = discord.ui.TextInput(label='Nombre de places (vide = illimité)', required=False, max_length=3,
+                                           placeholder='ex. 8', default=found.group(1) if found else None)
+        self.add_item(self.places)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = str(self.places.value or '').strip()
+        if raw and not raw.isdigit():
+            # noinspection PyUnresolvedReferences
+            await interaction.response.send_message(f'« {raw} » n\'est pas un nombre : recommence le clic droit.',
+                                                    ephemeral=True)
+            return
+        slots = int(raw) if raw and int(raw) > 0 else None
+        # noinspection PyUnresolvedReferences
+        await interaction.response.edit_message(content=f'Publication de la mission pour **{self.event.name}**…',
+                                                view=None)
+        await self.plugin.link_mission(interaction, self.message, self.event, slots)
 
 
 def hide_commands(bot: DCSServerBot, cfg: dict) -> None:

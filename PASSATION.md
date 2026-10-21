@@ -339,6 +339,14 @@ Un site Blue Sky (Google Sites envisagé) avec :
     assombries, Joshua gardé finalement (rôle MIAOU, icône 🐱) ; `staff_roles` dans `bluesky.yaml` : CAG, AWACS, ATC, MIAOU ;
     `C.staffHidden` permet de masquer quelqu'un si besoin.
   - Communauté : Vétérans violet, Pilotes Blue Sky vert clair, Aviateurs bleu, Visiteurs vert foncé.
+- 21/10/2026 (soir) : **premier vrai test de publication réussi** (sondage posté, 2 votes). Mais le site restait à « 0 présent » :
+  le bot n'envoyait qu'au moment de la publication puis toutes les 15 min. Plugin **v1.3** :
+  - chaque vote/retrait de vote dans un sondage d'inscription (`on_raw_poll_vote_add/remove`) déclenche un envoi au relais
+    ~30 s après (votes rapprochés groupés en un seul envoi) ;
+  - **nombre de places** demandé à la publication (fenêtre après le choix de l'événement, vide = illimité, prérempli par
+    « Places : N » de la description) ; colonne `slots` de `bluesky_missions` (`update_v1.2.sql`), affiché dans le message du
+    sondage et sur le site (« 2 présents / 8 », « Complet »).
+  - Testé hors ligne (fenêtre, envoi groupé). Plugin déployé ; **STOP/GO du bot nécessaire**.
 
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
