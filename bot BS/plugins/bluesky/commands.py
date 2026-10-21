@@ -384,8 +384,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 'newMembers30d': sum(1 for m in guild.members if m.joined_at and m.joined_at > now - timedelta(days=30)),
                 # minutes passées en vocal par jour, tous membres confondus, mêmes jours que « days »
                 # (simple liste de nombres : le relais limite le tout à 9 ko)
-                'voiceSince': min(voice).isoformat() if voice else None,
-                'voice': [round(voice.get(d, 0) / 60) for d in days] if voice else None,
+                # dès que le comptage est actif (même à 0) : le site affiche les vraies valeurs, pas la démo
+                'voiceSince': (min(voice) if voice else today).isoformat() if self.cfg()['voice_stats'] else None,
+                'voice': [round(voice.get(d, 0) / 60) for d in days] if self.cfg()['voice_stats'] else None,
             },
             'events': events,
             'signupChannel': self.channel_url(guild, self.cfg()['signup_channel']),
@@ -442,6 +443,11 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     def can_publish(self, interaction: discord.Interaction) -> bool:
         if not self.bot.node.locals.get('restrict_owner', False) and interaction.user.id == self.bot.owner_id:
             return True
+        # propriétaire du serveur Discord et administrateurs : toujours autorisés
+        user = interaction.user
+        if interaction.guild and (user.id == interaction.guild.owner_id
+                                  or (isinstance(user, discord.Member) and user.guild_permissions.administrator)):
+            return True
         role = self.cfg()['publish_role']
         return utils.check_roles(self.bot.roles.get(role, [role]), interaction.user)
 
@@ -450,7 +456,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         # noinspection PyUnresolvedReferences
         reply = interaction.response.send_message
         if not self.can_publish(interaction):
-            await reply(f'Réservé au rôle {cfg["publish_role"]}.', ephemeral=True)
+            await reply('Réservé au staff (rôle DCS Admin de bot.yaml, ou administrateur du serveur).', ephemeral=True)
             return
         if int(cfg['mission_channel']) > 0 and message.channel.id != int(cfg['mission_channel']):
             await reply(f'Les missions se publient depuis <#{int(cfg["mission_channel"])}>.', ephemeral=True)
@@ -532,10 +538,14 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             return m.group(1).strip() if m else None
 
         places = field('places', 'slots')
+        # lieu = lien (salon Discord, site…) → bouton à part sur le site, pas affiché comme carte
+        location = (e.location or '').strip()
+        link = location if re.match(r'https?://', location, re.I) else None
         return {
             'id': str(e.id),  # en texte : trop grand pour un nombre JavaScript
             'title': e.name, 'date': e.start_time.isoformat(), 'end': e.end_time.isoformat() if e.end_time else None,
-            'type': field('type') or 'Événement', 'map': field('carte', 'map') or e.location or '',
+            'type': field('type') or 'Événement', 'map': field('carte', 'map') or ('' if link else location),
+            'link': link,
             'host': e.creator.display_name if e.creator else '', 'registered': e.user_count or 0,
             'slots': int(re.sub(r'\D', '', places)) if places and re.search(r'\d', places) else None,
             'url': e.url,

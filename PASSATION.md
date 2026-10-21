@@ -319,6 +319,16 @@ Un site Blue Sky (Google Sites envisagé) avec :
     affiche « Photo visible sur le Discord ». Même token que Weefe : si c'est sa copie du bot qui tourne, le clic droit
     « Publier sur le site » et les nouvelles commandes n'existent pas (ses commandes à lui reviennent).
 
+- 21/10/2026 (fin d'après-midi) : **retours du premier test réel**.
+  - « Réservé au rôle DCS Admin » : dans `config\dcssb\services\bot.yaml`, `DCS Admin` et `Admin` étaient **vides**
+    (personne n'avait les droits, /annonce et la modération comprises). Mis : rôle `=✪=Blue Sky CAG=✪=` (Thibaud, Weefe), aussi dans
+    le modèle. « Publier sur le site » accepte en plus le propriétaire du serveur et la permission Administrateur.
+  - Graphique vocal en démo : le bot n'envoyait rien tant qu'aucune minute n'était comptée → il envoie maintenant des zéros dès le départ.
+  - Lieu d'événement = lien Discord affiché comme carte (débordait) : le bot l'exporte en `link`, le site affiche un bouton
+    « Voir le salon » / « Ouvrir le lien » (le site corrige aussi les anciennes données). Photos DCS de Thibaud en fond des cartes
+    « Prochain vol » (`assets/ravito-b52.webp` accueil, `assets/cockpit-c130.webp` page Discord).
+  - Il faut **redémarrer le bot** (STOP/GO) pour bot.yaml et le plugin.
+
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
   événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.

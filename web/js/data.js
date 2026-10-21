@@ -227,10 +227,12 @@
     const E = window.BS_EVENTS || { demo: true, events: [] };
     return { demo: !!E.demo, source: 'file', list: E.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) };
   }
+  // Lieu de l'événement Discord : un lien (salon, site) n'est pas une carte → bouton à part
+  const placeOf = e => /^https?:\/\//i.test(e.map || '') ? { map: '', link: e.link || e.map } : {};
   function loadEvents() {
     return discordData().then(d => d && Array.isArray(d.events)
       ? { demo: false, source: 'discord', signupChannel: d.signupChannel || C.signupChannel,
-          list: d.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) }
+          list: d.events.map(e => ({ ...e, ...placeOf(e), date: new Date(e.date) })).sort((a, b) => a.date - b.date) }
       : events());
   }
 
