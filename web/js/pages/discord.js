@@ -118,7 +118,9 @@
     $('vlCard').innerHTML = `<span class="label" style="display:flex; align-items:center; gap:8px"><span class="dot${VL.length ? '' : ' off'}"></span>${VL.length ? 'En vocal maintenant' : 'Aucun vocal en cours'}</span>
       ${VL.map(v => `<div class="vl-row"><b>${esc(v.name)}</b> <span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''} · depuis ${since(v.since)}</span> <a class="btn sm" href="${esc(joinUrl(v))}" target="_blank" rel="noopener">Rejoindre</a></div>`).join('')}`;
   }
-  loadVoiceLive().then(v => { VL = v; renderVoiceLive(); setInterval(renderVoiceLive, 60e3); });
+  // Relit le relais toutes les 30 s (le bot envoie ~20 s après une arrivée / un départ) ; la durée suit à chaque passage
+  loadVoiceLive().then(v => { VL = v; renderVoiceLive(); });
+  setInterval(() => { if (!document.hidden) loadVoiceLive(true).then(v => { VL = v; renderVoiceLive(); }); }, 30e3);
 
   growOnView($('hours'));
   loadDiscord().then(d => { D = d; BS.num($('cMembers'), d.members); BS.num($('cOnline'), d.online); renderKpis(); });

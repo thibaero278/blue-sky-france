@@ -181,9 +181,11 @@
     return discordP;
   }
 
-  // Vocaux en cours (bot) : [{ name, count, since }]. Données de plus de 20 min = bot arrêté → null
-  function loadVoiceLive() {
-    return discordData().then(d => d && Array.isArray(d.voiceLive) && d.updated && Date.now() - new Date(d.updated) < 20 * 60e3
+  // Vocaux en cours (bot) : [{ name, count, since, url }]. Données de plus de 20 min = bot arrêté → null
+  // fresh = relire le relais (rafraîchissement de la page ouverte) au lieu des données du chargement
+  function loadVoiceLive(fresh) {
+    const src = fresh && C.statsUrl ? getJson(relayUrl('json')).then(d => d.discord).catch(() => null) : discordData();
+    return src.then(d => d && Array.isArray(d.voiceLive) && d.updated && Date.now() - new Date(d.updated) < 20 * 60e3
       ? d.voiceLive.map(v => ({ ...v, since: new Date(v.since) })) : null);
   }
 
