@@ -49,6 +49,7 @@ DEFAULTS = {
     'signup_channel': 1562459201618452540,    # salon où le bot poste le sondage d'inscription
     'publish_role': 'DCS Admin',              # rôle (de main.yaml) qui peut publier une mission
     'voice_stats': True,                      # temps passé en vocal (total par jour, sans nom) pour le site
+    'vote_delay': 5,                          # min : après un vote, envoi au site groupé (tous les votes de ces 5 min)
     # Commandes slash des autres plugins à masquer (« groupe » ou « groupe sous-commande »).
     # Les plugins restent chargés : mission, monitoring… en ont besoin.
     'hide_commands': [
@@ -520,9 +521,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                                         + f'. Sondage : {poll_msg.jump_url}\nLe site se met à jour d\'ici une minute.',
                                         ephemeral=True)
 
-    # ---------- vote dans un sondage d'inscription → site à jour en moins d'une minute ----------
-    def push_soon(self, delay: int = 30) -> None:
-        """Envoi groupé : plusieurs votes rapprochés = un seul envoi au relais."""
+    # ---------- vote dans un sondage d'inscription → site à jour dans les 5 min (vote_delay) ----------
+    def push_soon(self, delay: int) -> None:
+        """Envoi groupé : tous les votes reçus pendant « delay » secondes = un seul envoi au relais."""
         if self._push_soon and not self._push_soon.done():
             return
 
@@ -534,12 +535,12 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     @commands.Cog.listener()
     async def on_raw_poll_vote_add(self, payload: discord.RawPollVoteActionEvent):
         if payload.message_id in self._polls:
-            self.push_soon()
+            self.push_soon(int(self.cfg()['vote_delay']) * 60)
 
     @commands.Cog.listener()
     async def on_raw_poll_vote_remove(self, payload: discord.RawPollVoteActionEvent):
         if payload.message_id in self._polls:
-            self.push_soon()
+            self.push_soon(int(self.cfg()['vote_delay']) * 60)
 
     def staff_json(self, guild: discord.Guild) -> list[dict]:
         """Équipe du serveur Discord : [{name, role, color}], chaque membre une fois, sous son rôle le plus haut."""
