@@ -160,6 +160,7 @@ button { font-family: var(--f-text); }
 .ev-how b { font-size: 16px; } .ev-how li span { font-size: 14px; line-height: 1.5; color: var(--ink2); }
 .ev-link { display: flex; flex-direction: column; gap: 10px; min-height: 200px; justify-content: flex-end; padding: clamp(22px, 3vw, 32px); border-radius: 24px; background: #13213a; color: #fbfaf7; text-decoration: none; }
 .ev-link:hover { color: #fbfaf7; }
+.ev-link::before { background: linear-gradient(90deg, rgba(19,33,58,.92) 0%, rgba(19,33,58,.6) 45%, rgba(19,33,58,.15) 100%); }
 .ev-link .more { font-weight: 600; font-size: 14px; }
 .big-num { font-family: var(--f-display); font-size: 72px; font-weight: 700; line-height: .85; }
 .rows > div { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line2); font-size: 14px; }
