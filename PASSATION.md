@@ -288,7 +288,10 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - `Code.gs` : type `suppression` sans token → onglet « Demandes » + e-mail. **À redéployer** (nouvelle version) par Thibaud.
   - `tools/supprimer_pilote.py` : retire un pilote de Scores.lua (sauvegarde dans bakup) et de stats.json.
   - Durées proposées (Thibaud voulait « à l'infini », non permis) : stats 3 ans sans connexion, base du bot 12 mois. À valider.
-  - Testé en local (pages, mobile, formulaire simulé, carte, Code.gs simulé). **Rien poussé.** Détails et reste à faire : `CONFORMITE.md`.
+  - Testé en local (pages, mobile, formulaire simulé, carte, Code.gs simulé). Détails et reste à faire : `CONFORMITE.md`.
+  - **Poussé et en ligne** (vérifié sur GitHub Pages). Une autre session avait mis en ligne une 1re version le 20-21/10
+    (placeholders publics, Google Fonts) : remplacée à la fusion, ses remarques utiles reprises dans `CONFORMITE.md` § 7.
+  - Formulaire de suppression **inactif tant que Code.gs n'est pas redéployé** (nouvelle version, autoriser l'envoi d'e-mails).
 
 ## Prochaines étapes
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
