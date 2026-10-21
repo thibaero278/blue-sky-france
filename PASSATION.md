@@ -359,6 +359,10 @@ Un site Blue Sky (Google Sites envisagé) avec :
     Bug corrigé : un vol ce soir affichait « Demain » (calcul en tranches de 24 h → jours calendaires).
   - Confidentialité § 5 : retenus / liste d'attente sur le site et dans le salon.
   - Testé hors ligne (répartition, message, liste à cocher) + site avec données simulées. Plugin déployé ; **STOP/GO nécessaire**.
+- 21/10/2026 (soir) : **photo en fond des cartes d'événement** (onglet Événements). Le bot exporte `image` : bannière de
+  l'événement Discord (`cover_image`, lien permanent), sinon 1re photo du briefing (lien ~24 h renouvelé par le bot), sinon rien.
+  Site : classe `.event.has-img` (photo + voile sombre, texte blanc) ; si le lien ne charge plus, la carte redevient blanche.
+  Testé avec données simulées (bannière, photo expirée, sans image). Plugin déployé ; **STOP/GO nécessaire**.
 
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un

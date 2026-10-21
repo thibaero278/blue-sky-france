@@ -456,12 +456,15 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         if not msg:
             return
         ev['mission'] = True
+        # liens Discord valables ~24 h : le bot les renouvelle à chaque envoi
+        images = [{'url': a.url, 'width': a.width, 'height': a.height, 'name': a.filename}
+                  for a in msg.attachments if (a.content_type or '').startswith('image/')]
+        if not ev.get('image') and images:
+            ev['image'] = images[0]['url']
         missions.append({
             'id': ev['id'], 'title': e.name, 'date': ev['date'], 'type': ev['type'], 'map': ev['map'],
             'author': msg.author.display_name, 'text': msg.clean_content,
-            # liens Discord valables ~24 h : le bot les renouvelle à chaque envoi
-            'images': [{'url': a.url, 'width': a.width, 'height': a.height, 'name': a.filename}
-                       for a in msg.attachments if (a.content_type or '').startswith('image/')],
+            'images': images,
             'messageUrl': msg.jump_url, 'signupUrl': ev.get('signupUrl'),
             'updated': datetime.now(timezone.utc).isoformat(),
         })
@@ -676,6 +679,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             'host': e.creator.display_name if e.creator else '', 'registered': e.user_count or 0,
             'slots': int(re.sub(r'\D', '', places)) if places and re.search(r'\d', places) else None,
             'url': e.url,
+            # image de fond sur le site : bannière de l'événement Discord (lien permanent),
+            # sinon 1re photo du briefing (ajoutée par add_mission), sinon rien
+            'image': e.cover_image.with_size(1024).url if e.cover_image else None,
         }
 
     # ---------- Discord → DCS ----------
