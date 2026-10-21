@@ -8,18 +8,22 @@
   function renderEvents() {
     const now = Date.now();
     const list = ev.list.filter(e => e.date.getTime() > now - 3 * 3600e3);
-    const sig = list.map(e => e.title + Math.ceil((e.date.getTime() - now) / 86400000) + JSON.stringify(e.signups || '')).join('|');
+    const sig = list.map(e => e.title + dayDiff(e.date) + JSON.stringify(e.signups || '')).join('|');
     if (sig === evSig) return;
     evSig = sig;
     $('events').innerHTML = list.map(e => {
       const full = !!e.slots && e.registered >= e.slots;
       const fill = e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0;
-      const days = Math.ceil((e.date.getTime() - now) / 86400000);
-      const s = e.signups;
-      // Sondage d'inscription : « 5 présents · 2 peut-être », sinon le compteur « Intéressé » de l'événement Discord
-      const count = s ? s.yes.length + ' présent' + (s.yes.length > 1 ? 's' : '') + (e.slots ? ' / ' + e.slots : '') + (s.maybe.length ? ' · ' + s.maybe.length + ' peut-être' : '')
-        : e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '');
-      const who = s && (s.yes.length || s.maybe.length) ? `<div class="who-list">${s.yes.map(n => `<span class="yes">${esc(n)}</span>`).join('')}${s.maybe.map(n => `<span class="maybe" title="Peut-être">${esc(n)}</span>`).join('')}</div>` : '';
+      const days = dayDiff(e.date);
+      const s = e.signups, wait = (s && s.waiting) || [];
+      // Sondage d'inscription. Sans limite : « 5 présents ». Avec limite : « 2 retenus / 8 · 3 en attente »
+      // (le staff choisit parmi les « Présent »). Sinon le compteur « Intéressé » de l'événement Discord.
+      const plural = (n, w) => n + ' ' + w + (n > 1 ? 's' : '');
+      const count = s ? (e.slots ? plural(s.yes.length, 'retenu') + ' / ' + e.slots : plural(s.yes.length, 'présent'))
+          + (wait.length ? ' · ' + wait.length + ' en attente' : '') + (s.maybe.length ? ' · ' + s.maybe.length + ' peut-être' : '')
+        : e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : plural(e.registered, 'intéressé');
+      const chip = (n, cls, title) => `<span class="${cls}"${title ? ' title="' + title + '"' : ''}>${esc(n)}</span>`;
+      const who = s && (s.yes.length || wait.length || s.maybe.length) ? `<div class="who-list">${s.yes.map(n => chip(n, 'yes', e.slots ? 'Retenu' : 'Présent')).join('')}${wait.map(n => chip(n, 'wait', e.slots && !s.yes.length ? 'Candidat : choix du staff à venir' : 'Liste d\'attente')).join('')}${s.maybe.map(n => chip(n, 'maybe', 'Peut-être')).join('')}</div>` : '';
       return `<div class="card event">
         <div class="date"><span class="mono" style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#2a5ca8">${fmt.dayShort(e.date)}</span><b>${e.date.getDate()}</b><span class="mono" style="font-size:11px; text-transform:uppercase; color:#4a556b">${fmt.month(e.date)}</span></div>
         <div style="flex:1 1 280px; display:flex; flex-direction:column; gap:8px; min-width:0">
@@ -34,7 +38,8 @@
         <div class="ev-actions">
           ${e.mission && e.id ? '<a class="btn outline" href="mission.html?id=' + esc(e.id) + '">Voir la mission</a>'
             : e.link ? '<a class="btn outline" href="' + esc(e.link) + '" target="_blank" rel="noopener">' + (/discord\.com\/channels\//.test(e.link) ? 'Voir le salon' : 'Ouvrir le lien') + '</a>' : ''}
-          ${full ? '<span class="btn muted">Complet</span>' : '<a class="btn" href="' + esc(signupUrl(e)) + '" target="_blank" rel="noopener">S\'inscrire</a>'}
+          ${full && !s ? '<span class="btn muted">Complet</span>'
+            : '<a class="btn' + (full ? ' outline' : '') + '" href="' + esc(signupUrl(e)) + '" target="_blank" rel="noopener">' + (full ? 'Liste d\'attente' : 'S\'inscrire') + '</a>'}
         </div>
       </div>`;
     }).join('') || '<div class="card empty">Aucun vol prévu pour le moment. Les annonces arrivent sur le Discord.</div>';
@@ -45,6 +50,12 @@
   }
   // Sondage de l'événement, sinon le salon #inscriptions, sinon l'événement Discord
   const signupUrl = e => e.signupUrl || ev.signupChannel || C.signupChannel || e.url || C.discordInvite;
+  // Jours calendaires (pas des tranches de 24 h) : un vol ce soir = « Aujourd'hui », pas « Demain »
+  const dayDiff = d => {
+    const a = new Date(d), b = new Date();
+    a.setHours(0, 0, 0, 0); b.setHours(0, 0, 0, 0);
+    return Math.round((a - b) / 86400000);
+  };
   function tick() {
     const ne = ev.list.find(e => e.date.getTime() > Date.now() - 3 * 3600e3);
     $('nCount').textContent = ne ? fmt.countdown(ne.date.getTime() - Date.now()) : '—';
