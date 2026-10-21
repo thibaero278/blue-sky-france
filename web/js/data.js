@@ -181,6 +181,12 @@
     return discordP;
   }
 
+  // Vocaux en cours (bot) : [{ name, count, since }]. Données de plus de 20 min = bot arrêté → null
+  function loadVoiceLive() {
+    return discordData().then(d => d && Array.isArray(d.voiceLive) && d.updated && Date.now() - new Date(d.updated) < 20 * 60e3
+      ? d.voiceLive.map(v => ({ ...v, since: new Date(v.since) })) : null);
+  }
+
   // ---------- activité Discord (bot à venir) ----------
   function demoActivity() {
     const r = rng(777);
@@ -336,5 +342,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
 })();

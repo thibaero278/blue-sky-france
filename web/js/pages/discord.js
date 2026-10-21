@@ -1,5 +1,5 @@
 (function () {
-  const { esc, fmt, loadDiscord, loadActivity, demoBadge } = window.BS;
+  const { esc, fmt, loadDiscord, loadVoiceLive, loadActivity, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   let A = null, D = null;
 
@@ -105,6 +105,18 @@
     const pk = h24.reduce((m, h) => h.value > m.value ? h : m, h24[0]);
     $('peak').textContent = 'Pic : ' + pk.value + ' à ' + String(pk.hour).padStart(2, '0') + ' h';
   }
+
+  // Vocaux en cours : salon, nombre de connectés, depuis combien de temps (durée recalculée chaque minute)
+  let VL = null;
+  const since = d => { const m = Math.max(0, Math.floor((Date.now() - d) / 60e3)); return m < 1 ? "à l'instant" : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+  function renderVoiceLive() {
+    const el = $('voiceLive');
+    el.hidden = !VL;
+    if (!VL) return;
+    $('vlCard').innerHTML = `<span class="label" style="display:flex; align-items:center; gap:8px"><span class="dot${VL.length ? '' : ' off'}"></span>${VL.length ? 'En vocal maintenant' : 'Aucun vocal en cours'}</span>
+      ${VL.map(v => `<div class="vl-row"><b>🔊 ${esc(v.name)}</b><span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''}</span><span class="mono">depuis ${since(v.since)}</span></div>`).join('')}`;
+  }
+  loadVoiceLive().then(v => { VL = v; renderVoiceLive(); setInterval(renderVoiceLive, 60e3); });
 
   growOnView($('hours'));
   loadDiscord().then(d => { D = d; BS.num($('cMembers'), d.members); BS.num($('cOnline'), d.online); renderKpis(); });
