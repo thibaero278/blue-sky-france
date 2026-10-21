@@ -95,3 +95,6 @@
     });
   });
 })();
+
+// App installable (bouton « Installer » du navigateur) : nécessite le service worker
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
