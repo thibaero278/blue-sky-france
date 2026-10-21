@@ -1,5 +1,5 @@
 (function () {
-  const { esc, fmt, loadDiscord, loadVoiceLive, loadActivity, demoBadge } = window.BS;
+  const { C, esc, fmt, loadDiscord, loadVoiceLive, loadActivity, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   let A = null, D = null;
 
@@ -109,12 +109,14 @@
   // Vocaux en cours : salon, nombre de connectés, depuis combien de temps (durée recalculée chaque minute)
   let VL = null;
   const since = d => { const m = Math.max(0, Math.floor((Date.now() - d) / 60e3)); return m < 1 ? "à l'instant" : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+  // Lien du salon (ouvre Discord dessus) ; sinon l'invitation du serveur
+  const joinUrl = v => /^https:\/\/discord\.com\/channels\//.test(v.url || '') ? v.url : C.discordInvite;
   function renderVoiceLive() {
     const el = $('voiceLive');
     el.hidden = !VL;
     if (!VL) return;
     $('vlCard').innerHTML = `<span class="label" style="display:flex; align-items:center; gap:8px"><span class="dot${VL.length ? '' : ' off'}"></span>${VL.length ? 'En vocal maintenant' : 'Aucun vocal en cours'}</span>
-      ${VL.map(v => `<div class="vl-row"><b>${esc(v.name)}</b> <span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''} · depuis ${since(v.since)}</span></div>`).join('')}`;
+      ${VL.map(v => `<div class="vl-row"><b>${esc(v.name)}</b> <span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''} · depuis ${since(v.since)}</span> <a class="btn sm" href="${esc(joinUrl(v))}" target="_blank" rel="noopener">Rejoindre</a></div>`).join('')}`;
   }
   loadVoiceLive().then(v => { VL = v; renderVoiceLive(); setInterval(renderVoiceLive, 60e3); });
 
