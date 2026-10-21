@@ -38,6 +38,15 @@ window.BS_CONFIG = {
 
   refreshSeconds: 60,
 
+  // Icône des rôles de l'équipe (le nom du rôle Discord contient « match »), sinon le 1er émoji du rôle
+  roleIcons: [
+    { match: 'CAG', icon: '=✪=' },
+    { match: 'AWACS', icon: '📡' },
+    { match: 'ATC', icon: '🌐' }
+  ],
+  // Membres du Discord à ne pas montrer dans « L'équipe » (pseudo contenant ce texte)
+  staffHidden: ['Joshua'],
+
   // Équipe affichée sur l'accueil. `pseudo` = nom en jeu (pour retrouver le grade dans les stats).
   staff: [
     { callsign: 'Breakdown', name: 'Thibaud', role: 'Fondateur', pseudo: 'Breakdown' },

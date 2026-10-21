@@ -303,8 +303,9 @@
   // Un membre : { name, role, color (#rrggbb ou null), sub? }
   function loadStaff() {
     const fromConfig = () => ({ source: 'config', list: (C.staff || []).map(m => ({ name: m.callsign, sub: m.name, role: m.role, color: m.roleColor || null })) });
+    const hidden = (C.staffHidden || []).map(n => n.toLowerCase());
     return discordData().then(d => d && Array.isArray(d.staff) && d.staff.length
-      ? { source: 'discord', list: d.staff.map(m => {
+      ? { source: 'discord', list: d.staff.filter(m => !hidden.some(h => m.name.toLowerCase().includes(h))).map(m => {
           // pseudo Discord « Breakdown | Thibaud » : on reprend l'indicatif et le prénom de C.staff s'il correspond
           const known = (C.staff || []).find(s => [s.discord, s.callsign, s.pseudo, s.name].filter(Boolean).some(n => m.name.toLowerCase().includes(n.toLowerCase())));
           return { name: known ? known.callsign : m.name, sub: known ? known.name : null, role: m.role, color: m.color };
@@ -312,12 +313,28 @@
       : fromConfig()).catch(fromConfig);
   }
   // Pastille du rôle : initiale du rôle sur la couleur du rôle Discord
-  const roleBadge = m => '<span class="role-badge" title="' + esc(m.role) + '" style="--rc:' + esc(m.color || '#d9b45a') + '">' + esc((m.role || '?').trim().charAt(0).toUpperCase()) + '</span>';
+  // Icône du rôle : C.roleIcons (« CAG » → =✪=), sinon le premier émoji du nom du rôle, sinon son initiale
+  const EMOJI = /\p{Extended_Pictographic}/u;
+  const roleIcon = role => {
+    const r = String(role || '');
+    const rule = (C.roleIcons || []).find(x => r.toLowerCase().includes(String(x.match).toLowerCase()));
+    if (rule) return rule.icon;
+    const em = r.match(EMOJI);
+    return em ? em[0] : (r.replace(/[^\p{L}\p{N}]/gu, '').charAt(0) || '?').toUpperCase();
+  };
+  // Nom du rôle sans décorations Discord : « =✪=Blue Sky CAG=✪= » → « Blue Sky CAG », « 📡~AWACS~📡 » → « AWACS »
+  const roleLabel = role => String(role || '').replace(/[\p{Extended_Pictographic}️‍]/gu, '')
+    .replace(/^[\s=~✪★•|_\-]+|[\s=~✪★•|_\-]+$/g, '').trim() || String(role || '');
+  const roleBadge = m => {
+    const icon = roleIcon(m.role);
+    const cls = EMOJI.test(icon) ? ' emoji' : [...icon].length > 1 ? ' small' : '';
+    return '<span class="role-badge' + cls + '" title="' + esc(m.role) + '" style="--rc:' + esc(m.color || '#d9b45a') + '">' + esc(icon) + '</span>';
+  };
 
   const demoBadge = (txt = 'Démo') => '<span class="demo-badge" title="Source pas encore branchée : données d\'exemple">' + esc(txt) + '</span>';
 
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
 })();
