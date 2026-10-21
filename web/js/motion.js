@@ -56,7 +56,8 @@
     const dec = opts.dec || 0, key = opts.key;
     to = Number(to) || 0;
     const final = () => (el.textContent = frFmt(to, dec));
-    if (reduced || (key && counted.has(key)) || to === 0) return final();
+    // quiet : données rafraîchies (BS.refresh) → valeur directe, pas de comptage depuis 0
+    if (reduced || window.BSMotion.quiet || (key && counted.has(key)) || to === 0) return final();
     if (key) counted.add(key);
     el.textContent = frFmt(0, dec);
     onVisible(el, () => {

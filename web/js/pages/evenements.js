@@ -3,8 +3,8 @@
   const { C, esc, fmt, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
-  let ev = { list: [] };
-  let evSig = '';
+  let ev = { list: [] }, loaded = false;
+  let evSig = null;   // null : le 1er rendu se fait même sans événement (« Aucun vol prévu »)
   function renderEvents() {
     const now = Date.now();
     const list = ev.list.filter(e => e.date.getTime() > now - 3 * 3600e3);
@@ -59,15 +59,18 @@
     return Math.round((a - b) / 86400000);
   };
   function tick() {
+    if (!loaded) return;
     const ne = ev.list.find(e => e.date.getTime() > Date.now() - 3 * 3600e3);
     $('nCount').textContent = ne ? fmt.countdown(ne.date.getTime() - Date.now()) : '—';
   }
-  loadEvents().then(x => {
-    ev = x;
+  const load = () => loadEvents().then(x => {
+    ev = x; loaded = true;
     if (ev.demo) $('evNote').innerHTML = demoBadge('Exemple') + ' Planning à remplir dans data/evenements.js';
     else if (ev.source === 'discord') $('evNote').textContent = 'Événements du Discord · inscription par sondage dans #inscriptions';
     renderEvents(); tick();
-    setInterval(tick, 1000);
-    setInterval(renderEvents, 60000);
   });
+  load();
+  document.addEventListener('bs:refresh', load);   // inscrits / nouveaux événements sans F5
+  setInterval(tick, 1000);
+  setInterval(renderEvents, 60000);
 })();
