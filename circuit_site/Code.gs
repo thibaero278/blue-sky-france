@@ -129,3 +129,8 @@ function suppression_(d) {
 }
 
 function text_(s) { return ContentService.createTextOutput(s); }
+
+// A lancer une fois depuis l'editeur (Executer > testMail) pour autoriser l'envoi des e-mails de demandes
+function testMail() {
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Test Blue Sky', 'Les mails marchent.');
+}
