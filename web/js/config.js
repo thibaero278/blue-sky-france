@@ -42,10 +42,11 @@ window.BS_CONFIG = {
   roleIcons: [
     { match: 'CAG', icon: '=✪=' },
     { match: 'AWACS', icon: '📡' },
-    { match: 'ATC', icon: '🌐' }
+    { match: 'ATC', icon: '🌐' },
+    { match: 'MIAOU', icon: '🐱' }
   ],
   // Membres du Discord à ne pas montrer dans « L'équipe » (pseudo contenant ce texte)
-  staffHidden: ['Joshua'],
+  staffHidden: [],
 
   // Équipe affichée sur l'accueil. `pseudo` = nom en jeu (pour retrouver le grade dans les stats).
   staff: [
