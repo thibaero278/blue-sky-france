@@ -114,7 +114,7 @@
     el.hidden = !VL;
     if (!VL) return;
     $('vlCard').innerHTML = `<span class="label" style="display:flex; align-items:center; gap:8px"><span class="dot${VL.length ? '' : ' off'}"></span>${VL.length ? 'En vocal maintenant' : 'Aucun vocal en cours'}</span>
-      ${VL.map(v => `<div class="vl-row"><b>🔊 ${esc(v.name)}</b><span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''}</span><span class="mono">depuis ${since(v.since)}</span></div>`).join('')}`;
+      ${VL.map(v => `<div class="vl-row"><b>${esc(v.name)}</b> <span class="mono">${v.count} connecté${v.count > 1 ? 's' : ''} · depuis ${since(v.since)}</span></div>`).join('')}`;
   }
   loadVoiceLive().then(v => { VL = v; renderVoiceLive(); setInterval(renderVoiceLive, 60e3); });
 
