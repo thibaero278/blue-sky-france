@@ -1,11 +1,19 @@
 (function () {
-  const { C, esc, fmt, num, loadStats, loadServer, loadStaff, roleBadge, loadDiscord, loadEvents, demoBadge } = window.BS;
+  const { C, esc, fmt, num, loadStats, loadServer, loadStaff, roleBadge, roleLabel, loadDiscord, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
   // L'équipe : rôles fixes du Discord Blue Sky (pas les grades aux points du serveur DCS)
+  // Couleur de rôle Discord trop claire sur fond clair (ex. #e7dcaf) → assombrie pour rester lisible
+  const readable = c => {
+    const m = /^#([0-9a-f]{6})$/i.exec(c || '');
+    if (!m) return c || 'inherit';
+    const n = parseInt(m[1], 16), r = n >> 16, g = n >> 8 & 255, b = n & 255;
+    const k = 0.2126 * r + 0.7152 * g + 0.0722 * b > 170 ? 0.55 : 1;
+    return 'rgb(' + [r, g, b].map(v => Math.round(v * k)).join(',') + ')';
+  };
   loadStaff().then(st => {
     $('staff').innerHTML = st.list.map(m =>
-      `<div class="staff">${roleBadge(m)}<div style="min-width:0"><b>${esc(m.name)}</b><small>${m.sub ? esc(m.sub) + ' · ' : ''}<span style="color:${esc(m.color || 'inherit')}; font-weight:600">${esc(m.role)}</span></small></div></div>`
+      `<div class="staff">${roleBadge(m)}<div style="min-width:0"><b>${esc(m.name)}</b><small>${m.sub ? esc(m.sub) + ' · ' : ''}<span style="color:${esc(readable(m.color))}; font-weight:600">${esc(roleLabel(m.role))}</span></small></div></div>`
     ).join('');
   });
 

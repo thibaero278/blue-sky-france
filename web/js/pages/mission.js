@@ -62,7 +62,7 @@
     $('mTitle').textContent = 'Mission introuvable';
     $('mText').innerHTML = 'Ce briefing n\'est plus en ligne (événement passé ou supprimé), ou le bot ne l\'a pas encore envoyé. ' +
       'Les missions sont annoncées sur le <a href="' + esc(C.discordInvite) + '" target="_blank" rel="noopener">Discord Blue Sky</a>.';
-    $('mActs').innerHTML = '<a class="btn outline" href="discord.html">Voir le planning</a>';
+    $('mActs').innerHTML = '<a class="btn outline" href="evenements.html">Voir le planning</a>';
   }
 
   loadMission(id).then(m => {
@@ -81,7 +81,7 @@
     }, { once: true }));
     $('mActs').innerHTML = (m.signupUrl ? `<a class="btn" href="${esc(m.signupUrl)}" target="_blank" rel="noopener">S'inscrire (sondage Discord)</a>` : '') +
       `<a class="btn outline" href="${esc(m.messageUrl)}" target="_blank" rel="noopener">Voir sur Discord</a>` +
-      '<a class="btn outline" href="discord.html">Planning</a>';
+      '<a class="btn outline" href="evenements.html">Planning</a>';
   });
 
   $('mText').addEventListener('click', e => { const s = e.target.closest('.spoiler'); if (s) s.classList.toggle('on'); });

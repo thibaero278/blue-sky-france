@@ -328,6 +328,16 @@ Un site Blue Sky (Google Sites envisagé) avec :
     « Voir le salon » / « Ouvrir le lien » (le site corrige aussi les anciennes données). Photos DCS de Thibaud en fond des cartes
     « Prochain vol » (`assets/ravito-b52.webp` accueil, `assets/cockpit-c130.webp` page Discord).
   - Il faut **redémarrer le bot** (STOP/GO) pour bot.yaml et le plugin.
+- 21/10/2026 (soir) : **onglet Événements + équipe**.
+  - « L'application ne répond plus » sur Publier sur le site : réponse Discord après 3 s (log : `Unknown interaction`) → le bot
+    répond tout de suite (`defer`) puis envoie la liste.
+  - Nouvelle page `evenements.html` (onglet « Événements » dans la barre) : bannière Apache (image 7 de Thibaud,
+    `assets/vol-evenements.webp`), carte Prochain vol (B-52), « Comment ça marche », planning, bandeau C-130.
+    Code du planning déplacé de `discord.js` vers `pages/evenements.js` ; la page Discord garde un lien vers l'onglet.
+    Accueil, page mission et message du sondage pointent vers `evenements.html`.
+  - Équipe : icônes de rôle (`C.roleIcons` : CAG =✪=, AWACS 📡, ATC 🌐), nom de rôle sans décorations, couleurs trop claires
+    assombries, Joshua masqué (`C.staffHidden` + `staff_roles` dans `bluesky.yaml` : CAG, AWACS, ATC).
+  - Communauté : Vétérans violet, Pilotes Blue Sky vert clair, Aviateurs bleu, Visiteurs vert foncé.
 
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un

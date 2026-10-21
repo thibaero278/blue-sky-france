@@ -453,8 +453,10 @@ class BlueSky(Plugin[BlueSkyEventListener]):
 
     async def publish_mission(self, interaction: discord.Interaction, message: discord.Message):
         cfg = self.cfg()
+        # Discord veut une réponse en moins de 3 s : on la réserve tout de suite, la suite part en « followup »
         # noinspection PyUnresolvedReferences
-        reply = interaction.response.send_message
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        reply = interaction.followup.send
         if not self.can_publish(interaction):
             await reply('Réservé au staff (rôle DCS Admin de bot.yaml, ou administrateur du serveur).', ephemeral=True)
             return
@@ -494,7 +496,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             ts = int(event.start_time.timestamp())
             poll_msg = await channel.send(
                 f'## 📋 Inscriptions : {event.name}\n🗓️ <t:{ts}:F> (<t:{ts}:R>)\n'
-                f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}discord.html',
+                f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}evenements.html',
                 poll=poll)
         async with self.apool.connection() as conn:
             await conn.execute("""

@@ -6,6 +6,7 @@
     ['aerobatics', 'Aerobatics', 'aerobatics.html'],
     ['carte', 'Carte live', 'carte.html'],
     ['classements', 'Classements', 'classements.html'],
+    ['evenements', 'Événements', 'evenements.html'],
     ['discord', 'Discord', 'discord.html']
   ];
   const active = document.body.dataset.page;

@@ -120,6 +120,8 @@ button { font-family: var(--f-text); }
 /* Pastille du rôle Discord de l'équipe (--rc = couleur du rôle) */
 .role-badge { width: 56px; height: 56px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center;
   background: var(--ink); color: var(--rc); border: 2px solid var(--rc); font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1; }
+.role-badge.small { font-size: 17px; letter-spacing: -.02em; }
+.role-badge.emoji { font-family: var(--f-text); font-size: 26px; }
 .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 1px; border-radius: 22px; border: 1px solid var(--line); background: var(--line); overflow: hidden; }
 .tiers > div { padding: 24px; display: flex; flex-direction: column; gap: 10px; background: var(--card); }
 .tiers b { display: flex; align-items: center; gap: 8px; font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1; text-transform: uppercase; }
@@ -144,6 +146,21 @@ button { font-family: var(--f-text); }
 .photo-card > img.bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
 .photo-card::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(19,33,58,.6) 0%, rgba(19,33,58,.85) 55%, rgba(19,33,58,.96) 100%); }
 .photo-card:hover > img.bg { transform: scale(1.04); }
+
+/* ---------- page Événements ---------- */
+.ev-hero { position: relative; min-height: clamp(420px, 62vh, 640px); display: flex; align-items: flex-end; overflow: hidden; background: #13213a; }
+.ev-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 40%; }
+.ev-hero .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(19,33,58,.82) 0%, rgba(19,33,58,.35) 55%, rgba(19,33,58,0) 80%), linear-gradient(0deg, rgba(19,33,58,.7) 0%, rgba(19,33,58,0) 45%); }
+.ev-hero-in { position: relative; width: 100%; padding-top: 140px; padding-bottom: 56px; display: flex; flex-direction: column; gap: 20px; }
+.ev-next { flex: 3 1 480px; min-height: 340px; border-radius: 24px; background: #13213a; color: #fbfaf7; padding: clamp(22px, 3vw, 36px); display: flex; flex-direction: column; gap: 16px; }
+.ev-how { flex: 2 1 320px; border-radius: 24px; padding: clamp(22px, 3vw, 32px); display: flex; flex-direction: column; gap: 18px; }
+.ev-how ol { margin: 0; padding: 0; list-style: none; counter-reset: st; display: flex; flex-direction: column; gap: 16px; }
+.ev-how li { counter-increment: st; display: grid; grid-template-columns: 40px 1fr; column-gap: 14px; row-gap: 2px; }
+.ev-how li::before { content: counter(st); grid-row: span 2; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--blue-soft); color: var(--blue); font-family: var(--f-display); font-weight: 800; font-size: 22px; }
+.ev-how b { font-size: 16px; } .ev-how li span { font-size: 14px; line-height: 1.5; color: var(--ink2); }
+.ev-link { display: flex; flex-direction: column; gap: 10px; min-height: 200px; justify-content: flex-end; padding: clamp(22px, 3vw, 32px); border-radius: 24px; background: #13213a; color: #fbfaf7; text-decoration: none; }
+.ev-link:hover { color: #fbfaf7; }
+.ev-link .more { font-weight: 600; font-size: 14px; }
 .big-num { font-family: var(--f-display); font-size: 72px; font-weight: 700; line-height: .85; }
 .rows > div { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line2); font-size: 14px; }
 .rows { border-top: 1px solid var(--line); }
