@@ -1,7 +1,7 @@
 (function () {
   const { C, esc, fmt, loadDiscord, loadActivity, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
-  let A = null, D = null, period = 30, hover = null;
+  let A = null, D = null;
 
   const fmtD = d => d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 
@@ -33,41 +33,70 @@
     BSMotion.onVisible(el, () => { el.classList.remove('pre'); el.classList.add('grow'); }, 0.3);
   }
 
-  const barColor = (a, i, n) => hover === i ? '#13213a' : i === n - 1 ? '#2a5ca8' : [5, 6].includes(a.date.getDay()) ? '#9fb6d8' : '#c9d6ea';
+  // Graphique en barres par jour (messages, temps en vocal) : p = préfixe des id dans discord.html
+  function barChart(p, opts) {
+    const el = id => $(p + id);
+    const st = { days: null, period: 30, hover: null };
+    const color = (a, i, n) => st.hover === i ? '#13213a' : i === n - 1 ? '#2a5ca8' : [5, 6].includes(a.date.getDay()) ? '#9fb6d8' : '#c9d6ea';
 
-  function renderChart() {
-    const days = A.days, slice = days.slice(-period);
-    const top = Math.ceil(Math.max(...slice.map(a => a.value)) / 100) * 100 || 100;
-    $('periods').querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.p) === period));
-    $('axis').innerHTML = `<span>${fmt.n(top)}</span><span>${fmt.n(top / 2)}</span><span>0</span>`;
-    $('bars').style.gap = period > 60 ? '1px' : period > 20 ? '3px' : '8px';
-    $('bars').innerHTML = slice.map((a, i) =>
-      `<div data-i="${i}" style="--i:${i}"><i style="height:${(a.value / top * 100).toFixed(1)}%; background:${barColor(a, i, slice.length)}"></i></div>`).join('');
-    renderHover();
-    $('xlabels').innerHTML = Array.from({ length: 5 }, (_, k) => {
-      const idx = Math.round(k * (slice.length - 1) / 4);
-      return '<span>' + (idx === slice.length - 1 ? "Aujourd'hui" : slice[idx].date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span>';
-    }).join('');
-    const total = slice.reduce((s, a) => s + a.value, 0);
-    const pk = slice.reduce((m, a) => a.value > m.value ? a : m, slice[0]);
-    const dowS = Array(7).fill(0), dowN = Array(7).fill(0);
-    days.forEach(a => { dowS[a.date.getDay()] += a.value; dowN[a.date.getDay()]++; });
-    const best = dowS.map((s, i) => s / (dowN[i] || 1)).reduce((b, v, i, arr) => v > arr[b] ? i : b, 0);
-    const dows = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-    $('summary').innerHTML = [
-      ['Total sur ' + period + ' jours', fmt.n(total) + ' messages'], ['Pic', fmt.n(pk.value) + ' · ' + fmtD(pk.date)], ['Jour le plus actif', dows[best]]
-    ].map(([l, v]) => `<div style="display:flex; flex-direction:column; gap:4px"><span class="label" style="letter-spacing:.1em">${l}</span><span style="font-size:17px; font-weight:600">${v}</span></div>`).join('');
+    function render() {
+      const days = st.days, slice = days.slice(-st.period);
+      const top = opts.top(Math.max(...slice.map(a => a.value)));
+      el('periods').querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.p) === st.period));
+      el('axis').innerHTML = `<span>${opts.axis(top)}</span><span>${opts.axis(top / 2)}</span><span>0</span>`;
+      el('bars').style.gap = st.period > 60 ? '1px' : st.period > 20 ? '3px' : '8px';
+      el('bars').innerHTML = slice.map((a, i) =>
+        `<div data-i="${i}" style="--i:${i}"><i style="height:${(a.value / top * 100).toFixed(1)}%; background:${color(a, i, slice.length)}"></i></div>`).join('');
+      renderHover();
+      el('xlabels').innerHTML = Array.from({ length: 5 }, (_, k) => {
+        const idx = Math.round(k * (slice.length - 1) / 4);
+        return '<span>' + (idx === slice.length - 1 ? "Aujourd'hui" : slice[idx].date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span>';
+      }).join('');
+      const total = slice.reduce((s, a) => s + a.value, 0);
+      const pk = slice.reduce((m, a) => a.value > m.value ? a : m, slice[0]);
+      const dowS = Array(7).fill(0), dowN = Array(7).fill(0);
+      days.forEach(a => { dowS[a.date.getDay()] += a.value; dowN[a.date.getDay()]++; });
+      const best = dowS.map((s, i) => s / (dowN[i] || 1)).reduce((b, v, i, arr) => v > arr[b] ? i : b, 0);
+      const dows = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+      el('summary').innerHTML = [
+        ['Total sur ' + st.period + ' jours', opts.total(total)], ['Pic', opts.value(pk.value) + ' · ' + fmtD(pk.date)], ['Jour le plus actif', dows[best]]
+      ].map(([l, v]) => `<div style="display:flex; flex-direction:column; gap:4px"><span class="label" style="letter-spacing:.1em">${l}</span><span style="font-size:17px; font-weight:600">${v}</span></div>`).join('');
+    }
+
+    // Survol : on recolore les barres existantes au lieu de tout reconstruire
+    function renderHover() {
+      const slice = st.days.slice(-st.period), tip = el('tip');
+      el('bars').querySelectorAll('i').forEach((b, i) => (b.style.background = color(slice[i], i, slice.length)));
+      if (st.hover != null && slice[st.hover]) {
+        tip.hidden = false;
+        tip.style.left = ((st.hover + 0.5) / slice.length * 100) + '%';
+        tip.innerHTML = `<span class="mono" style="font-size:11px; color:#9aa6ba">${fmtD(slice[st.hover].date)}</span><span style="font-weight:600; font-size:15px">${opts.value(slice[st.hover].value)}</span>`;
+      } else tip.hidden = true;
+    }
+
+    el('periods').innerHTML = [7, 30, 90].map(n => `<button data-p="${n}"${n === st.period ? ' class="on"' : ''}>${n} j</button>`).join('');
+    el('periods').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b && st.days && Number(b.dataset.p) !== st.period) { st.period = Number(b.dataset.p); st.hover = null; render(); } });
+    el('bars').addEventListener('mouseover', e => { const b = e.target.closest('[data-i]'); if (b && Number(b.dataset.i) !== st.hover) { st.hover = Number(b.dataset.i); renderHover(); } });
+    el('chart').addEventListener('mouseleave', () => { st.hover = null; if (st.days) renderHover(); });
+    growOnView(el('bars'));
+    return { set(days) { st.days = days; render(); } };
   }
 
-  // Survol : on recolore les barres existantes au lieu de tout reconstruire
-  function renderHover() {
-    const slice = A.days.slice(-period), tip = $('tip');
-    $('bars').querySelectorAll('i').forEach((el, i) => (el.style.background = barColor(slice[i], i, slice.length)));
-    if (hover != null && slice[hover]) {
-      tip.hidden = false;
-      tip.style.left = ((hover + 0.5) / slice.length * 100) + '%';
-      tip.innerHTML = `<span class="mono" style="font-size:11px; color:#9aa6ba">${fmtD(slice[hover].date)}</span><span style="font-weight:600; font-size:15px">${fmt.n(slice[hover].value)} messages</span>`;
-    } else tip.hidden = true;
+  // Durée en minutes → « 3 h 20 », « 45 min »
+  const dur = m => m < 60 ? Math.round(m) + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + String(Math.round(m % 60)).padStart(2, '0') : '');
+  const msgChart = barChart('', {
+    top: max => Math.ceil(max / 100) * 100 || 100, axis: v => fmt.n(v),
+    value: v => fmt.n(v) + ' messages', total: v => fmt.n(v) + ' messages'
+  });
+  const voiceChart = barChart('v', {
+    top: max => Math.ceil(max / 120) * 120 || 120, axis: v => Math.round(v / 60) + ' h',   // graduations en heures
+    value: dur, total: dur
+  });
+  function renderVoice() {
+    const V = A.voice;
+    $('vLabel').innerHTML = 'Salons vocaux' + (V.demo ? ' ' + demoBadge() : '') +
+      (!V.demo && V.since ? ' <span class="mono" style="font-size:11px; color:#8a91a3; text-transform:none; letter-spacing:0">· tous membres confondus, compté par le bot depuis le ' + fmt.dateShort(V.since) + '</span>' : '');
+    voiceChart.set(V.days);
   }
 
   function renderHours() {
@@ -77,14 +106,9 @@
     $('peak').textContent = 'Pic : ' + pk.value + ' à ' + String(pk.hour).padStart(2, '0') + ' h';
   }
 
-  $('periods').innerHTML = [7, 30, 90].map(p => `<button data-p="${p}"${p === period ? ' class="on"' : ''}>${p} j</button>`).join('');
-  $('periods').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b && Number(b.dataset.p) !== period) { period = Number(b.dataset.p); hover = null; renderChart(); } });
-  $('bars').addEventListener('mouseover', e => { const b = e.target.closest('[data-i]'); if (b && Number(b.dataset.i) !== hover) { hover = Number(b.dataset.i); renderHover(); } });
-  $('chart').addEventListener('mouseleave', () => { hover = null; if (A) renderHover(); });
-
-  growOnView($('bars')); growOnView($('hours'));
+  growOnView($('hours'));
   loadDiscord().then(d => { D = d; BS.num($('cMembers'), d.members); BS.num($('cOnline'), d.online); renderKpis(); });
-  loadActivity().then(a => { A = a; renderKpis(); renderChart(); renderHours(); });
+  loadActivity().then(a => { A = a; renderKpis(); msgChart.set(A.days); renderVoice(); renderHours(); });
 
   // ---------- planning ----------
   let ev = { list: [] };
@@ -92,30 +116,42 @@
   function renderEvents() {
     const now = Date.now();
     const list = ev.list.filter(e => e.date.getTime() > now - 3 * 3600e3);
-    const sig = list.map(e => e.title + Math.ceil((e.date.getTime() - now) / 86400000)).join('|');
+    const sig = list.map(e => e.title + Math.ceil((e.date.getTime() - now) / 86400000) + JSON.stringify(e.signups || '')).join('|');
     if (sig === evSig) return;
     evSig = sig;
     $('events').innerHTML = list.map(e => {
       const full = !!e.slots && e.registered >= e.slots;
       const fill = e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0;
       const days = Math.ceil((e.date.getTime() - now) / 86400000);
+      const s = e.signups;
+      // Sondage d'inscription : « 5 présents · 2 peut-être », sinon le compteur « Intéressé » de l'événement Discord
+      const count = s ? s.yes.length + ' présent' + (s.yes.length > 1 ? 's' : '') + (e.slots ? ' / ' + e.slots : '') + (s.maybe.length ? ' · ' + s.maybe.length + ' peut-être' : '')
+        : e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '');
+      const who = s && (s.yes.length || s.maybe.length) ? `<div class="who-list">${s.yes.map(n => `<span class="yes">${esc(n)}</span>`).join('')}${s.maybe.map(n => `<span class="maybe" title="Peut-être">${esc(n)}</span>`).join('')}</div>` : '';
       return `<div class="card event">
         <div class="date"><span class="mono" style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#2a5ca8">${fmt.dayShort(e.date)}</span><b>${e.date.getDate()}</b><span class="mono" style="font-size:11px; text-transform:uppercase; color:#4a556b">${fmt.month(e.date)}</span></div>
         <div style="flex:1 1 280px; display:flex; flex-direction:column; gap:8px; min-width:0">
           <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px"><span class="kind">${esc(e.type)}</span><span class="mono" style="font-size:12px; color:#8a91a3">${fmt.hour(e.date)} · ${esc(e.map)} · par ${esc(e.host)}</span></div>
           <span style="font-size:19px; font-weight:600">${esc(e.title)}</span>
+          ${who}
         </div>
         <div style="flex:0 1 200px; display:flex; flex-direction:column; gap:8px; min-width:160px">
-          <div class="mono" style="display:flex; justify-content:space-between; font-size:12px; color:#4a556b"><span>${e.slots ? e.registered + ' / ' + e.slots + ' pilotes' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '')}</span><span>${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
+          <div class="mono" style="display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#4a556b"><span>${count}</span><span style="white-space:nowrap">${days <= 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : 'Dans ' + days + ' j'}</span></div>
           <div class="bar"><div style="width:${fill}%; background:${full ? '#d0342c' : '#2a5ca8'}"></div></div>
         </div>
-        ${full ? '<span class="btn muted">Complet</span>' : '<a class="btn outline" href="' + esc(e.url || C.discordInvite) + '" target="_blank" rel="noopener">S\'inscrire</a>'}
+        <div class="ev-actions">
+          ${e.mission && e.id ? '<a class="btn outline" href="mission.html?id=' + esc(e.id) + '">Voir la mission</a>' : ''}
+          ${full ? '<span class="btn muted">Complet</span>' : '<a class="btn" href="' + esc(signupUrl(e)) + '" target="_blank" rel="noopener">S\'inscrire</a>'}
+        </div>
       </div>`;
     }).join('') || '<div class="card empty">Aucun vol prévu pour le moment. Les annonces arrivent sur le Discord.</div>';
     const ne = list[0];
     $('nTitle').textContent = ne ? ne.title : 'Rien de prévu';
     $('nWhen').textContent = ne ? fmt.dateLong(ne.date) + ' · ' + fmt.hour(ne.date) + ' · ' + ne.map : '';
+    if (ne) $('nSignup').href = signupUrl(ne);
   }
+  // Sondage de l'événement, sinon le salon #inscriptions, sinon l'événement Discord
+  const signupUrl = e => e.signupUrl || ev.signupChannel || C.signupChannel || e.url || C.discordInvite;
   function tick() {
     const ne = ev.list.find(e => e.date.getTime() > Date.now() - 3 * 3600e3);
     $('nCount').textContent = ne ? fmt.countdown(ne.date.getTime() - Date.now()) : '—';
@@ -123,7 +159,7 @@
   loadEvents().then(x => {
     ev = x;
     if (ev.demo) $('evNote').innerHTML = demoBadge('Exemple') + ' Planning à remplir dans data/evenements.js';
-    else if (ev.source === 'discord') $('evNote').textContent = 'Événements du Discord · inscris-toi avec « Intéressé »';
+    else if (ev.source === 'discord') $('evNote').textContent = 'Événements du Discord · inscription par sondage dans #inscriptions';
     renderEvents(); tick();
     setInterval(tick, 1000);
     setInterval(renderEvents, 60000);

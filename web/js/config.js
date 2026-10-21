@@ -25,10 +25,13 @@ window.BS_CONFIG = {
   liveUrl: '',             // URL d'un live.json
   liveFile: '',            // ex. 'data/live.json'
   discordFile: '',         // ex. 'data/discord.json' (activité + événements Discord)
+  missionsFile: '',        // ex. 'data/missions.json' (briefings publiés depuis Discord)
   discordActivityUrl: '',  // ancien réglage, gardé pour compatibilité
 
   discordInvite: 'https://discord.gg/zVEsRbm8h2',
   discordInviteCode: 'zVEsRbm8h2',   // sert à lire le nombre de membres / en ligne via l'API publique Discord
+  // Salon #inscriptions (bouton « S'inscrire » quand l'événement n'a pas encore de sondage)
+  signupChannel: 'https://discord.com/channels/864983516516843570/1562459201618452540',
 
   serverName: 'Blue Sky | Foothold',
   missionLabel: 'Foothold · Caucase',

@@ -195,28 +195,52 @@
       const c = h < 7 ? 4 + (7 - h) * 0.5 : h < 12 ? 8 + (h - 7) * 2 : h < 18 ? 16 + (h - 12) * 1.5 : h < 23 ? 34 + (h - 18) * 3 : 30;
       return { hour: h, value: Math.round(c * (0.85 + r() * 0.3)) };
     });
-    return { demo: true, days, online24h, newMembers30d: 9 };
+    return { demo: true, days, online24h, newMembers30d: 9, voice: demoVoice(days) };
   }
-  // Format (bot, plugin bluesky) : { since, days:[{date:'AAAA-MM-JJ', value}], online24h:[{hour, value}], newMembers30d }
+  // Minutes en vocal par jour (exemple) : surtout le soir des vols, le week-end
+  function demoVoice(days) {
+    const r = rng(4242);
+    return { demo: true, since: null, days: days.map(a => {
+      const dow = a.date.getDay(), wk = dow === 5 || dow === 6 ? 2.2 : dow === 0 ? 1.6 : 1;
+      return { date: a.date, value: Math.round(240 * wk * (0.4 + r() * 0.9)) };
+    }) };
+  }
+  // Format (bot, plugin bluesky) : { since, days:[{date:'AAAA-MM-JJ', value}], online24h:[{hour, value}], newMembers30d,
+  //   voiceSince, voice:[minutes en vocal, mêmes jours que days] }
   function loadActivity() {
     const src = C.discordActivityUrl ? getJson(C.discordActivityUrl) : discordData().then(d => d && d.activity);
     return src.then(j => {
       if (!j || !j.days) return demoActivity();
       const day = s => { const [y, m, dd] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, dd); };
-      return { demo: false, since: j.since ? day(j.since) : null, days: j.days.map(d => ({ date: day(d.date), value: d.value })), online24h: j.online24h, newMembers30d: j.newMembers30d };
+      const days = j.days.map(d => ({ date: day(d.date), value: d.value }));
+      const voice = Array.isArray(j.voice) && j.voice.length === days.length
+        ? { demo: false, since: j.voiceSince ? day(j.voiceSince) : null, days: days.map((d, i) => ({ date: d.date, value: j.voice[i] || 0 })) }
+        : demoVoice(days);
+      return { demo: false, since: j.since ? day(j.since) : null, days, online24h: j.online24h, newMembers30d: j.newMembers30d, voice };
     }).catch(() => demoActivity());
   }
 
   // ---------- planning : événements Discord (via le bot), sinon data/evenements.js ----------
-  // Un événement : { title, date, type, map, host, registered, slots (null = pas de limite), url }
+  // Un événement : { id, title, date, type, map, host, registered, slots (null = pas de limite), url,
+  //   mission (briefing publié), signupUrl (sondage d'inscription), signups: { yes:[pseudos], maybe:[pseudos], no:nombre } }
   function events() {
     const E = window.BS_EVENTS || { demo: true, events: [] };
     return { demo: !!E.demo, source: 'file', list: E.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) };
   }
   function loadEvents() {
     return discordData().then(d => d && Array.isArray(d.events)
-      ? { demo: false, source: 'discord', list: d.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) }
+      ? { demo: false, source: 'discord', signupChannel: d.signupChannel || C.signupChannel,
+          list: d.events.map(e => ({ ...e, date: new Date(e.date) })).sort((a, b) => a.date - b.date) }
       : events());
+  }
+
+  // Briefing d'une mission publiée depuis Discord : relais ?format=mission&id=…, sinon fichier missionsFile
+  function loadMission(id) {
+    if (!/^\d+$/.test(String(id || ''))) return Promise.resolve(null);
+    const fromFile = () => C.missionsFile ? getJson(C.missionsFile).then(j => (j.missions || []).find(m => m.id === String(id)) || null) : null;
+    return (C.statsUrl ? getJson(relayUrl('mission') + '&id=' + encodeURIComponent(id)).then(m => m && !m.error ? m : fromFile()) : Promise.resolve(fromFile()))
+      .then(m => m && { ...m, date: new Date(m.date) })
+      .catch(err => { console.warn('[BS] mission indisponible :', err); return null; });
   }
 
   // ---------- carte live ----------
@@ -293,5 +317,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, demoBadge };
+  window.BS = { C, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, demoBadge };
 })();

@@ -55,6 +55,23 @@ function doPost(e) {
     return text_('ok');
   }
 
+  // Missions publiees depuis Discord (clic droit « Publier sur le site ») : une propriete par mission
+  // (MISSION_<id evenement>, 9 ko max chacune) + la liste MISSIONS. Les missions retirees sont effacees.
+  if (d.type === 'missions') {
+    const props = PropertiesService.getScriptProperties();
+    const ids = [];
+    (d.missions || []).forEach(m => {
+      if (!/^\d+$/.test(String(m.id))) return;
+      props.setProperty('MISSION_' + m.id, JSON.stringify(shrinkMission_(m)));
+      ids.push(String(m.id));
+    });
+    Object.keys(props.getProperties())
+      .filter(k => k.indexOf('MISSION_') === 0 && ids.indexOf(k.slice(8)) < 0)
+      .forEach(k => props.deleteProperty(k));
+    props.setProperty('MISSIONS', JSON.stringify(ids));
+    return text_('ok');
+  }
+
   if (d.type === 'changelog') {
     sheet_('Changelog', ['Date', 'Fichier', 'Version', 'Hash', 'Notes'])
       .appendRow([new Date(), d.file || '', d.version || '', d.hash || '', d.notes || '']);
@@ -63,9 +80,15 @@ function doPost(e) {
   return text_('unknown type');
 }
 
-// Page publique : ?format=json (stats + Discord), ?format=live (carte), sinon la page HTML (Google Sites)
+// Page publique : ?format=json (stats + Discord), ?format=live (carte), ?format=mission&id=… (briefing),
+// sinon la page HTML (Google Sites)
 function doGet(e) {
   const fmt = e && e.parameter.format;
+  if (fmt === 'mission') {
+    const id = String(e.parameter.id || '');
+    const json = /^\d+$/.test(id) && PropertiesService.getScriptProperties().getProperty('MISSION_' + id);
+    return ContentService.createTextOutput(json || '{"error":"not found"}').setMimeType(ContentService.MimeType.JSON);
+  }
   if (fmt === 'live') {
     return ContentService.createTextOutput(PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}')
       .setMimeType(ContentService.MimeType.JSON);
@@ -99,9 +122,20 @@ function getData_() {
 function shrinkDiscord_(d) {
   const size = () => JSON.stringify(d).length;
   (d.events || []).forEach(ev => { delete ev.end; });
-  while (size() > 9000 && d.activity && d.activity.days.length > 30) d.activity.days.shift();
+  while (size() > 9000 && d.activity && d.activity.days.length > 30) {
+    d.activity.days.shift();
+    if (d.activity.voice) d.activity.voice.shift();   // meme jours que days
+  }
   while (size() > 9000 && d.events && d.events.length) d.events.pop();
   return d;
+}
+
+// Un briefing tient dans 9 ko : on raccourcit le texte, puis on retire des photos
+function shrinkMission_(m) {
+  const size = () => JSON.stringify(m).length;
+  while (size() > 9000 && m.text && m.text.length > 200) m.text = m.text.slice(0, m.text.length - 500) + '…';
+  while (size() > 9000 && m.images && m.images.length) m.images.pop();
+  return m;
 }
 
 // Demande d'effacement des stats (RGPD art. 17), envoyee par web/mes-donnees.html.

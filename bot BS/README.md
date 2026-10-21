@@ -34,6 +34,12 @@ Vérification : `powershell -ExecutionPolicy Bypass -File tools\Test-BlueSkyEnvi
 Le plugin lit `Scores.lua` et les positions des joueurs sur le serveur DCS, compte l'activité Discord et lit les
 événements planifiés, puis pousse tout vers le site (relais Apps Script, voir `site\circuit_site\INSTALLATION.md`).
 - Discord : `/pilote`, `/classement`, `/enligne`, `/annonce` (DCS Admin) ; salon fil (promotions, bilans) si `feed_channel` est rempli.
+- Missions : clic droit sur le briefing dans #missions-dcs → Applications → **Publier sur le site** → choisir l'événement Discord.
+  Le bot poste un sondage d'inscription dans #inscriptions ; le site affiche les inscrits et une page `mission.html`.
+- Temps passé en vocal (total par jour, sans nom) → graphique de la page Discord du site.
+- Commandes inutiles des autres plugins **masquées** (`hide_commands`, `hide_chat_commands`) : il reste la modération
+  (`/player`, `/watch`, `/link`, `/find`, `/info`, `/linkme`, `/dcs ban|unban|bans`) et `/serverstats`, `/serverload`.
+  `creditsystem` et `cloud` ne sont plus chargés.
 - En jeu : `-discord`, `-site`, `-stats` (réponse seulement au joueur qui tape la commande, rien à la connexion).
 - Réglages : `config\dcssb\plugins\bluesky.yaml` (modèle `config\templates\plugins\bluesky.yaml.template`).
 - Tables PostgreSQL `bluesky_activity`, `bluesky_presence` créées au démarrage (version 1.1 du plugin).

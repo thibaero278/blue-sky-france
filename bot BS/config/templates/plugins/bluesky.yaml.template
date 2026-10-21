@@ -16,3 +16,11 @@ DEFAULT:
   export_dir: ''                  # dossier où écrire stats.json / live.json / discord.json (vide = non)
   staff_roles: []                 # rôles Discord de « L'équipe » sur le site, ex. [Fondateur, Admin, Modérateur, Helper]
                                   # vide = auto (rôles affichés à part avec droits de modération)
+  # Missions et inscriptions : clic droit sur le briefing > Applications > Publier sur le site
+  mission_channel: 1419768783282896987   # salon des briefings (#missions-dcs) ; -1 = n'importe quel salon
+  signup_channel: 1562459201618452540    # salon où le bot poste le sondage d'inscription
+  publish_role: DCS Admin                # qui peut publier une mission
+  voice_stats: true                      # temps passé en vocal (total par jour, sans nom) pour le site
+  # Commandes masquées : voir hide_commands / hide_chat_commands dans plugins\bluesky\commands.py (DEFAULTS).
+  # Pour changer la liste, recopier ici la liste complète, ex. :
+  # hide_commands: [mission, server, scheduler, ...]
