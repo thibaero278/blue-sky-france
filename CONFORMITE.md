@@ -75,4 +75,4 @@ Ce n'est pas qu'une vitrine : le site **publie des données de joueurs**.
 ## Pour le déploiement
 
 - Les pages utilisent des liens relatifs, donc elles fonctionnent sur GitHub Pages (`/mentions-legales`, `/confidentialite`, `/cookies`).
-- Ces modifications sont sur la branche `conformite`, pas sur `main` : rien n'est publié tant que tu ne fusionnes pas.
+- Poussé sur `main` le 21/10/2026 : les pages sont en ligne (GitHub Pages).
