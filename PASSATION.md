@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 19/10/2026 (commerce triangulaire)_
+_Dernière mise à jour : 21/10/2026 (missions, inscriptions, temps vocal, ménage des commandes du bot)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > (`CLAUDE.md` est géré par Claude Chat : ne pas y toucher.)
@@ -293,8 +293,35 @@ Un site Blue Sky (Google Sites envisagé) avec :
     (placeholders publics, Google Fonts) : remplacée à la fusion, ses remarques utiles reprises dans `CONFORMITE.md` § 7.
   - Apps Script **redéployé par Thibaud** + `testMail` lancé pour autoriser les e-mails : formulaire et mail testés, **tout marche**.
     Demandes → onglet « Demandes » de BS Stats + e-mail. Une ligne TEST y a été créée par Claude (à effacer).
+- 21/10/2026 : **ménage des commandes du bot + missions/inscriptions + temps vocal** (plugin `bluesky` v1.2, demandé par Thibaud).
+  - Commandes : plugins `creditsystem` et `cloud` retirés de `main.yaml` (config + modèle). Les autres restent chargés car requis
+    (mission ← gamemaster et missionstats, monitoring ← userstats) ; leurs commandes inutiles sont **masquées** par `bluesky`
+    avant l'enregistrement sur Discord (`hide_commands` / `hide_chat_commands` dans `DEFAULTS` de `commands.py`).
+    Restent : `/pilote /classement /enligne /annonce`, modération `/player …`, `/watch …`, `/link /unlink /find /info /linkme`,
+    `/dcs ban|unban|bans`, `/serverstats /serverload` ; en jeu `-ban -kick -spec -mute -unmute -linkme -911 -discord -site -stats`.
+    `/node upgrade` (mise à jour du bot) masqué exprès : il écraserait les patchs locaux (max_hung, messages d'accueil).
+  - Missions : clic droit sur le briefing dans #missions-dcs (`mission_channel` 1419768783282896987) → Applications →
+    **Publier sur le site** (rôle `DCS Admin`) → liste des événements Discord à venir → le bot poste un **sondage Discord natif**
+    (Présent / Peut-être / Absent, fermé à l'heure de l'événement) dans #inscriptions (`signup_channel` 1562459201618452540).
+    Lien événement ↔ briefing ↔ sondage par **ID d'événement** (table `bluesky_missions`, purgée 7 j après l'événement).
+    Les votes marchent même bot éteint (sondage Discord) ; le site se met à jour quand le bot tourne (toutes les 15 min).
+  - Site : carte d'événement = pseudos Présent / Peut-être (Absent : nombre seulement), boutons **Voir la mission**
+    (`mission.html?id=…`, nouvelle page : texte Discord mis en forme + photos) et **S'inscrire** (sondage, sinon salon #inscriptions,
+    `C.signupChannel`). Nouveau graphique **Temps en vocal par jour** sous celui des messages (démo tant que le bot n'a rien compté).
+  - Vocal : `on_voice_state_update`, total par jour (table `bluesky_voice`, secondes), hors salon AFK et casque coupé, aucun nom gardé.
+  - `Code.gs` : type `missions` (une propriété `MISSION_<id>` par briefing, 9 ko max, texte raccourci si besoin) et
+    `?format=mission&id=…` ; `voice` raccourci avec `days`. **À redéployer** (nouvelle version) par Thibaud.
+  - Confidentialité : § 5 « Inscriptions aux missions », temps vocal (§ 4), 2 durées de conservation ; cookies : Discord sur page Mission.
+  - Testé : import du plugin et masquage des commandes (arbre de commandes simulé), découpe du vocal par jour, sondage et menu
+    discord.py 2.7.1 ; site avec relais simulé (desktop + mobile, page mission, mission introuvable, photo expirée → lien Discord).
+    Plugin déployé dans `bot\DCSServerBot\plugins\bluesky`. **Pas testé en réel** : bot pas redémarré, Code.gs pas redéployé, rien poussé.
+  - Limites : liens photo Discord valables ~24 h, renouvelés par le bot → si le bot est éteint plus d'un jour, la page mission
+    affiche « Photo visible sur le Discord ». Même token que Weefe : si c'est sa copie du bot qui tourne, le clic droit
+    « Publier sur le site » et les nouvelles commandes n'existent pas (ses commandes à lui reviennent).
 
 ## Prochaines étapes
+- **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
+  événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
 1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
 2. Ajouter `thibaero278/blue-sky-france` dans Graphify (accès de l'app GitHub Graphify au dépôt).
