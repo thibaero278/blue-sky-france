@@ -60,13 +60,28 @@
         <a href="https://www.youtube.com/@BlueSky_France" target="_blank" rel="noopener">YouTube · @BlueSky_France</a>
         <a href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram · Blue Sky France</a>
       </div>
+      <div class="col">
+        <span class="label">Infos légales</span>
+        <a href="mentions-legales.html">Mentions légales</a>
+        <a href="confidentialite.html">Confidentialité</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="mes-donnees.html">Supprimer mes stats</a>
+      </div>
       <div class="col" style="gap:14px">
         <span class="label" style="margin:0">Discord</span>
         <a class="btn sm light" href="${esc(C.discordInvite)}" target="_blank" rel="noopener" style="color:#13213a">Rejoindre le serveur</a>
         <span class="mono" style="font-size:12px; color:#9aa6ba">${esc(invShort)}</span>
       </div>
     </div>
-    <div class="bottom"><span>© ${new Date().getFullYear()} Blue Sky France</span><span>Fondé par Breakdown · Beynost, France</span></div>`;
+    <div class="bottom">
+      <span>© ${new Date().getFullYear()} Blue Sky France · Fondé par Breakdown</span>
+      <span class="legal-links">
+        <a href="mentions-legales.html">Mentions légales</a>
+        <a href="confidentialite.html">Confidentialité</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="mes-donnees.html">Supprimer mes stats</a>
+      </span>
+    </div>`;
   document.body.append(footer);
 
   // Bouton « copier l'invitation » (accueil, discord)
