@@ -400,7 +400,8 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Grades (3 copies) et météo de la carte : laissés tels quels (choix de Thibaud).
 
 ## Prochaines étapes
-- **Après les optimisations du 22/10** : redéployer `Code.gs` (nouvelle version), STOP/GO du bot.
+- Optimisations du 22/10 : `Code.gs` redéployé et bot redémarré par Thibaud, vérifié (relais, bot, site en ligne).
+  Reste à voir en réel : carte live avec une mission lancée (envoi toutes les 2 min serveur vide, 30 s avec des joueurs).
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
   événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
