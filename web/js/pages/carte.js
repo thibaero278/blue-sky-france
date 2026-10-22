@@ -1,7 +1,7 @@
 (function () {
   const { esc, fmt, airfields, loadLive, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
-  let players = [], selected = null, follow = false, filter = 'all', demo = true, missionT0 = null;
+  let players = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null;
 
   const map = L.map('map', { minZoom: 6, maxZoom: 12, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
@@ -123,7 +123,7 @@
 
   function load() {
     return loadLive().then(d => {
-      demo = d.demo;
+      demo = d.demo; offline = !!d.offline;
       if (d.weather) setWeather(d.weather);
       if (!demo && !d.weather) setWeather({});
       missionT0 = !d.offline && d.missionTime != null ? { t: d.missionTime, at: Date.now() } : null;
@@ -139,9 +139,18 @@
     });
   }
 
+  // Relu toutes les 30 s quand le serveur tourne (le bot envoie les positions toutes les 30 s), toutes les 2 min sinon ;
+  // rien tant que l'onglet est caché, relu dès qu'on y revient.
+  let timer = null;
+  const schedule = () => { timer = setTimeout(poll, offline ? 120e3 : 30e3); };
+  function poll() {
+    timer = null;
+    if (!document.hidden) load().then(schedule);
+  }
   load().then(() => {
-    if (demo) setInterval(demoTick, 1000);
-    else setInterval(load, 15000);
+    if (demo) { setInterval(demoTick, 1000); return; }
+    schedule();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !timer) poll(); });
   });
   // Heure in-game : envoyée par le serveur (secondes depuis minuit), horloge fictive en démo, « --:--:-- » serveur éteint
   setInterval(() => ($('clock').textContent = fmt.gameClock(missionT0, demo)), 1000);

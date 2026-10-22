@@ -1,9 +1,23 @@
 // BLUE SKY - Apps Script (a coller dans Extensions > Apps Script de la feuille "BS Stats")
 // Relais entre le serveur (bot Discord plugin bluesky, ou hook BS_site.lua) et le site :
-// recoit stats / positions live / activite Discord / changelog, sert le JSON au site et la page classement.
+// recoit stats / positions live / activite Discord / changelog, sert le JSON au site.
+// Les lectures du site passent par le cache (CacheService) : le quota « Properties » (50 000 lectures/ecritures
+// par jour en compte gratuit) et la lecture de la feuille ne servent plus qu'en secours.
+
+const CACHE_S = 21600;   // duree max d'une entree du cache (6 h)
+const LIVE_SAVE_S = 300; // copie du live dans les proprietes au plus toutes les 5 min (secours si le cache est vide)
 
 // Token partagé avec le hook et publier_maj : Paramètres du projet > Propriétés du script > TOKEN
-const TOKEN = PropertiesService.getScriptProperties().getProperty('TOKEN');
+// (lu seulement a la reception d'un envoi, et garde en cache : les visites du site ne le lisent jamais)
+function token_() {
+  const cache = CacheService.getScriptCache();
+  let t = cache.get('TOKEN');
+  if (!t) {
+    t = PropertiesService.getScriptProperties().getProperty('TOKEN');
+    if (t) cache.put('TOKEN', t, CACHE_S);
+  }
+  return t;
+}
 
 const COLS = ['name', 'grade', 'points', 'totalFlightTime', 'completedFlightTime', 'maxFlightTime',
   'flights', 'airair', 'airsol', 'airmer', 'traps', 'deaths', 'teamkills', 'refuelTime', 'rang'];
@@ -25,7 +39,7 @@ function doPost(e) {
   try { d = JSON.parse(e.postData.contents); } catch (err) { return text_('bad json'); }
   // Seul envoi sans token : le formulaire public « Mes données » du site
   if (d.type === 'suppression') return suppression_(d);
-  if (d.token !== TOKEN) return text_('forbidden');
+  if (!d.token || d.token !== token_()) return text_('forbidden');
 
   if (d.type === 'scores' || d.type === 'stats') {
     const sh = sheet_('Pilotes', HEADERS);
@@ -41,6 +55,7 @@ function doPost(e) {
       ['Mission', d.mission || ''],
       ['En ligne', (d.online || []).map(o => o.name).join(', ')],
     ]);
+    CacheService.getScriptCache().remove('JSON');
     return text_('ok');
   }
 
@@ -51,7 +66,15 @@ function doPost(e) {
     let json = JSON.stringify(d);
     while (json.length > 9000 && d.players && d.players.length) { d.players.pop(); json = JSON.stringify(d); }
     if (d.type === 'discord') json = JSON.stringify(shrinkDiscord_(d));
-    PropertiesService.getScriptProperties().setProperty(d.type.toUpperCase(), json);
+    const key = d.type.toUpperCase(), cache = CacheService.getScriptCache();
+    cache.put(key, json, CACHE_S);
+    if (d.type === 'discord') {
+      PropertiesService.getScriptProperties().setProperty(key, json);
+      cache.remove('JSON');
+    } else if (!cache.get('LIVE_SAVED')) {
+      PropertiesService.getScriptProperties().setProperty(key, json);
+      cache.put('LIVE_SAVED', '1', LIVE_SAVE_S);
+    }
     return text_('ok');
   }
 
@@ -75,13 +98,13 @@ function doPost(e) {
   if (d.type === 'changelog') {
     sheet_('Changelog', ['Date', 'Fichier', 'Version', 'Hash', 'Notes'])
       .appendRow([new Date(), d.file || '', d.version || '', d.hash || '', d.notes || '']);
+    CacheService.getScriptCache().remove('JSON');
     return text_('ok');
   }
   return text_('unknown type');
 }
 
-// Page publique : ?format=json (stats + Discord), ?format=live (carte), ?format=mission&id=… (briefing),
-// sinon la page HTML (Google Sites)
+// Page publique : ?format=json (stats + Discord), ?format=live (carte), ?format=mission&id=… (briefing)
 function doGet(e) {
   const fmt = e && e.parameter.format;
   if (fmt === 'mission') {
@@ -89,19 +112,20 @@ function doGet(e) {
     const json = /^\d+$/.test(id) && PropertiesService.getScriptProperties().getProperty('MISSION_' + id);
     return ContentService.createTextOutput(json || '{"error":"not found"}').setMimeType(ContentService.MimeType.JSON);
   }
+  const cache = CacheService.getScriptCache();
   if (fmt === 'live') {
-    return ContentService.createTextOutput(PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}')
-      .setMimeType(ContentService.MimeType.JSON);
+    const live = cache.get('LIVE') || PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}';
+    return ContentService.createTextOutput(live).setMimeType(ContentService.MimeType.JSON);
   }
-  const data = getData_();
   if (fmt === 'json') {
-    return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+    let json = cache.get('JSON');
+    if (!json) {
+      json = JSON.stringify(getData_());
+      try { cache.put('JSON', json, CACHE_S); } catch (err) { /* plus de 100 ko : servi sans cache */ }
+    }
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
   }
-  const t = HtmlService.createTemplateFromFile('Page');
-  t.data = JSON.stringify(data);
-  return t.evaluate().setTitle('Blue Sky - Classement')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  return text_('Relais Blue Sky France : https://thibaero278.github.io/blue-sky-france/');
 }
 
 function getData_() {
@@ -114,7 +138,8 @@ function getData_() {
   const server = Object.fromEntries(read('Serveur').map(r => [r[0], r[1] instanceof Date ? r[1].toISOString() : r[1]]));
   const changelog = read('Changelog').reverse().slice(0, 20)
     .map(r => ({ date: r[0] instanceof Date ? r[0].toISOString() : r[0], file: r[1], version: r[2], notes: r[4] }));
-  const discord = JSON.parse(PropertiesService.getScriptProperties().getProperty('DISCORD') || 'null');
+  const discord = JSON.parse(CacheService.getScriptCache().get('DISCORD')
+    || PropertiesService.getScriptProperties().getProperty('DISCORD') || 'null');
   return { pilots, server, changelog, discord };
 }
 

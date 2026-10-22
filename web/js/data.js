@@ -143,10 +143,9 @@
   const getJson = url => fetch(url, { cache: 'no-store' }).then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); });
   let relayP = null;
   const relay = () => relayP || (relayP = C.statsUrl ? getJson(relayUrl('json')) : Promise.reject(new Error('statsUrl vide')));
-  // Données Discord exportées par le bot : relais, sinon fichier discordFile, sinon null
+  // Données Discord exportées par le bot (via le relais), sinon null
   let discordDataP = null;
-  const discordData = () => discordDataP || (discordDataP = relay().then(d => d.discord || Promise.reject(new Error('pas de données Discord')))
-    .catch(() => C.discordFile ? getJson(C.discordFile) : null)
+  const discordData = () => discordDataP || (discordDataP = relay().then(d => d.discord || null)
     .catch(err => { console.warn('[BS] données Discord du bot indisponibles :', err); return null; }));
 
   let statsP = null;
@@ -168,16 +167,19 @@
     return statsP;
   }
 
-  // ---------- Discord : membres / en ligne via l'API publique des invitations ----------
+  // ---------- Discord : membres / en ligne ----------
+  // Chiffres envoyés par le bot (toutes les 15 min) ; s'il n'a rien envoyé depuis 30 min, API publique des invitations
   let discordP = null;
   function loadDiscord() {
     if (discordP) return discordP;
     const demo = { demo: true, members: 142, online: 38 };
-    if (!C.discordInviteCode) return (discordP = Promise.resolve(demo));
-    discordP = fetch('https://discord.com/api/v10/invites/' + C.discordInviteCode + '?with_counts=true')
-      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
-      .then(j => ({ demo: false, members: j.approximate_member_count, online: j.approximate_presence_count, name: j.guild && j.guild.name }))
-      .catch(err => { console.warn('[BS] Discord indisponible :', err); return demo; });
+    const fromInvite = () => !C.discordInviteCode ? demo
+      : fetch('https://discord.com/api/v10/invites/' + C.discordInviteCode + '?with_counts=true')
+        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+        .then(j => ({ demo: false, members: j.approximate_member_count, online: j.approximate_presence_count }))
+        .catch(err => { console.warn('[BS] Discord indisponible :', err); return demo; });
+    discordP = discordData().then(d => d && d.members != null && d.updated && Date.now() - new Date(d.updated) < 30 * 60e3
+      ? { demo: false, members: d.members, online: d.online } : fromInvite());
     return discordP;
   }
 
@@ -214,8 +216,7 @@
   // Format (bot, plugin bluesky) : { since, days:[{date:'AAAA-MM-JJ', value}], online24h:[{hour, value}], newMembers30d,
   //   voiceSince, voice:[minutes en vocal, mêmes jours que days] }
   function loadActivity() {
-    const src = C.discordActivityUrl ? getJson(C.discordActivityUrl) : discordData().then(d => d && d.activity);
-    return src.then(j => {
+    return discordData().then(d => d && d.activity).then(j => {
       if (!j || !j.days) return demoActivity();
       const day = s => { const [y, m, dd] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, dd); };
       const days = j.days.map(d => ({ date: day(d.date), value: d.value }));
@@ -242,12 +243,11 @@
       : events());
   }
 
-  // Briefing d'une mission publiée depuis Discord : relais ?format=mission&id=…, sinon fichier missionsFile
+  // Briefing d'une mission publiée depuis Discord : relais ?format=mission&id=…
   function loadMission(id) {
-    if (!/^\d+$/.test(String(id || ''))) return Promise.resolve(null);
-    const fromFile = () => C.missionsFile ? getJson(C.missionsFile).then(j => (j.missions || []).find(m => m.id === String(id)) || null) : null;
-    return (C.statsUrl ? getJson(relayUrl('mission') + '&id=' + encodeURIComponent(id)).then(m => m && !m.error ? m : fromFile()) : Promise.resolve(fromFile()))
-      .then(m => m && { ...m, date: new Date(m.date) })
+    if (!C.statsUrl || !/^\d+$/.test(String(id || ''))) return Promise.resolve(null);
+    return getJson(relayUrl('mission') + '&id=' + encodeURIComponent(id))
+      .then(m => m && !m.error ? { ...m, date: new Date(m.date) } : null)
       .catch(err => { console.warn('[BS] mission indisponible :', err); return null; });
   }
 
@@ -282,14 +282,14 @@
     };
   }
   // Format (bot, plugin bluesky) : { time (ISO), missionTime (s), weather?:{...}, players:[{callsign, aircraft, air, lat, lon, hdg, alt(ft), spd(kt), base}] }
-  // liveUrl, sinon relais ?format=live, sinon fichier liveFile. Données de plus de 3 min => serveur hors ligne.
+  // Relais ?format=live (démo seulement si aucun relais n'est configuré). Données de plus de 3 min => serveur hors ligne.
+  // Relais injoignable => hors ligne aussi (jamais de faux pilotes), la page réessaie plus tard.
   function loadLive() {
-    const url = C.liveUrl || (C.statsUrl ? relayUrl('live') : C.liveFile);
-    if (!url) return Promise.resolve(demoLive());
-    return getJson(url).then(j => {
+    if (!C.statsUrl) return Promise.resolve(demoLive());
+    return getJson(relayUrl('live')).then(j => {
       const age = j.time ? Date.now() - new Date(j.time).getTime() : Infinity;
       return age > 180e3 ? { demo: false, offline: true, players: [] } : { demo: false, ...j };
-    }).catch(err => { console.warn('[BS] live indisponible :', err); return { ...demoLive(), error: String(err) }; });
+    }).catch(err => { console.warn('[BS] live indisponible :', err); return { demo: false, offline: true, players: [], error: String(err) }; });
   }
 
   // État du serveur DCS d'après le live du bot (relevé toutes les 30 s) : { demo, up, online:[pseudos], mission }

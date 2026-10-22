@@ -36,16 +36,21 @@
     btn.setAttribute('aria-expanded', open);
   });
 
+  let serverUp = true;   // tant qu'on ne sait pas : rythme normal
   const navPill = () => loadServer().then(srv => {
+    serverUp = srv.up;
     nav.querySelector('#navPill .dot').classList.toggle('off', !srv.online.length);
     nav.querySelector('#navPillTxt').textContent = serverLabel(srv);
   });
   navPill();
   document.addEventListener('bs:refresh', navPill);
 
-  // Données du site relues toutes les 30 s tant que l'onglet est affiché (et dès qu'on y revient) : plus besoin de F5
+  // Données du site relues tant que l'onglet est affiché (et dès qu'on y revient) : plus besoin de F5.
+  // Toutes les 30 s quand le serveur DCS tourne, toutes les 2 min quand il est éteint (inscriptions, Discord…)
   let lastRefresh = Date.now();
-  const refreshIfDue = () => { if (!document.hidden && Date.now() - lastRefresh >= 29e3) { lastRefresh = Date.now(); window.BS.refresh(); } };
+  const refreshIfDue = () => {
+    if (!document.hidden && Date.now() - lastRefresh >= (serverUp ? 29e3 : 119e3)) { lastRefresh = Date.now(); window.BS.refresh(); }
+  };
   setInterval(refreshIfDue, 30e3);
   document.addEventListener('visibilitychange', refreshIfDue);
 

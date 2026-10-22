@@ -30,8 +30,8 @@ Tout se règle dans `web/js/config.js`. Une source vide = données de démonstra
 | Stats pilotes, joueurs en ligne, changelog | `statsUrl` (URL Apps Script) | prêt, à déployer |
 | Membres / en ligne Discord | `discordInviteCode` | **actif** |
 | Planning des vols | `web/data/evenements.js` | à remplir à la main |
-| Positions live (carte) | `liveUrl` | à construire |
-| Activité Discord (messages/jour) | `discordActivityUrl` | bot à construire |
+| Positions live (carte) | `statsUrl` (relais, envoyé par le bot) | actif quand le bot tourne |
+| Activité Discord, événements, équipe | `statsUrl` (relais, envoyé par le bot) | actif quand le bot tourne |
 
 Les paliers de grade de `web/js/data.js` (`GRADES`) doivent rester identiques à la table `RANKS` de `mission/script Caucase.lua`.
 

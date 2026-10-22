@@ -21,22 +21,13 @@ window.BS_CONFIG = {
   // Pseudos par défaut de DCS, jamais affichés au classement
   ignorePilots: ['Player', 'Joueur'],
 
-  // Sources directes, seulement si on n'utilise pas le relais (fichiers écrits par le bot dans son export_dir).
-  liveUrl: '',             // URL d'un live.json
-  liveFile: '',            // ex. 'data/live.json'
-  discordFile: '',         // ex. 'data/discord.json' (activité + événements Discord)
-  missionsFile: '',        // ex. 'data/missions.json' (briefings publiés depuis Discord)
-  discordActivityUrl: '',  // ancien réglage, gardé pour compatibilité
-
   discordInvite: 'https://discord.gg/zVEsRbm8h2',
-  discordInviteCode: 'zVEsRbm8h2',   // sert à lire le nombre de membres / en ligne via l'API publique Discord
+  discordInviteCode: 'zVEsRbm8h2',   // membres / en ligne via l'API publique Discord, si le bot n'a rien envoyé depuis 30 min
   // Salon #inscriptions (bouton « S'inscrire » quand l'événement n'a pas encore de sondage)
   signupChannel: 'https://discord.com/channels/864983516516843570/1562459201618452540',
 
   serverName: 'Blue Sky | Foothold',
   missionLabel: 'Foothold · Caucase',
-
-  refreshSeconds: 60,
 
   // Icône des rôles de l'équipe (le nom du rôle Discord contient « match »), sinon le 1er émoji du rôle
   roleIcons: [
