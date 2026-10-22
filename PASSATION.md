@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 21/10/2026 (missions, inscriptions, temps vocal, ménage des commandes du bot)_
+_Dernière mise à jour : 22/10/2026 (référencement Google, audit d'optimisation)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > (`CLAUDE.md` est géré par Claude Chat : ne pas y toucher.)
@@ -363,6 +363,24 @@ Un site Blue Sky (Google Sites envisagé) avec :
   l'événement Discord (`cover_image`, lien permanent), sinon 1re photo du briefing (lien ~24 h renouvelé par le bot), sinon rien.
   Site : classe `.event.has-img` (photo + voile sombre, texte blanc) ; si le lien ne charge plus, la carte redevient blanche.
   Testé avec données simulées (bannière, photo expirée, sans image). Plugin déployé ; **STOP/GO nécessaire**.
+
+- 22/10/2026 : **référencement Google**. Propriété Search Console validée par fichier (`web/google39ebbca43b85ea0c.html`,
+  **ne jamais le supprimer**). `web/sitemap.xml` (10 pages, sans mission.html) envoyé dans Search Console, indexation de l'accueil demandée.
+  Sur les 10 pages : `canonical`, Open Graph (aperçu Discord, image `forma-eiffel.webp`), `twitter:card` ; accueil : JSON-LD `Organization`.
+  Pas de robots.txt (Google ne le lit qu'à la racine de thibaero278.github.io). Nom « Bluesky » (réseau social) : pas de risque juridique
+  a priori, mais viser « Blue Sky France DCS » plutôt que « Blue Sky » dans Google.
+- 22/10/2026 : **audit d'optimisation** (Graphify, commit 6a43aa8), rien de modifié. Points relevés, par priorité :
+  1. Quota Apps Script « Properties read/write » (50 000/jour en compte gratuit) : le bot écrit LIVE toutes les 30 s (2 880/jour)
+     et chaque onglet ouvert lit LIVE + DISCORD toutes les 30 s (carte : toutes les 15 s) → passer par CacheService + n'envoyer le live
+     vide que toutes les ~2 min. `?format=json` relit 3 onglets Sheets à chaque visite → mettre le JSON en cache.
+  2. Carte : si le relais ne répond pas au 1er chargement, elle affiche 11 faux pilotes en démo et ne réessaie plus jamais.
+  3. Code mort : `refreshSeconds` (inutilisé, 30 s codé en dur dans layout.js), `discordActivityUrl`, sources fichier
+     (`liveUrl/liveFile/discordFile/missionsFile` + `export_dir` du bot), `Page.html` + page HTML de `doGet` (Google Sites abandonné),
+     `BS_site.lua` (hook remplacé par le bot ; risque de double envoi des stats s'il était installé).
+  4. Grades recopiés à 3-4 endroits (RANKS Lua, `data.js`, `scores.py`) ; rafraîchissements qui tournent onglet caché (carte) ;
+     nombre de membres Discord relu sur l'API publique alors que le bot l'envoie déjà ; pas de météo réelle sur la carte.
+  5. Ménage local : `BlueSky-Founder-Package-*.zip` (1,4 Go, **contient le vrai token**) à sortir du dossier du projet ;
+     `_design_zip/` (60 Mo) et `Site web serveur Discord Blue Sky.zip` (62 Mo) devenus inutiles.
 
 ## Prochaines étapes
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
