@@ -376,13 +376,31 @@ Un site Blue Sky (Google Sites envisagé) avec :
   2. Carte : si le relais ne répond pas au 1er chargement, elle affiche 11 faux pilotes en démo et ne réessaie plus jamais.
   3. Code mort : `refreshSeconds` (inutilisé, 30 s codé en dur dans layout.js), `discordActivityUrl`, sources fichier
      (`liveUrl/liveFile/discordFile/missionsFile` + `export_dir` du bot), `Page.html` + page HTML de `doGet` (Google Sites abandonné),
-     `BS_site.lua` (hook remplacé par le bot ; risque de double envoi des stats s'il était installé).
+     ~~`BS_site.lua`~~ : finalement **gardé** (seul moyen d'avoir les stats d'un serveur où notre bot ne tourne pas, ex. Weefe).
   4. Grades recopiés à 3-4 endroits (RANKS Lua, `data.js`, `scores.py`) ; rafraîchissements qui tournent onglet caché (carte) ;
      nombre de membres Discord relu sur l'API publique alors que le bot l'envoie déjà ; pas de météo réelle sur la carte.
   5. Ménage local : `BlueSky-Founder-Package-*.zip` (1,4 Go, **contient le vrai token**) à sortir du dossier du projet ;
      `_design_zip/` (60 Mo) et `Site web serveur Discord Blue Sky.zip` (62 Mo) devenus inutiles.
+- 22/10/2026 : **optimisations faites** (suite de l'audit, demandées par Thibaud).
+  - `Code.gs` : lectures du site servies par **CacheService** (live, `?format=json` complet, token) ; live copié dans les
+    propriétés au plus toutes les 5 min (secours) ; feuille relue seulement après un envoi de stats/Discord/changelog.
+    Page HTML de `doGet` et `Page.html` supprimées (`doGet` sans format = petit texte). Simulé dans node : 10 envois live = 2 accès
+    propriétés, 20 visites = 1. Sauvegarde : `mission\bakup\Code_2026-10-22_avant-cache.gs`. **À redéployer** (nouvelle version) par Thibaud ;
+    le fichier HTML « Page » peut être supprimé de l'éditeur Apps Script.
+  - Bot (plugin, toujours v1.4) : serveur DCS sans personne → live envoyé toutes les `live_idle_interval` s (120) au lieu de 30 ;
+    `export_dir` supprimé. Testé avec le moteur (5 tours vide = 1 envoi ; joueur = envoi à chaque tour). Déployé ; **STOP/GO nécessaire**.
+  - Site : carte relue toutes les 30 s si le serveur tourne, 2 min sinon, rien onglet caché ; relais injoignable = « Hors ligne »
+    (plus de faux pilotes de démo, la carte réessaie). Rafraîchissement général : 30 s serveur allumé, 2 min serveur éteint.
+    Membres / en ligne Discord : chiffres du bot (s'ils ont moins de 30 min), sinon API publique des invitations.
+    Réglages morts retirés de `config.js` (`refreshSeconds`, `liveUrl`, `liveFile`, `discordFile`, `missionsFile`, `discordActivityUrl`).
+    Testé en local : carte (relais réel serveur éteint + relais coupé), Discord (143 membres du bot, 0 appel API), accueil,
+    événements, mission introuvable, aucune erreur console.
+  - Ménage : `BlueSky-Founder-Package-*.zip` déplacé dans `jeux\dcs\Archives Blue Sky (confidentiel)\` ;
+    `_design_zip\` et `Site web serveur Discord Blue Sky.zip` mis à la corbeille.
+  - Grades (3 copies) et météo de la carte : laissés tels quels (choix de Thibaud).
 
 ## Prochaines étapes
+- **Après les optimisations du 22/10** : redéployer `Code.gs` (nouvelle version), STOP/GO du bot.
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
   événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.

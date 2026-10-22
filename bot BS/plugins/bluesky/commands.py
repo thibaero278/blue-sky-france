@@ -8,11 +8,10 @@
 
 Réglages : config/dcssb/plugins/bluesky.yaml (modèle : config/templates/plugins/bluesky.yaml.template).
 Le site est statique (GitHub Pages) : le bot pousse ses données vers le relais Apps Script
-(circuit_site/Code.gs) et/ou les écrit en JSON dans un dossier (export_dir).
+(circuit_site/Code.gs).
 """
 
 import asyncio
-import json
 import math
 import os
 import re
@@ -35,13 +34,13 @@ DEFAULTS = {
     'scores_file': 'Scores.lua',   # relatif au dossier Saved Games de l'instance DCS
     'stats_interval': 60,          # s entre deux lectures de Scores.lua
     'live_interval': 30,           # s entre deux relevés de positions (0 = carte live coupée)
+    'live_idle_interval': 120,     # s entre deux envois quand personne n'est connecté (le site passe « hors ligne » après 3 min)
     'discord_interval': 15,        # min entre deux envois de l'activité Discord / du planning
     'feed_channel': -1,            # salon Discord du fil DCS (promotions, bilans), -1 = coupé
     'announce_events_ingame': True,
     'site_url': 'https://thibaero278.github.io/blue-sky-france/',
     'discord_invite': 'https://discord.gg/zVEsRbm8h2',
     'relay': {'url': '', 'token': ''},
-    'export_dir': '',
     # Rôles Discord affichés dans « L'équipe » du site (noms ou IDs, du plus haut au plus bas).
     # Vide = automatique : rôles affichés à part dans la liste des membres, avec droits de modération.
     'staff_roles': [],
@@ -87,6 +86,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         self._last: dict[str, dict] = {}       # dernier Scores.lua lu, par serveur
         self._mtime: dict[str, datetime] = {}
         self._live_ok: dict[str, bool] = {}
+        self._live_idle: dict[str, datetime] = {}  # dernier envoi « serveur vide », par serveur
         self._voice: dict[int, datetime] = {}  # membre en vocal → depuis quand (temps pas encore compté)
         self._polls: set[int] = set()          # messages des sondages d'inscription (pour réagir aux votes)
         self._push_soon: asyncio.Task | None = None
@@ -144,16 +144,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
 
     # ---------- envoi vers le site ----------
     async def publish(self, kind: str, data: dict) -> None:
-        """kind = stats | live | discord. Relais Apps Script et/ou fichier <export_dir>/<kind>.json."""
-        cfg = self.cfg()
-        export_dir = os.path.expandvars(cfg['export_dir'] or '')
-        if export_dir:
-            os.makedirs(export_dir, exist_ok=True)
-            path = os.path.join(export_dir, f'{kind}.json')
-            with open(path + '.tmp', 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=1, default=str)
-            os.replace(path + '.tmp', path)
-        relay = cfg['relay']
+        """kind = stats | live | discord | missions, envoyé au relais Apps Script."""
+        relay = self.cfg()['relay']
         if relay.get('url') and relay.get('token'):
             body = {'token': relay['token'], 'type': kind, **data}
             try:
@@ -249,14 +241,24 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             players = (data or {}).get('players') or []
             if isinstance(players, dict):  # table Lua vide → {} en JSON
                 players = list(players.values())
+            online = [p.name for p in server.get_active_players()]
+            # serveur vide : un envoi toutes les live_idle_interval s suffit (économise le quota du relais)
+            now = datetime.now(timezone.utc)
+            if not players and not online:
+                last = self._live_idle.get(server.name)
+                if last and (now - last).total_seconds() < int(self.cfg(server)['live_idle_interval']):
+                    continue
+                self._live_idle[server.name] = now
+            else:
+                self._live_idle.pop(server.name, None)
             self._live_ok[server.name] = True
             await self.publish('live', {
-                'server': server.display_name, 'time': datetime.now(timezone.utc).isoformat(),
+                'server': server.display_name, 'time': now.isoformat(),
                 'missionTime': (data or {}).get('time'),  # secondes depuis minuit, heure de la mission
                 'map': server.current_mission.map if server.current_mission else '', 'players': players,
                 'mission': server.current_mission.name if server.current_mission else '',
                 # tous les connectés (même sans avion), pour « Serveur · N en ligne » sur le site
-                'online': [p.name for p in server.get_active_players()],
+                'online': online,
             })
 
     @live_loop.before_loop

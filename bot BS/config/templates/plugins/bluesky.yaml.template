@@ -5,6 +5,7 @@ DEFAULT:
   scores_file: Scores.lua         # écrit par script Caucase.lua, relatif à Saved Games\DCS de l'instance
   stats_interval: 60              # s entre deux lectures de Scores.lua
   live_interval: 30               # s entre deux relevés des positions (carte live) ; 0 = coupé
+  live_idle_interval: 120         # s entre deux envois quand personne n'est connecté
   discord_interval: 15            # min entre deux envois de l'activité Discord et du planning
   feed_channel: -1                # ID du salon Discord pour promotions / bilans de vol ; -1 = coupé
   announce_events_ingame: true    # nouvel événement Discord -> message dans DCS
@@ -13,7 +14,6 @@ DEFAULT:
   relay:                          # Apps Script (site\circuit_site\Code.gs), voir INSTALLATION.md
     url: ''                       # https://script.google.com/macros/s/.../exec
     token: ''                     # = propriété TOKEN de l'Apps Script
-  export_dir: ''                  # dossier où écrire stats.json / live.json / discord.json (vide = non)
   staff_roles: []                 # rôles Discord de « L'équipe » sur le site, ex. [Fondateur, Admin, Modérateur, Helper]
                                   # vide = auto (rôles affichés à part avec droits de modération)
   # Missions et inscriptions : clic droit sur le briefing > Applications > Publier sur le site

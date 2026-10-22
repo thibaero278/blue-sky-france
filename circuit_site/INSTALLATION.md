@@ -4,13 +4,14 @@
 Serveur Weefe : script Caucase.lua → Scores.lua
                 Scripts\Hooks\BS_site.lua → JSON → curl ──► Apps Script ──► Google Sheet "BS Stats"
 Ton PC        : publier_maj.bat (changelog)  ─────────────►      │
-                                                    Page web doGet() ──► intégrée dans Google Sites
+                                                    ?format=json ──► site (GitHub Pages)
 ```
 
 ## 0. Commerce triangulaire DCS ↔ bot Discord ↔ site (recommandé)
 
 Le bot Discord (DCSServerBot + plugin `bluesky`, dans `bot BS\`) tourne sur le même PC que le serveur DCS.
-C'est lui le pivot : il remplace le hook `BS_site.lua` (n'installe pas les deux).
+C'est lui le pivot : il remplace le hook `BS_site.lua` (n'installe pas les deux sur le même serveur).
+Le hook reste utile pour un serveur DCS où notre bot ne tourne pas (ex. celui de Weefe avec son propre bot) : voir § 2.
 
 ```
                  Scores.lua, positions (30 s)                stats, joueurs en ligne, carte live
@@ -39,25 +40,21 @@ Mise en route :
 4. Planning : créer les vols comme **événements Discord**. Dans la description, lignes optionnelles :
    `Type : Formation`, `Carte : Caucase`, `Places : 16` (sans « Places », le site affiche le nombre d'intéressés).
 
-Sans Apps Script, le bot peut aussi écrire `stats.json`, `live.json`, `discord.json` dans un dossier (`export_dir`) ;
-le site les lit via `statsFile`, `liveFile`, `discordFile` de `config.js` (utile pour tester en local).
-
 ## 1. Google Sheet + Apps Script (toi, une fois)
 1. Crée une feuille Google vide nommée **BS Stats**. Les onglets Pilotes, Serveur et Changelog se créent tout seuls.
 2. **Extensions → Apps Script**. Remplace le contenu de `Code.gs` par celui du fichier `Code.gs` de ce dossier.
-3. Clique sur **+ → HTML** et nomme le fichier **Page** (exactement). Colle-y le contenu de `Page.html`.
-4. **⚙️ Paramètres du projet → Propriétés du script → Ajouter** : propriété `TOKEN`, valeur = le token
+3. **⚙️ Paramètres du projet → Propriétés du script → Ajouter** : propriété `TOKEN`, valeur = le token
    de `secrets.local.ps1` (fichier local, jamais publié sur GitHub).
-5. Enregistre, puis **Déployer → Nouveau déploiement → type « Application Web »** :
+4. Enregistre, puis **Déployer → Nouveau déploiement → type « Application Web »** :
    - Exécuter en tant que : **Moi**
    - Qui a accès : **Tout le monde**
    - Autorise l'accès quand Google le demande.
-6. Copie l'**URL de l'application Web** (`https://script.google.com/macros/s/.../exec`) et colle-la :
+5. Copie l'**URL de l'application Web** (`https://script.google.com/macros/s/.../exec`) et colle-la :
    - dans `bot BS\config\dcssb\plugins\bluesky.yaml` (`relay.url`, `relay.token`) — ou dans `BS_site.lua` si pas de bot
    - dans `secrets.local.ps1` (`$url = ...`)
    - dans `web/js/config.js` (`statsUrl: ...`) : le site affiche alors les vraies stats au lieu de la démo.
 
-⚠️ Après chaque modification de `Code.gs` ou `Page`, fais **Déployer → Gérer les déploiements → ✏️ → Version : nouvelle version**,
+⚠️ Après chaque modification de `Code.gs`, fais **Déployer → Gérer les déploiements → ✏️ → Version : nouvelle version**,
 sinon l'ancienne version reste en ligne. L'URL ne change pas.
 
 ## 2. Sans le bot : hook sur le serveur de Weefe (une fois)
