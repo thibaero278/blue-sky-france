@@ -398,10 +398,21 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Ménage : `BlueSky-Founder-Package-*.zip` déplacé dans `jeux\dcs\Archives Blue Sky (confidentiel)\` ;
     `_design_zip\` et `Site web serveur Discord Blue Sky.zip` mis à la corbeille.
   - Grades (3 copies) et météo de la carte : laissés tels quels (choix de Thibaud).
+- 22/10/2026 (après-midi) : **« En vocal maintenant » ne s'affichait jamais** (page Discord). Le site (commit 6dcaf1d) attendait
+  `voiceLive` dans les données Discord, mais le plugin ne l'envoyait pas. Ajouté au plugin (toujours v1.4) : `voice_live()`
+  (nom du salon, nombre de connectés hors bots, depuis quand le salon est occupé, lien ; aucun pseudo ; salon AFK exclu),
+  envoi groupé `voice_delay` s (30) après chaque entrée/sortie de vocal via `push_soon`, en plus de l'envoi des 15 min.
+  « Depuis » repart de l'heure de démarrage du bot pour les salons déjà occupés à ce moment. Testé hors bot (salons simulés :
+  entrée, AFK, salon avec bot seul, sortie). Déployé (`Install-BlueSkyPlugin.ps1`) ; **STOP/GO nécessaire**.
+  `Circuit-Blue-Sky.pdf` (schéma complet du circuit, 18 p.) est à la racine du dépôt, non suivi : ne pas le committer.
 
 ## Prochaines étapes
 - Optimisations du 22/10 : `Code.gs` redéployé et bot redémarré par Thibaud, vérifié (relais, bot, site en ligne).
   Reste à voir en réel : carte live avec une mission lancée (envoi toutes les 2 min serveur vide, 30 s avec des joueurs).
+- **Search Console (vers le 29/10/2026)** : ouvrir le rapport « Pages » (indexées / non indexées et pourquoi) et « Sitemaps »
+  (doit être vert). Vérifié le 23/10 côté code : pas de page orpheline (menu + pied de page sur toutes les pages, construits par
+  `layout.js` en JavaScript, que Google sait lire), doublons couverts par les `canonical`. Lien Instagram du pied de page = page
+  d'accueil d'Instagram (pas de compte renseigné).
 - **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
   événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.
 0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
@@ -416,3 +427,16 @@ Un site Blue Sky (Google Sites envisagé) avec :
      Apps Script trop lent/limité pour 5 s → petit relais (Cloudflare Worker gratuit) ou DCSServerBot.
    - c. Discord activité + planning auto : bot Discord (ou DCSServerBot, qui gère déjà Discord + stats + événements) —
      demander à Weefe s'il l'utilise déjà sur le serveur.
+
+## Idées à coder pour `script Caucase.lua` (choisies par Thibaud le 22/10/2026)
+Rien n'est encore codé. Avant de toucher au script, faire une sauvegarde dans `mission\bakup\`.
+1. **Note des appontages** : dans `CarrierHandler:OnEventLand` (déjà là pour les porte-avions), noter le pos
+   (vitesse, train, dans la limite du possible : DCS ne donne pas le fil accroché, sinon passer par MOOSE `AIRBOSS`/LSO).
+   Nouveaux champs à sauvegarder dans `Scores.lua` (nb d'appontages, meilleure note, moyenne)
+   + classement « Top appontages » dans le menu STATISTIQUES.
+2. **Message d'accueil** : dans `ScoreMenuHandler:OnEventBirth`, message au pilote : grade actuel (`RankLine`),
+   fréquences utiles (tankers, porte-avions, comme sur le kneeboard) et le lien Discord.
+3. **Annonce des promotions** : dans `CommitFlightKills`, comparer `GetRank` avant et après validation des points ;
+   si le grade monte → `MESSAGE:New(...):ToAll()` « X est promu Y ». Option : kill feed court pour tous les joueurs dans `KillHandler`.
+Pas retenu pour l'instant : nouveaux modules air-air / air-sol, nettoyage automatique.
+Après modif : remettre le script dans la .miz (même nom interne `multi jours thib.lua`).
