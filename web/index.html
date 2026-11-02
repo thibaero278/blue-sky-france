@@ -126,7 +126,7 @@
       <span class="more">Voir les classements →</span>
     </a>
     <a class="card now-card dark photo-card" href="evenements.html">
-      <img class="bg" src="assets/ravito-b52.webp" alt="" loading="lazy">
+      <img class="bg" id="nextBg" src="assets/ravito-b52.webp" alt="" loading="lazy" onerror="if (!this.src.endsWith('ravito-b52.webp')) this.src = 'assets/ravito-b52.webp'">
       <div class="label" style="color:#9aa6ba; display:flex; justify-content:space-between; gap:8px"><span>Prochain vol</span><span id="nextDemo"></span></div>
       <div style="display:flex; flex-direction:column; gap:8px">
         <span class="display" style="font-weight:700; font-size:34px; line-height:1" id="nextTitle">–</span>

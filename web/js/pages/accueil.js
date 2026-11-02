@@ -76,6 +76,9 @@
     const e = ev.list.find(x => x.date.getTime() > now - 3 * 3600e3) || ev.list[ev.list.length - 1];
     if (!e) { $('nextTitle').textContent = 'Rien de prévu'; return; }
     $('nextTitle').textContent = e.title;
+    // fond : bannière de l'événement Discord, le ravitaillement B-52 si l'événement n'en a pas
+    const bg = e.image || 'assets/ravito-b52.webp';
+    if ($('nextBg').getAttribute('src') !== bg) $('nextBg').setAttribute('src', bg);
     $('nextWhen').textContent = [fmt.dateLong(e.date), fmt.hour(e.date), e.map].filter(Boolean).join(' · ');
     $('nextCount').textContent = fmt.countdown(e.date.getTime() - now);
     $('nextFill').style.width = (e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0) + '%';
