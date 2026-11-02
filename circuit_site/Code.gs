@@ -63,18 +63,30 @@ function doPost(e) {
   // pas dans la feuille (plus rapide, limite 9 ko par valeur -> on coupe la liste si besoin).
   if (d.type === 'live' || d.type === 'discord') {
     delete d.token;
-    let json = JSON.stringify(d);
-    while (json.length > 9000 && d.players && d.players.length) { d.players.pop(); json = JSON.stringify(d); }
-    if (d.type === 'discord') json = JSON.stringify(shrinkDiscord_(d));
+    // le cache accepte 100 ko : on retire d'abord les IA, puis des joueurs, seulement si on dépasse
+    const fit = (obj, max) => {
+      let s = JSON.stringify(obj);
+      while (s.length > max && obj.ai && obj.ai.length) { obj.ai.pop(); s = JSON.stringify(obj); }
+      while (s.length > max && obj.players && obj.players.length) { obj.players.pop(); s = JSON.stringify(obj); }
+      return s;
+    };
+    let json = d.type === 'discord' ? JSON.stringify(shrinkDiscord_(d)) : fit(d, 90000);
     const key = d.type.toUpperCase(), cache = CacheService.getScriptCache();
     cache.put(key, json, CACHE_S);
     if (d.type === 'discord') {
       PropertiesService.getScriptProperties().setProperty(key, json);
       cache.remove('JSON');
     } else if (!cache.get('LIVE_SAVED')) {
-      PropertiesService.getScriptProperties().setProperty(key, json);
+      PropertiesService.getScriptProperties().setProperty(key, fit(d, 9000));  // secours : 9 ko max par propriété
       cache.put('LIVE_SAVED', '1', LIVE_SAVE_S);
     }
+    return text_('ok');
+  }
+
+  // Trajectoires des avions en vol (~30 s), seulement en cache : perdues au pire, le bot les renvoie
+  if (d.type === 'trails') {
+    delete d.token;
+    try { CacheService.getScriptCache().put('TRAILS', JSON.stringify(d), CACHE_S); } catch (err) { return text_('trop gros'); }
     return text_('ok');
   }
 
@@ -104,7 +116,7 @@ function doPost(e) {
   return text_('unknown type');
 }
 
-// Page publique : ?format=json (stats + Discord), ?format=live (carte), ?format=mission&id=… (briefing)
+// Page publique : ?format=json (stats + Discord), ?format=live (carte), ?format=trails (trajectoires), ?format=mission&id=… (briefing)
 function doGet(e) {
   const fmt = e && e.parameter.format;
   if (fmt === 'mission') {
@@ -116,6 +128,9 @@ function doGet(e) {
   if (fmt === 'live') {
     const live = cache.get('LIVE') || PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}';
     return ContentService.createTextOutput(live).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (fmt === 'trails') {
+    return ContentService.createTextOutput(cache.get('TRAILS') || '{"trails":{}}').setMimeType(ContentService.MimeType.JSON);
   }
   if (fmt === 'json') {
     let json = cache.get('JSON');

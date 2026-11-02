@@ -294,6 +294,12 @@
     }).catch(err => { console.warn('[BS] live indisponible :', err); return { demo: false, offline: true, players: [], error: String(err) }; });
   }
 
+  // Trajectoires depuis le décollage : { time, trails: { clé: [[lat, lon], …] } } (clé = id IA ou pseudo du joueur)
+  function loadTrails() {
+    return C.statsUrl ? getJson(relayUrl('trails')).catch(err => { console.warn('[BS] trajectoires indisponibles :', err); return null; })
+      : Promise.resolve(null);
+  }
+
   // État du serveur DCS d'après le live du bot (relevé toutes les 5 s) : { demo, up, online:[pseudos], mission }
   // up = mission qui tourne ; « en ligne » (point vert) seulement s'il y a au moins un joueur connecté.
   let serverP = null;
@@ -351,5 +357,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, refresh, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
+  window.BS = { C, refresh, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadTrails, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
 })();

@@ -42,7 +42,9 @@
   <div class="mapcard">
     <div id="map"></div>
     <div class="legend">
-      <span><i class="lg-air"></i>En vol</span>
+      <span><i class="lg-air"></i>Joueur</span>
+      <span><i class="lg-air lg-ally"></i>IA amie</span>
+      <span><i class="lg-air lg-foe"></i>IA ennemie</span>
       <span><i class="lg-gnd"></i>Au sol</span>
       <span><i class="lg-af"></i>Aérodrome</span>
       <span id="liveDemo"></span>
@@ -57,6 +59,10 @@
         <div><span class="k">Vit</span><span class="v" id="fSpd">—</span></div>
         <div><span class="k">Cap</span><span class="v" id="fHdg">—</span></div>
       </div>
+      <div class="grid" id="fRadio" style="grid-template-columns:repeat(2, 1fr); display:none">
+        <div><span class="k">Fréquence</span><span class="v" id="fFreq">—</span></div>
+        <div><span class="k">TACAN</span><span class="v" id="fTacan">—</span></div>
+      </div>
       <span class="mono" style="font-size:11px; color:#9aa6ba" id="fPos">—</span>
     </div>
   </div>
@@ -67,12 +73,12 @@
     </div>
     <div class="card">
       <div class="cardhead"><span class="label">Joueurs connectés</span><span class="mono" style="font-size:12px; font-weight:600" id="total">–</span></div>
-      <div class="tabs" id="tabs"><button data-f="all" class="on">Tous</button><button data-f="air">En vol</button><button data-f="gnd">Au sol</button></div>
+      <div class="tabs" id="tabs"><button data-f="all" class="on">Tous</button><button data-f="air">En vol</button><button data-f="gnd">Au sol</button><button data-f="ai">IA</button></div>
       <div class="plist" id="plist"></div>
     </div>
   </aside>
 </main>
-<div class="wrap note"><span id="noteSrc">Positions mises à jour toutes les secondes · export serveur DCS</span><span>Clique sur un pilote pour le centrer</span></div>
+<div class="wrap note"><span id="noteSrc">Positions mises à jour toutes les secondes · export serveur DCS</span><span>Clique sur un avion pour voir sa trajectoire</span></div>
 
 <script src="assets/leaflet/leaflet.js"></script>
 <script src="js/config.js?v=6"></script>
