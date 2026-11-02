@@ -62,7 +62,7 @@
 
   // ---------- stats serveur (Scores.lua → hook → Apps Script) ----------
   // Un pilote tel qu'exporté par Code.gs : name, grade, points, totalFlightTime, completedFlightTime,
-  // maxFlightTime, flights, airair, airsol, airmer, traps, deaths, teamkills, refuelTime, rang
+  // maxFlightTime, flights, airair, airsol, airmer, traps, deaths, teamkills, refuelTime, rang, landings
   function normPilot(r, i) {
     const n = k => Number(r[k]) || 0;
     const points = n('points');
@@ -72,7 +72,7 @@
       hours: (r.totalFlightTime != null ? n('totalFlightTime') : n('maxFlightTime')) / 3600, completedHours: n('completedFlightTime') / 3600,
       longest: n('maxFlightTime'), flights: n('flights'),
       airKills: n('airair'), groundKills: n('airsol'), navalKills: n('airmer'),
-      traps: n('traps'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
+      traps: n('traps'), landings: n('landings'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
       level: r.grade || '', grade: gradeFor(points)
     };
   }

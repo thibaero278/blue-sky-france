@@ -1,5 +1,5 @@
 (function () {
-  const { esc, fmt, airfields, loadLive, loadTrails, demoBadge } = window.BS;
+  const { C, esc, fmt, airfields, loadLive, loadTrails, loadStats, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
   let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, polls = 0;
@@ -20,61 +20,41 @@
   const hdg = p => String(Math.round(p.hdg)).padStart(3, '0') + '°';
   const dm = (v, pos, neg, w) => { const a = Math.abs(v), d = Math.floor(a), m = ((a - d) * 60).toFixed(1); return (v >= 0 ? pos : neg) + ' ' + String(d).padStart(w, '0') + '°' + m.padStart(4, '0') + "'"; };
   const enemy = p => p.side !== 2;  // les pilotes Blue Sky sont bleus (2)
+  // Stats du pilote cliqué (classement), en passant par les alias de pseudo de config.js
+  let pilots = [];
+  loadStats().then(s => (pilots = s.pilots || []));
+  const alias = {};
+  Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.concat(cs).forEach(n => (alias[n.toLowerCase()] = cs)));
+  const statsOf = cs => { const n = alias[String(cs).toLowerCase()] || cs; return pilots.find(x => x.callsign === n); };
   const ROLES = { awacs: 'AWACS', tanker: 'Ravitailleur', heli: 'Hélicoptère', heavy: 'Avion lourd', jet: 'Chasseur' };
 
-  // Silhouettes vues de dessus, nez vers le haut, dans l'esprit de la planche ADS-B Exchange (redessinées ici).
-  // sym() : demi-contour droit [x, y] du nez à la queue, recopié en miroir à gauche.
-  const sym = pts => '<path d="M' + pts.map(([x, y]) => x + ' ' + y).join('L') + 'L' + pts.slice().reverse().map(([x, y]) => -x + ' ' + y).join('L') + 'Z"/>';
-  const QUAD = [[0, -15], [1.4, -12.5], [1.4, -4], [14, 3], [14, 4.6], [1.4, 1], [1.2, 10], [6, 13], [6, 14.5], [1, 14], [0, 14.5]];
-  const SHAPES = {
-    hornet: sym([[0, -15], [1, -11], [1.6, -6], [2.6, -3], [12, 3], [12, 5], [3, 5], [3, 8], [7, 11], [7, 13], [2.5, 12.5], [1.5, 14], [0, 14]]),
-    tomcat: sym([[0, -15], [1.2, -10], [2, -6], [4.5, -3], [13.5, 4], [13.5, 5.5], [5, 4], [4, 9], [8, 13], [8, 14.5], [3, 13.5], [2.5, 15], [0, 14.5]]),
-    eagle: sym([[0, -15], [1.3, -10], [2.5, -5], [3.5, -3], [12, 3], [12, 6], [4, 5], [4, 9], [8, 12], [8, 14], [3.5, 13.5], [3, 15], [0, 14]]),
-    viper: sym([[0, -15], [1, -10], [1.5, -5], [2.5, -2], [11, 4], [11, 5.5], [2.5, 4.5], [2.5, 10], [6.5, 13], [6.5, 14.5], [1.5, 14], [1, 15.5], [0, 15]]),
-    phantom: sym([[0, -15], [1.2, -9], [2, -4], [11, 3], [11.5, 4.5], [2.5, 5], [2.5, 10], [7, 12], [7, 13.5], [1.5, 13.5], [0, 14]]),
-    tiger: sym([[0, -15], [0.9, -9], [1.3, -4], [9, 3], [9, 4.5], [1.5, 4], [1.5, 10], [5, 12.5], [5, 13.5], [1, 13.5], [0, 14]]),
-    flanker: sym([[0, -15], [1, -11], [1.8, -7], [2.5, -4], [4, -2], [13, 4], [13, 6], [4.5, 6], [4.5, 10], [8, 12.5], [8, 14], [3, 13], [1.2, 13.5], [1, 15.5], [0, 15.5]]),
-    fulcrum: sym([[0, -15], [1, -10], [1.6, -6], [3.5, -3], [11, 3], [11, 5], [4, 5], [4, 10], [7.5, 12.5], [7.5, 14], [2.5, 13], [0, 14]]),
-    delta: sym([[0, -15], [1, -9], [1.5, -5], [10, 8], [10, 10], [1.5, 10], [1, 12], [0, 12.5]]),
-    f1: sym([[0, -15], [1, -9], [1.4, -2], [8, 4], [8, 5.5], [1.5, 4.5], [1.5, 9], [5, 12], [5, 13.5], [1, 13], [0, 13.5]]),
-    jf17: sym([[0, -15], [1, -10], [1.6, -5], [3, -2], [10, 3.5], [10, 5], [2.5, 5], [2.5, 10], [6, 13], [6, 14.5], [1.2, 14], [0, 14.5]]),
-    harrier: sym([[0, -15], [1, -10], [1.8, -5], [2.5, -1], [9, 4], [9, 5.5], [2.3, 4], [2, 9], [5, 11], [5, 12.5], [1, 12.5], [0, 14]]),
-    hog: sym([[0, -15], [1, -12], [1.3, -4], [14, -3.5], [14, -0.5], [1.3, -0.5], [1.3, 9], [6, 10], [6, 12.5], [1, 12], [0, 12.5]])
-      + '<rect x="2" y="1.5" width="2.6" height="6" rx="1.3"/><rect x="-4.6" y="1.5" width="2.6" height="6" rx="1.3"/>',
-    frogfoot: sym([[0, -15], [1, -11], [1.6, -4], [12, 0], [12, 1.5], [1.8, 1], [1.6, 9], [5.5, 11], [5.5, 12.5], [1, 12], [0, 13]]),
-    swing: sym([[0, -15], [1.2, -10], [2, -5], [4, -3], [11, 6], [10.5, 7], [3.5, 4], [2.5, 10], [7, 13], [7, 14.5], [1.5, 14], [0, 14.5]]),
-    stealth: sym([[0, -15], [1.5, -8], [3, -4], [11, 3], [11, 5], [4, 5.5], [6, 10], [6, 12], [2, 11], [0, 11.5]]),
-    foxbat: sym([[0, -15], [1, -10], [3.5, -5], [4, -3], [12, 3], [12, 5], [4, 5], [4, 10], [7, 13], [7, 14], [3, 13], [0, 13]]),
-    trainer: sym([[0, -14], [1, -9], [1.3, -3], [10, 0], [10, 1.5], [1.4, 2], [1.2, 9], [4.5, 10.5], [4.5, 12], [0.8, 12], [0, 12.5]]),
-    bomber: sym([[0, -15], [1.2, -12], [1.2, -6], [15, 3], [15, 4.5], [1.2, 0], [1.2, 10], [6, 12], [6, 13.5], [1, 13.5], [0, 14]]),
-    quad: sym(QUAD),
-    radome: sym(QUAD) + '<circle cy="1.5" r="5"/>',
-    cargo: sym([[0, -14], [1.8, -12], [2, -4], [15, -3], [15, -1], [2, -1], [1.8, 8], [6, 10], [6, 12], [1.2, 11.5], [0, 12]]),
-    prop: sym([[0, -13], [1.2, -11.5], [1.4, -7], [12, -6], [12, -3.5], [1.4, -3], [1, 8], [5, 9], [5, 11], [0.8, 11], [0, 11.5]])
-      + '<path d="M-5.5-14H5.5" fill="none" stroke-width="1.6"/>',
-    heli: '<circle cy="-2" r="12.5" fill="none" stroke-width="1.6" opacity=".7"/><path d="M0-8C3-8 3.5-4 3.5 0C3.5 3 2 5 1 6V14L3 15V16H-3V15L-1 14V6C-2 5-3.5 3-3.5 0C-3.5-4-3-8 0-8Z"/>',
-    chinook: '<circle cy="-8" r="8" fill="none" stroke-width="1.4" opacity=".7"/><circle cy="8" r="8" fill="none" stroke-width="1.4" opacity=".7"/><rect x="-2.6" y="-12" width="5.2" height="24" rx="2.6"/>',
-    drone: sym([[0, -10], [1, -8], [1, -2], [15, -1], [15, 0.5], [1, 0.5], [0.8, 7], [4, 10], [4, 11], [0, 10]]),
-  };
-  // Type DCS → silhouette (les avions qui se ressemblent partagent la même) ; inconnu → chasseur générique
+  // Silhouettes de tar1090 / ADS-B Exchange (js/markers.js). Type DCS → forme ; les avions qui se ressemblent partagent la même.
   const FAMILIES = [
-    [/F.A-18|FA-18/, 'hornet'], [/F-14/, 'tomcat'], [/F-15/, 'eagle'], [/F-16/, 'viper'], [/F-4/, 'phantom'], [/F-5/, 'tiger'],
-    [/Su-2[7]|Su-3[034]|J-11/, 'flanker'], [/MiG-29/, 'fulcrum'], [/M-2000|Mirage 2000|MiG-21|J-10/, 'delta'], [/Mirage-F1|F1/, 'f1'],
-    [/JF-17/, 'jf17'], [/AV8|Harrier/, 'harrier'], [/A-10/, 'hog'], [/Su-25/, 'frogfoot'],
-    [/Su-24|Tornado|MiG-2[37]|B-1|Tu-160|Tu-22/, 'swing'], [/F-35|F-22|F-117/, 'stealth'], [/MiG-25|MiG-31/, 'foxbat'],
-    [/T-45|L-39|C-101|MB-339|A-4|F-86|MiG-15|Yak-52/, 'trainer'], [/B-52|Tu-95|Tu-142/, 'bomber'],
-    [/E-3|E-2|A-50|KJ-2000/, 'radome'], [/KC-?135|IL-7[68]|C-17|707|A400|Tu-134|Yak-40|S-3B/, 'quad'], [/C-130|KC.?130|An-2[6]|An-30/, 'cargo'],
-    [/P-51|P-47|TF-51|Spitfire|Bf.?109|FW.?190|Fw 190|I-16|Mosquito|Ju-88|A6M|F4U|Corsair|Christen|Yak-52|SPAD|Fokker|Sopwith|Camel/, 'prop'],
-    [/CH-47/, 'chinook'], [/MQ-|RQ-|WingLoong/, 'drone'],
+    [/F.A-18|FA-18/, 'f18'], [/F-14|Su-24|Tornado|MiG-2[37]|Tu-22/, 'tornado'], [/B-1|Tu-160/, 'b1b_lancer'],
+    [/F-15|Su-2[7]|Su-3[034]|J-11|MiG-29|MiG-25|MiG-31/, 'md_f15'], [/F-35|F-22/, 'f35'], [/F-5/, 'f5_tiger'],
+    [/M-2000|Mirage 2000|MiG-21|J-10/, 'mirage'], [/Mirage.F1|^F1/, 'miragef1'], [/Rafale/, 'rafale'], [/Eurofighter|Typhoon/, 'typhoon'],
+    [/JAS|Gripen/, 'sb39'], [/A-10/, 'a10'], [/A-4/, 'md_a4'], [/L-39/, 'l159'], [/C-101|MB-339/, 'm326'], [/T-45|Hawk\b/, 'bae_hawk'],
+    [/Alpha/, 'alpha_jet'], [/F-86|MiG-15|MiG-19/, 'hunter'],
+    [/B-52|Tu-95|Tu-142/, 'b52'], [/E-3|E-2|A-50|KJ-2000/, 'e3awacs'], [/KC-?135|707/, 'b707'], [/KC-10|KC10/, 'md11'],
+    [/C-17|IL-7[68]|Il-7[68]/, 'c17'], [/A400/, 'a400'], [/C-130|KC.?130|An-2[6]|An-30/, 'c130'],
+    [/P-51|P-47|TF-51|Spitfire|Bf.?109|FW.?190|Fw 190|I-16|Mosquito|Ju-88|A6M|F4U|Corsair|Christen|Yak-52|SPAD|Fokker|Sopwith|Camel/, 'single_turbo'],
+    [/AH-64/, 'apache'], [/UH-60|SH-60|MH-60/, 'blackhawk'], [/Mi-24|Mi-35/, 'mil24'], [/SA342|Gazelle/, 'gazelle'],
+    [/Mi-8|Mi-17|Mi-26|SA330|Puma/, 'puma'], [/CH-47/, 'chinook'], [/MQ-|RQ-|WingLoong/, 'uav'],
   ];
   const shapeOf = p => {
-    if (p.role === 'heli' && !/CH-47/.test(p.aircraft)) return 'heli';
     const f = FAMILIES.find(([re]) => re.test(p.type || p.aircraft));
-    return f ? f[1] : p.role === 'awacs' ? 'radome' : p.role === 'tanker' || p.role === 'heavy' ? 'quad' : 'hornet';
+    return f ? f[1] : { awacs: 'e3awacs', tanker: 'b707', heavy: 'c17', heli: 'helicopter' }[p.role] || 'hi_perf';
   };
   const colorOf = p => selected === p.key ? '#d9b45a' : enemy(p) ? '#d0342c' : p.ai ? '#13a89e' : '#2a5ca8';
-  const svg = (p, size) => '<svg viewBox="-17 -17 34 34" width="' + size + '" height="' + size + '" style="transform:rotate(' + Math.round(p.hdg) + 'deg)" fill="' + colorOf(p)
-    + '" stroke="#13213a" stroke-width="1.1" stroke-linejoin="round">' + SHAPES[shapeOf(p)] + '</svg>';
+  // Même rendu que svgShapeToSVG de tar1090 (contour 2× l'épaisseur, détails à 0,6×)
+  const svg = (p, scale) => {
+    const s = window.BS_SHAPES[shapeOf(p)], k = s.strokeScale || 1, c = colorOf(p);
+    return '<svg viewBox="' + s.viewBox + '" width="' + Math.round(s.w * scale) + '" height="' + Math.round(s.h * scale)
+      + '" style="transform:rotate(' + Math.round(p.hdg) + 'deg)">'
+      + s.path.map(d => '<path paint-order="stroke" fill="' + c + '" stroke="#13213a" stroke-width="' + (1.2 * k) + '" d="' + d + '"/>').join('')
+      + (s.accent || []).map(d => '<path fill="none" stroke="#13213a" stroke-width="' + (0.36 * (s.accentMult || 1) * k) + '" d="' + d + '"/>').join('')
+      + '</svg>';
+  };
 
   // Porte-avions vus du dessus, noir et blanc : CVN (pont oblique), Kuznetsov (tremplin), Tarawa (pont droit)
   const SHIPS = {
@@ -92,7 +72,7 @@
       + (enemy(p) ? '' : '<span class="tg">' + esc(p.callsign || SHIP_NAMES[p.ship]) + '</span>') + '</div>', iconSize: [0, 0] });
     if (!p.air) return L.divIcon({ className: '', html: '<div class="gnd' + sel + '"><span class="sq"></span></div>', iconSize: [0, 0] });
     const name = label(p);
-    return L.divIcon({ className: '', html: '<div class="ac' + sel + (p.ai ? ' ai' : '') + '">' + svg(p, p.ai ? 24 : 28)
+    return L.divIcon({ className: '', html: '<div class="ac' + sel + (p.ai ? ' ai' : '') + '">' + svg(p, p.ai ? 1 : 1.15)
       + '<span class="tg">' + (name ? name + ' ' : '') + '<i>' + fl(p) + '</i></span></div>', iconSize: [0, 0] });
   };
 
@@ -136,9 +116,22 @@
       if (p && pts && pts.length) { p.trail = pts.slice(); drawTrail(); }
     });
   }
+  // Lissage de Chaikin (3 passes) : un point toutes les 15 s fait des angles, un avion vire en courbe
+  function smooth(pts) {
+    for (let n = 0; n < 3 && pts.length > 2; n++) {
+      const out = [pts[0]];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [a, b] = [pts[i], pts[i + 1]];
+        out.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]);
+      }
+      out.push(pts[pts.length - 1]);
+      pts = out;
+    }
+    return pts;
+  }
   function drawTrail() {
     const p = units.find(x => x.key === selected);
-    trailLine.setLatLngs(p && p.air ? p.trail.concat([[p.lat, p.lon]]) : []);
+    trailLine.setLatLngs(p && p.air ? smooth(p.trail.concat([[p.lat, p.lon]])) : []);
   }
 
   function renderList() {
@@ -148,7 +141,7 @@
     const list = filter === 'ai' ? units.filter(p => p.ai) : players.filter(p => filter === 'all' || (filter === 'air' ? p.air : !p.air));
     $('plist').innerHTML = list.map(p => `
       <button class="p${selected === p.key ? ' sel' : ''}" data-key="${esc(p.key)}">
-        <span class="ic${p.air || p.ship ? '' : ' g'}">${p.ship ? shipSvg(p, 26) : p.air ? svg(p, 22) : '<span class="sq"></span>'}</span>
+        <span class="ic${p.air || p.ship ? '' : ' g'}">${p.ship ? shipSvg(p, 26) : p.air ? svg(p, 0.85) : '<span class="sq"></span>'}</span>
         <span class="nm"><b>${p.ai ? (enemy(p) ? 'Inconnu' : esc(p.callsign || ROLES[p.role] || SHIP_NAMES[p.ship])) : esc(p.callsign)}</b><small>${esc(p.aircraft)}${p.ai && !enemy(p) && p.freq ? ' · ' + esc(p.freq) : ''}${p.air || !p.base ? '' : ' · ' + esc(p.base)}</small></span>
         <span class="data">${p.ship ? '<span>' + Math.round(p.spd) + ' kt</span><span>' + hdg(p) + '</span>' : p.air ? '<span>' + fl(p) + '</span><span>' + Math.round(p.spd) + ' kt · ' + hdg(p) + '</span>' : '<span>Au sol</span>'}</span>
       </button>`).join('') || '<div class="empty" style="padding:24px">' + (filter === 'ai' ? 'Aucune IA en vol' : 'Aucun pilote connecté') + '</div>';
@@ -167,6 +160,11 @@
     const radio = [['Fréquence', p.freq], ['TACAN', p.tacan], ['ICLS', p.icls], ['Link 4', p.link4]].filter(([, v]) => v);
     $('fRadio').style.display = radio.length ? '' : 'none';
     $('fRadio').innerHTML = radio.map(([k, v]) => '<div><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>').join('');
+    const st = !p.ai && statsOf(p.callsign);
+    $('fStats').style.display = st ? '' : 'none';
+    if (st) $('fStats').innerHTML = [['Grade', st.grade.name], ['Points', fmt.n(st.points)], ['Heures', fmt.h1(st.hours) + ' h'],
+      ['Victoires', fmt.n(st.airKills + st.groundKills + st.navalKills)], ['Appontages', fmt.n(st.traps)], ['Atterrissages', fmt.n(st.landings)]]
+      .map(([k, v]) => '<div><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>').join('');
     $('fPos').textContent = dm(p.lat, 'N', 'S', 2) + '  ' + dm(p.lon, 'E', 'W', 3);
     $('followBtn').classList.toggle('on', follow);
   }

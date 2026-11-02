@@ -358,14 +358,17 @@ button { font-family: var(--f-text); }
 .lg-foe { border-bottom-color: var(--red); }
 .lg-ship { width: 6px; height: 13px; border-radius: 3px 3px 1px 1px; background: #fbfaf7; border: 1.5px solid var(--ink); }
 .lg-gnd { width: 9px; height: 9px; border-radius: 2px; background: var(--mute); }
-.lg-af { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); background: #fbfaf7; }
+.lg-af { position: relative; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); background: #fbfaf7; }
+/* barre diagonale des aérodromes (symbole de terrain) */
+.lg-af::after, .af .ring::after { content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 140%; background: var(--ink); transform: translate(-50%, -50%) rotate(45deg); }
 .focus { position: absolute; left: 14px; bottom: 14px; z-index: 1000; width: min(340px, calc(100% - 28px)); padding: 16px 18px; border-radius: 18px; background: var(--ink); color: #fbfaf7; display: none; flex-direction: column; gap: 12px; box-shadow: 0 20px 40px -20px rgba(19,33,58,.6); }
 .focus.show { display: flex; }
 .focus .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.focus .cs { font-family: var(--f-display); font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.focus .cs { font-family: var(--f-display); font-weight: 800; font-size: 28px; line-height: 1.2; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
 .focus .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .focus .grid div { display: flex; flex-direction: column; gap: 2px; }
 .focus .k { font-family: var(--f-mono); font-size: 10px; letter-spacing: .12em; color: #9aa6ba; text-transform: uppercase; }
+.focus .stats .v { font-size: 14px; }
 .focus .v { font-family: var(--f-mono); font-size: 16px; font-weight: 600; color: var(--hud); }
 .focus button { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: 999px; padding: 7px 12px; font-family: var(--f-mono); font-size: 11px; cursor: pointer; }
 .focus button.on { background: var(--hud); color: var(--ink); border-color: var(--hud); }

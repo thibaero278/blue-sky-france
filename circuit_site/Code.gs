@@ -20,9 +20,9 @@ function token_() {
 }
 
 const COLS = ['name', 'grade', 'points', 'totalFlightTime', 'completedFlightTime', 'maxFlightTime',
-  'flights', 'airair', 'airsol', 'airmer', 'traps', 'deaths', 'teamkills', 'refuelTime', 'rang'];
+  'flights', 'airair', 'airsol', 'airmer', 'traps', 'deaths', 'teamkills', 'refuelTime', 'rang', 'landings'];
 const HEADERS = ['Pilote', 'Niveau', 'Points', 'Heures totales (s)', 'Heures completes (s)', 'Vol le plus long (s)',
-  'Vols', 'Kills A/A', 'Kills A/S', 'Kills A/M', 'Appontages', 'Morts', 'Teamkills', 'Ravitaillement (s)', 'Grade'];
+  'Vols', 'Kills A/A', 'Kills A/S', 'Kills A/M', 'Appontages', 'Morts', 'Teamkills', 'Ravitaillement (s)', 'Grade', 'Atterrissages'];
 
 function sheet_(name, headers) {
   const ss = SpreadsheetApp.getActive();
@@ -45,6 +45,7 @@ function doPost(e) {
     const sh = sheet_('Pilotes', HEADERS);
     const rows = (d.pilots || []).map(p => COLS.map(c => p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : 0)));
     rows.sort((a, b) => b[2] - a[2]);
+    sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);  // en-tetes a jour si une colonne a ete ajoutee
     if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLS.length).clearContent();
     if (rows.length) sh.getRange(2, 1, rows.length, COLS.length).setValues(rows);
 
