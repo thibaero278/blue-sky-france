@@ -288,11 +288,13 @@
     if (!C.statsUrl) return Promise.resolve(demoLive());
     return getJson(relayUrl('live')).then(j => {
       const age = j.time ? Date.now() - new Date(j.time).getTime() : Infinity;
-      return age > 180e3 ? { demo: false, offline: true, players: [] } : { demo: false, ...j };
+      // l'hôte du serveur n'est pas dans « online » (DCSServerBot l'ignore) : on y ajoute tous les pilotes de la carte
+      const online = [...new Set([...(j.online || []), ...(j.players || []).map(p => p.callsign)].filter(Boolean))];
+      return age > 180e3 ? { demo: false, offline: true, players: [] } : { demo: false, ...j, online };
     }).catch(err => { console.warn('[BS] live indisponible :', err); return { demo: false, offline: true, players: [], error: String(err) }; });
   }
 
-  // État du serveur DCS d'après le live du bot (relevé toutes les 30 s) : { demo, up, online:[pseudos], mission }
+  // État du serveur DCS d'après le live du bot (relevé toutes les 5 s) : { demo, up, online:[pseudos], mission }
   // up = mission qui tourne ; « en ligne » (point vert) seulement s'il y a au moins un joueur connecté.
   let serverP = null;
   function loadServer() {

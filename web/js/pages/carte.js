@@ -37,6 +37,7 @@
       let p = players.find(x => x.callsign === n.callsign);
       if (!p) { p = { ...n, trail: [] }; players.push(p); }
       else Object.assign(p, n);
+      p.fix = { lat: p.lat, lon: p.lon, at: Date.now() };
       if (p.air) { p.trail.push([p.lat, p.lon]); if (p.trail.length > 45) p.trail.shift(); } else p.trail = [];
       if (!p.line) p.line = L.polyline(p.trail, { color: '#2a5ca8', weight: 2, opacity: 0.4, interactive: false }).addTo(map);
       p.line.setLatLngs(p.trail);
@@ -132,23 +133,38 @@
         : nOnline ? '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>' : '<span style="color:#8a91a3">Personne en ligne</span>';
       $('liveDemo').innerHTML = demo ? demoBadge('Démo · export live à venir') : '';
       $('noteSrc').textContent = d.offline ? 'Serveur DCS arrêté ou sans mission · la carte se remplit dès qu’une mission tourne'
-        : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les 30 s environ'
+        : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les 5 s'
         : 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions';
       sync(d.players || []);
       after();
     });
   }
 
-  // Relu toutes les 30 s quand le serveur tourne (le bot envoie les positions toutes les 30 s), toutes les 2 min sinon ;
+  // Relu toutes les 5 s quand le serveur tourne (le bot envoie les positions toutes les 5 s), toutes les 2 min sinon ;
   // rien tant que l'onglet est caché, relu dès qu'on y revient.
   let timer = null;
-  const schedule = () => { timer = setTimeout(poll, offline ? 120e3 : 30e3); };
+  const schedule = () => { timer = setTimeout(poll, offline ? 120e3 : 5e3); };
   function poll() {
     timer = null;
     if (!document.hidden) load().then(schedule);
   }
+  // Entre deux envois du bot (5 s), on fait avancer les avions en vol selon leur cap et leur vitesse
+  // shortcut: estimation en ligne droite, l'avion « saute » un peu à chaque vraie position ; suffisant à 5 s.
+  function extrapolate() {
+    players.forEach(p => {
+      if (!p.air || !p.fix || !p.spd) return;
+      const s = Math.min((Date.now() - p.fix.at) / 1000, 60), nm = p.spd * s / 3600, r = p.hdg * Math.PI / 180;
+      p.lat = p.fix.lat + nm * Math.cos(r) / 60;
+      p.lon = p.fix.lon + nm * Math.sin(r) / (60 * Math.cos(p.fix.lat * Math.PI / 180));
+      p.marker.setLatLng([p.lat, p.lon]);
+    });
+    const sp = players.find(x => x.callsign === selected);
+    if (sp) { $('fPos').textContent = dm(sp.lat, 'N', 'S', 2) + '  ' + dm(sp.lon, 'E', 'W', 3); if (follow) map.panTo([sp.lat, sp.lon], { animate: false }); }
+  }
+
   load().then(() => {
     if (demo) { setInterval(demoTick, 1000); return; }
+    setInterval(extrapolate, 1000);
     schedule();
     document.addEventListener('visibilitychange', () => { if (!document.hidden && !timer) poll(); });
   });
