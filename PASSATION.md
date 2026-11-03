@@ -495,7 +495,8 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   **historique Git nettoyé** (`git filter-repo --replace-text`) : IP publique, MAC, IP de la box et IP locales remplacées par
   « (masqué) » dans tous les commits, push forcé (0 fork). Contenu final identique (même arbre). Sauvegarde de l'ancien
   historique : `serveur BS\sauvegarde-git-blue-sky-france_2026-11-03.git` (contient encore ces données, hors dépôt).
-  Reste à Thibaud : demander au support GitHub de purger le cache des anciens commits (756f466, 249fa05, 284f85d).
+  Purge du cache GitHub des anciens commits (756f466, 249fa05, 284f85d) demandée au support : **ticket #4945116**
+  (03/11, réponse attendue par mail). Supprimer la sauvegarde locale une fois le ticket clos.
   Hôte : l'UCID passe désormais par l'événement `bsHost` (lua/commands.lua → listener) ; le 1er essai (`server.get_player(id=1)`)
   ne marchait pas, le moteur ignorant l'hôte aussi en mémoire. **À vérifier** : une ligne dans `players` après une mission sur le MSI.
 
