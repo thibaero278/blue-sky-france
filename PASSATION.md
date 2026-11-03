@@ -1,18 +1,19 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 22/10/2026 (référencement Google, audit d'optimisation)_
+_Dernière mise à jour : 03/11/2026 (scores fusionnés sur R2D2, stats de Weefe importées, .md remis en cohérence)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
-> (`CLAUDE.md` est géré par Claude Chat : ne pas y toucher.)
+> `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
 
 ## Contexte
 - Communauté DCS francophone **Blue Sky France** (~140 membres), fondée par Thibaud.
-- **Weefe** (admin BS) héberge les serveurs multi (chez Thibaud l'hébergement ne marche pas).
+- Serveurs multi : le MSI de Thibaud (« Blue sky ») et le PC de **Weefe** (admin BS, « Weefe le GOAT »),
+  agents du bot DCSServerBot dont **R2D2** (serveur maison de Thibaud) est le maître (voir `bot BS\README.md`).
 - Mission : `Blue Sky Multi-joueur DAY_Caucasus.miz` (Caucase).
-- Script : `multi jours thib.lua` (1243 lignes, basé sur **MOOSE**).
+- Script : `mission\script Caucase.lua` (basé sur **MOOSE** ; s'appelait `multi jours thib.lua` jusqu'au 18/10).
 
 ## Objectif final
-Un site Blue Sky (Google Sites envisagé) avec :
+Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-france/ ; Google Sites abandonné) avec :
 1. Suivi de la progression : heures de vol, kills, points, appontages, grades de chaque pilote.
 2. Pub / présentation de la Blue Sky, infos de missions, liens TikTok/YouTube/Discord, etc.
 
@@ -251,15 +252,15 @@ Un site Blue Sky (Google Sites envisagé) avec :
   - Site : le point vert « Serveur · N en ligne » était **codé en dur**. Maintenant `loadServer()` (`data.js`) lit le live du bot :
     hors ligne si données > 3 min (point gris), sinon nombre de connectés. Le bot ajoute `online` (tous les connectés) et `mission`
     au live. Accueil (« En ce moment ») branché dessus aussi. Testé en local (cas hors ligne), **pas encore poussé**.
-  - Serveur invisible en multi : pare-feu Windows OK (règles DCS TCP/UDP 10308 entrantes). Box **SFR** ((masqué)), PC en
-    (masqué) (Ethernet) **et** (masqué) (Wi-Fi) → redirection 10308 TCP+UDP à faire sur la box vers la bonne IP + bail DHCP fixe.
-    IP publique (masqué) (à comparer avec l'IP WAN de la box pour écarter un CGNAT).
-  - **Fait par Thibaud** (box GR140IG) : bail statique MAC `(masqué)` (câble) → **(masqué)** (PC renouvelé, OK),
-    anciennes règles (33674, 10308 UDP → .43) supprimées, nouvelle règle « DCS » 10308 TCP/UDP → (masqué).
+  - Serveur invisible en multi : pare-feu Windows OK (règles DCS TCP/UDP 10308 entrantes). Box **SFR**, PC en
+    une IP en Ethernet **et** une en Wi-Fi → redirection 10308 TCP+UDP à faire sur la box vers la bonne IP + bail DHCP fixe.
+    IP publique (à comparer avec l'IP WAN de la box pour écarter un CGNAT).
+  - **Fait par Thibaud** (box GR140IG) : bail statique (câble) → IP fixe du PC (PC renouvelé, OK),
+    anciennes règles (33674, 10308 UDP) supprimées, nouvelle règle « DCS » 10308 TCP/UDP → IP fixe du PC.
     ⚠️ La box avertit que l'IPv4 utilisateur peut ne pas marcher « en raison de l'architecture de routage IPv6 WAN »
     → IPv4 partagée probable (MAP-T / DS-Lite, plage de ports limitée).
-  - **CGNAT confirmé** (menu WAN) : IPv4 WAN de la box = **(masqué)** (privée), passerelle (masqué) ; l'IP publique
-    (masqué) est partagée par SFR. **Aucune redirection de port ne peut marcher** : c'est la vraie raison pour laquelle personne
+  - **CGNAT confirmé** (menu WAN) : IPv4 WAN de la box = **privée** ; l'IP publique
+    est partagée par SFR. **Aucune redirection de port ne peut marcher** : c'est la vraie raison pour laquelle personne
     ne voit le serveur. Solution : demander à SFR une **IPv4 dédiée / « full-stack »** (service client 1023). Ensuite la règle
     10308 → .200 déjà créée suffit. Plan B : tunnel (playit.gg, ZeroTier/Radmin) ou laisser Weefe héberger.
 
@@ -405,38 +406,149 @@ Un site Blue Sky (Google Sites envisagé) avec :
   « Depuis » repart de l'heure de démarrage du bot pour les salons déjà occupés à ce moment. Testé hors bot (salons simulés :
   entrée, AFK, salon avec bot seul, sortie). Déployé (`Install-BlueSkyPlugin.ps1`) ; **STOP/GO nécessaire**.
   `Circuit-Blue-Sky.pdf` (schéma complet du circuit, 18 p.) est à la racine du dépôt, non suivi : ne pas le committer.
+- 31/10/2026 : **`troll.ogg` jouait en quittant le slot** (DCS envoie Dead/PilotDead pour l'avion retiré). Son retiré de
+  `OnPlayerDeath` : il ne joue plus qu'au train cassé sur PA (une vraie mort ne le joue plus non plus).
+  Sauvegarde `mission\bakup\script Caucase 2026-10-31_1541.lua`. **Validé en jeu par Weefe.**
+- 03/11/2026 : **carte, atterrissages, SRS de l'hôte**.
+  - Carte : silhouettes d'origine de tar1090 (ADS-B Exchange, GPL v2+, sélection dans `web/js/markers.js` avec la source),
+    à la place des dessins maison (les porte-avions restent dessinés maison). Trajectoire lissée (Chaikin). Fiche d'un joueur = ses stats (grade, points,
+    heures, victoires, appontages, atterrissages). Aérodromes : barre diagonale. Pseudo de la fiche moins serré.
+  - `script Caucase.lua` : compteur `landings` (atterrissage sur base terrestre, même endroit que la musique PA.ogg),
+    affiché au message d'arrivée et au kneeboard des scores. Sauvegarde `bakup\script Caucase_2026-11-03_avant-atterrissages.lua`.
+    **Intégré dans la .miz du MSI** (`Saved Games\...\Blue sky multi\`, ancienne .miz dans `bakup\..._2026-11-03_00-33-48.miz.bak`) :
+    elle contenait encore la version du 18/10 (sans grades), elle a maintenant la v2 complète. .miz déposée dans FICHIERS pour Weefe.
+  - `Code.gs` : colonne `landings` / « Atterrissages » (en-têtes réécrits à chaque envoi). **À redéployer.**
+  - SRS : le serveur SRS démarre bien, mais SRS n'envoie l'auto-connexion qu'aux joueurs qui rejoignent, jamais à l'hôte (id 1).
+    `callbacks.lua` (plugin bluesky) lance le client SRS de l'hôte à `onSimulationStart` (srs.dll du mod DCS-SRS, 127.0.0.1:5002).
+    Pas testé en jeu. Le hook auto-connexion de DCSServerBot n'est posé que si le bot démarre DCS lui-même.
+  - Constat : `publish_stats` n'envoyait que le Scores.lua du serveur concerné et Code.gs écrase la feuille → quand Weefe
+    hébergeait, ses scores remplaçaient ceux du MSI sur le site. Réglé par la fusion ci-dessous.
+- 03/11/2026 : **scores fusionnés sur R2D2** (plugin bluesky v1.5, idée de Weefe adaptée : R2D2 au lieu de Google).
+  - Tables `bluesky_scores` (total par pilote) et `bluesky_scores_base` (dernier Scores.lua lu par serveur), migrées sur R2D2.
+  - Chaque lecture d'un Scores.lua ajoute au total ce que ce serveur a gagné depuis sa lecture précédente (une baisse
+    n'enlève rien) ; un serveur jamais lu = import au **maximum par stat** (sans annonce de promotion). Base gardée en
+    Postgres : ce qui est fait pendant une coupure de R2D2 est rattrapé. Site, `/pilote`, `/classement`, `-stats` = total.
+  - En jeu : quand le script de mission est chargé (`scoresReady` dans bsGetLive), le bot envoie le total
+    (`bsSetScores` → mission.lua remplace `Scores` et appelle `SaveScores`), confirmé par `scoresSynced` ; sans
+    confirmation en 60 s ou mission finie : base d'avant remise, renvoi au tour suivant.
+  - Testé hors bot (faux serveurs/base/DCS : départ au max, gains simultanés, envoi perdu, redémarrage de R2D2) et Lua (lupa).
+    Première lecture réelle du MSI faite (22 pilotes importés). Pas encore vu : le serveur de Weefe lu par R2D2, l'envoi du total en jeu.
+  - Sauvegarde du plugin d'avant : `~/backups/bluesky-plugin-avant-fusion-20261103.tgz` sur R2D2.
+  - Suppression RGPD : étape SQL ajoutée dans `CONFORMITE.md` § 5 (sinon le pilote revient).
+- 03/11/2026 : **Scores.lua de Weefe importé dans celui du MSI** (stats seulement : maximum par stat, grades du MSI gardés,
+  « Player »/« Joueur » ignorés). 22 → 24 pilotes (MR WHITE, noxi), 1074 points, déjà repris par R2D2.
+  Sauvegardes : `bakup\Scores_MSI_2026-11-03_avant-fusion-weefe.lua` et `bakup\Scores_Weefe_2026-11-03.lua`.
+  Doublons de pseudo non fusionnés (ex. « Napster 1-1 | Lixx » / « Napster1-1 | Lixx »).
+- 03/11/2026 : **SRS de l'hôte, vol en cours sur la carte, confidentialité, icône Google**.
+  - SRS (logs client/serveur + bot) : le client de l'hôte était lancé à `onSimulationStart`, mais le serveur SRS (démarré par
+    le bot avec la mission) n'écoute qu'après ~10 s (essai UPnP, `UPNP_ENABLED=true` dans `Config\SRS.cfg`) → refusé.
+    Le serveur SRS s'arrête aussi en fin de mission et quand le bot est arrêté (STOP) : sans bot, pas de SRS.
+    `callbacks.lua` attend maintenant que le port 5002 réponde (essai toutes les 2 s, 3 min max) avant de lancer le client.
+    Testé hors jeu (lupa). Sauvegarde `mission\bakup\callbacks_2026-11-03_avant-attente-srs.lua`.
+  - Carte : `mission.lua` envoie `flight` par joueur en vol (durée, points, ravitaillement, kills A/A, A/S, A/M en attente,
+    lus dans `Flights` de `script Caucase.lua`) ; la fiche du joueur l'affiche (sans titre). Fiche allégée à la demande de
+    Thibaud : grade = insigne à côté du pseudo, stats totales = points et heures seulement (plus de victoires, appontages, atterrissages). Testé dans le navigateur
+    avec un faux relais. Relais (Code.gs) inchangé : il garde le JSON tel quel.
+  - Plugin déployé : moteur local, R2D2, `partage/maj` (Weefe). **STOP/GO nécessaire** sur le MSI, MAJ chez Weefe.
+  - `confidentialite.html` (3/11) : stats additionnées entre serveurs, atterrissages, vol en cours et trajectoire sur la carte,
+    stockage sur un serveur personnel du fondateur en France. Sauvegarde `mission\bakup\confidentialite_2026-11-03.html`.
+  - Icône grise dans Google : `https://thibaero278.github.io/` (racine) renvoie 404. Google prend l'icône et le nom du site
+    (« GitHub Pages documentation ») sur la page d'accueil de l'hôte, pas sur `/blue-sky-france/`. Page racine préparée dans
+    `serveur BS\racine-github-io\` (à publier dans un dépôt `thibaero278.github.io`). Favicon des pages passé à
+    `icon-192.png` (Google veut un carré multiple de 48 px ; `ecusson.png` fait 800 px).
+- 03/11/2026 : **menu STATISTIQUES par joueur + message d'accueil** (`script Caucase.lua`, chantiers 1 et 2 ci-dessous).
+  `ForEachGroupPlayer` : « Mes scores » et « Echelle des grades » envoient à chaque joueur du groupe **ses** stats
+  (`outTextForUnit`) ; Top 10 toujours au groupe. Sous-menu GRADES et `SetPlayerGrade` supprimés, « (ROOKIE) » retiré de « Mes scores ».
+  Accueil dans `ScoreMenuHandler:OnEventBirth` (15 s, au joueur seul, à chaque apparition).
+  Testé hors jeu (lupa, Lua 5.1, faux MOOSE : groupe de 2 joueurs + 1 place vide, accueil). **Pas testé en jeu.**
+  Sauvegarde `bakup\script Caucase_2026-11-03_avant-menu-par-joueur.lua`. Injecté dans la .miz du MSI
+  (`Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\`, + copie libre du script à côté), ancienne .miz :
+  `bakup\Blue Sky Multi-joueur DAY_Caucasus_2026-11-03_11-55-38.miz.bak`. **Validé en jeu par Thibaud** ; .miz déposée dans FICHIERS pour Weefe.
+- 03/11/2026 : **fusion des pseudos par UCID** (plugin bluesky, version laissée à 1.5 : pas de nouvelle table).
+  - `bluesky_scores` reste **par pseudo** (c'est lui qui est fusionné, logique inchangée). Le regroupement est une vue :
+    `sc.aliases` (tables `players` + `players_hist` de DCSServerBot : pseudo → pseudo actuel du même UCID ; pseudo porté
+    par plusieurs UCID = ambigu, pas touché), `sc.group` (somme, max pour `maxFlightTime`). Utilisé par le site, `/pilote`,
+    `/classement`, `-stats`, le fil des promotions. Alias relus à chaque tour de `stats_loop` (60 s).
+  - En jeu : `sc.for_mission` = total regroupé sous le pseudo actuel + **anciens pseudos remis à 0** (`bsSetScores` ne
+    retire pas de pilote du fichier : sinon recomptés en double). Ce qui est envoyé devient la base du serveur.
+  - **L'hôte n'avait pas d'UCID en base** (DCSServerBot ignore l'id 1, `Player.prep`) : `record_host` l'enregistre dans
+    `players` avec la même requête que le moteur, dans `live_loop`, avant l'envoi du total.
+  - Constat au déploiement : `players` était **vide** (personne n'avait encore rejoint en client, seuls les hôtes jouaient)
+    → aucun regroupement tant que les joueurs ne se sont pas connectés une fois avec le bot en marche.
+  - Testé : simulation (renommage, envoi en jeu, gains sous le nouveau puis l'ancien pseudo, pseudo ambigu, sans alias =
+    comportement d'avant) + aperçu lecture seule sur les vraies données de R2D2. Déployé sur R2D2 (bot redémarré, aucune
+    erreur), moteur du MSI, `partage/maj` pour Weefe. Sauvegardes : `~/backups/bluesky-plugin-avant-ucid-20261103.tgz`
+    et dump de la base du 03/11 midi sur R2D2. **Pas encore vu en réel** : un joueur qui change de pseudo.
+- 03/11/2026 : **suppression RGPD en une commande** : `/supprimer_pilote pseudo` (DCS Admin, confirmation oui/non) efface
+  du total tous les pseudos du même UCID, republie le site, trace dans l'audit. Avant, un serveur oublié dans la procédure
+  manuelle faisait revenir le pilote avec toutes ses stats.
+  - `sc.merge` : un pseudo absent du total mais présent dans la base d'un serveur (= supprimé) est ignoré tant qu'il ne
+    gagne rien ; s'il rejoue, seuls les nouveaux gains comptent.
+  - `push_scores` : base du serveur = ancienne base + envoi (les supprimés y restent), et liste `remove` envoyée à la
+    mission → `bsSetScores(json, removeJson)` (`mission.lua`, `lua/commands.lua`) les retire de `Scores.lua`.
+    Compatible avec un agent pas à jour (argument ignoré, fichier nettoyé plus tard).
+  - Testé : simulation (fichier pas nettoyé, envoi, retour du joueur, ancien agent) + Lua (lupa). Déployé R2D2 (aucune
+    erreur), moteur du MSI, `partage/maj`. Sauvegarde `~/backups/bluesky-plugin-avant-rgpd-20261103.tgz`.
+    **STOP/GO du MSI nécessaire** pour les fichiers Lua. Commande pas encore utilisée en réel.
+  - `CONFORMITE.md` § 5 réécrit.
 
-## Prochaines étapes
-- Optimisations du 22/10 : `Code.gs` redéployé et bot redémarré par Thibaud, vérifié (relais, bot, site en ligne).
-  Reste à voir en réel : carte live avec une mission lancée (envoi toutes les 2 min serveur vide, 30 s avec des joueurs).
-- **Search Console (vers le 29/10/2026)** : ouvrir le rapport « Pages » (indexées / non indexées et pourquoi) et « Sitemaps »
-  (doit être vert). Vérifié le 23/10 côté code : pas de page orpheline (menu + pied de page sur toutes les pages, construits par
-  `layout.js` en JavaScript, que Google sait lire), doublons couverts par les `canonical`. Lien Instagram du pied de page = page
-  d'accueil d'Instagram (pas de compte renseigné).
-- **Missions / vocal** : redéployer `Code.gs` (Gérer les déploiements → nouvelle version), redémarrer le bot (STOP/GO), créer un
-  événement test, publier un briefing par clic droit, voter, vérifier la page Discord et la page mission ; pousser le site.
-0. Vérifier en jeu le kneeboard (RShift+K) et que la nouvelle .miz charge bien le script ; l'envoyer à Weefe.
-1. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
-2. Ajouter `thibaero278/blue-sky-france` dans Graphify (accès de l'app GitHub Graphify au dépôt).
-3. Déployer l'Apps Script (INSTALLATION.md § 1), remplir `relay` (+ `feed_channel`) dans `bluesky.yaml`, redémarrer le bot,
-   mettre l'URL dans `web/js/config.js` → site en données réelles. Tester en jeu : `-stats`, carte live, `/annonce`.
-4. **Connexion DCS ↔ site (plan)** :
-   - a. Stats : déjà prévu via hook + Apps Script (étape 3).
-   - b. Carte live : étendre `BS_site.lua` : toutes les ~5 s, `net.dostring_in('server', …)` lit les unités des joueurs
-     (`coalition.getPlayers`, `Unit:getPoint`, `coord.LOtoLL`, cap/vitesse) → JSON au format de `liveUrl` (voir `web/js/data.js`).
-     Apps Script trop lent/limité pour 5 s → petit relais (Cloudflare Worker gratuit) ou DCSServerBot.
-   - c. Discord activité + planning auto : bot Discord (ou DCSServerBot, qui gère déjà Discord + stats + événements) —
-     demander à Weefe s'il l'utilise déjà sur le serveur.
+- 03/11/2026 (nuit) : **SRS toujours KO, trajectoire, classement, bannière Événements**.
+  - SRS : le nouveau `callbacks.lua` était bien installé (01:34) mais DCS tournait depuis 01:03 : les hooks ne sont chargés
+    qu'au **démarrage de DCS**, l'ancien code tournait encore (client lancé avant le serveur SRS). Il faut fermer DCS en entier.
+    `UPNP_ENABLED=false` mis dans `Saved Games\DCS\Config\SRS.cfg` du MSI (CGNAT : UPnP inutile, retardait le serveur de 10 s),
+    sauvegarde `mission\bakup\SRS_2026-11-03_avant-upnp-off.cfg`. Serveur SRS = `C:\Program Files\DCS-SimpleRadio-Standalone\
+    ServerCommandLine-Windows\`, lancé et arrêté par le bot avec la mission (port 5002).
+  - Trajectoire gardée après l'atterrissage jusqu'au décollage suivant (bot `update_trails` + `carte.js`), effacée à la
+    déconnexion. Testé hors bot. `commands.py` déployé sur R2D2 (bot redémarré, 0 erreur) et `partage/maj`.
+    `confidentialite.html` mise à jour en conséquence.
+  - Classements : colonne Atterrissages, tri par Atterrissages et par Morts (bouton et en-tête cliquable). Testé en local.
+  - Page Événements : la carte « Prochain vol » prend la bannière de l'événement Discord (B-52 si aucune), comme l'accueil.
+    Publié (commit 4d41692).
+  - Garde-fou quota Apps Script (`carte.js`) : relais lent (> 3 s) → intervalle de la carte doublé jusqu'à 60 s, relais rapide →
+    divisé par deux jusqu'à 5 s ; relais en erreur → « hors ligne », relu toutes les 2 min. Testé avec un relais lent simulé (5 → 10 s).
 
-## Idées à coder pour `script Caucase.lua` (choisies par Thibaud le 22/10/2026)
-Rien n'est encore codé. Avant de toucher au script, faire une sauvegarde dans `mission\bakup\`.
-1. **Note des appontages** : dans `CarrierHandler:OnEventLand` (déjà là pour les porte-avions), noter le pos
-   (vitesse, train, dans la limite du possible : DCS ne donne pas le fil accroché, sinon passer par MOOSE `AIRBOSS`/LSO).
-   Nouveaux champs à sauvegarder dans `Scores.lua` (nb d'appontages, meilleure note, moyenne)
-   + classement « Top appontages » dans le menu STATISTIQUES.
-2. **Message d'accueil** : dans `ScoreMenuHandler:OnEventBirth`, message au pilote : grade actuel (`RankLine`),
-   fréquences utiles (tankers, porte-avions, comme sur le kneeboard) et le lien Discord.
-3. **Annonce des promotions** : dans `CommitFlightKills`, comparer `GetRank` avant et après validation des points ;
-   si le grade monte → `MESSAGE:New(...):ToAll()` « X est promu Y ». Option : kill feed court pour tous les joueurs dans `KillHandler`.
-Pas retenu pour l'instant : nouveaux modules air-air / air-sol, nettoyage automatique.
-Après modif : remettre le script dans la .miz (même nom interne `multi jours thib.lua`).
+## Prochaines étapes (état au 03/11/2026)
+1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
+2. **Thibaud** : STOP → GO sur le MSI puis lancer la mission, et vérifier en jeu :
+   - ✅ client SRS de l'hôte : **validé par Thibaud le 03/11** (après redémarrage complet de DCS) ;
+   - la fiche « Vol en cours » sur la carte du site une fois en vol ;
+   - le compteur d'atterrissages (message d'arrivée, kneeboard des scores, RShift+K) ;
+   - le total fusionné arrive dans la mission (`BlueSky : scores fusionnes recus de R2D2` dans `dcs.log`) ;
+   - la carte live avec une mission lancée (envoi toutes les 2 min serveur vide, 30 s avec des joueurs).
+3. **Weefe** : FICHIERS / MAJ puis STOP → GO ; copier la nouvelle .miz (dans `Recus de Thibaud\`) dans ses Missions
+   (version du 03/11 midi : menu par joueur + accueil ; MAJ plugin : fusion UCID).
+   Ensuite, vérifier sur R2D2 que son serveur est lu (`bluesky_scores_base` doit avoir une 2e ligne).
+4. Retester rapidement les heures complétées (atterrir puis crasher → seul le total doit bouger).
+5. **Search Console** (prévu vers le 29/10, pas fait à ma connaissance) : rapports « Pages » et « Sitemaps » (doit être vert).
+   Vérifié le 23/10 côté code : pas de page orpheline, doublons couverts par les `canonical`. Lien Instagram du pied de page =
+   page d'accueil d'Instagram (pas de compte renseigné).
+6. **Icône Google** : dépôt public `thibaero278.github.io` créé par Thibaud le 03/11 (contenu de `serveur BS\racine-github-io\`),
+   page en ligne, 2e propriété Search Console `https://thibaero278.github.io/` validée par fichier HTML
+   (**ne jamais supprimer le fichier `google….html` de ce dépôt**). Indexation demandée le 03/11 : reste à attendre
+   (jours à semaines) que Google affiche l'écusson et « Blue Sky France ». Contrôler vers le 17/11 en cherchant « blue sky dcs ».
+7. Doublons de pseudo : réglés par UCID (03/11) dès que le joueur se connecte avec le bot en marche. À vérifier plus tard :
+   `players` se remplit (clients) et l'hôte y apparaît après une mission ; un ancien pseudo sans UCID reste séparé en jeu
+   (le site garde `pilotAliases`).
+
+Fait depuis (retiré de la liste) : Apps Script déployé et relais branché (19/10), carte live et activité Discord par le bot,
+publication des missions testée en réel (21/10), dépôt ajouté dans Graphify, .miz v2 envoyée à Weefe (03/11).
+
+## Chantier décidé le 03/11/2026 (grill-me avec Thibaud), dans cet ordre
+Avant de toucher au script, faire une sauvegarde dans `mission\bakup\`.
+Déjà validé en jeu par Thibaud le 03/11 : vol en cours sur la carte, compteur d'atterrissages, total fusionné R2D2, heures complétées.
+1. ✅ codé le 03/11, à tester en jeu. **Menu STATISTIQUES partagé** (bug) : 3 groupes de la .miz ont 4 places joueur ; menu et messages sont par groupe
+   (`ToGroup`) et « Mes scores » montre le 1er joueur du groupe. DCS ne dit pas qui a cliqué. Décision : **option B**,
+   « Mes scores » envoie à **chaque** joueur du groupe ses propres stats (`outTextForUnit`) ; Top 10 inchangés (groupe).
+   Sous-menu GRADES (ROOKIE/INTERMEDIATE/EXPERT) **retiré** : utilisé nulle part ; champ `grade` gardé dans Scores.lua.
+2. ✅ codé le 03/11, à tester en jeu. **Message d'accueil** à **chaque** apparition, au joueur seul :
+   `Bienvenue sur Blue Sky, <pseudo> !` / `GRADE : <grade> (<points> pts)` (pas le prochain grade) /
+   `Frequences PA / tankers : sur le kneeboard` (pas de touche, chacun a la sienne) / `Tes stats : F10 > STATISTIQUES` /
+   `Discord : discord.gg/zVEsRbm8h2` (lien du site, à changer si Thibaud en donne un autre).
+3. ✅ codé et déployé le 03/11. **Fusion des pseudos par UCID** sur R2D2 (plugin bluesky) : regrouper les pseudos d'un même UCID (`players` +
+   `players_hist` de DCSServerBot) en un pilote ; total renvoyé en jeu sous le pseudo actuel ; site = pseudo le plus récent,
+   **UCID jamais publié**. Anciens pseudos sans UCID : rattachés d'eux-mêmes si le joueur revient avec le même pseudo,
+   sinon `pilotAliases` du site. Tester sur une copie de la base avant la vraie.
+Abandonné : notes d'appontage LSO (le LSO les affiche déjà, menu encombré pour rien).
+Fait avant : annonce des promotions (« PROMOTION » à tous + fil Discord du bot).
+Pas retenu pour l'instant : nouveaux modules air-air / air-sol, nettoyage automatique, kill feed.
+Après modif : remettre le script dans la .miz (nom interne `l10n/DEFAULT/script Caucase.lua` depuis le 03/11).

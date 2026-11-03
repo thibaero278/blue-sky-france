@@ -32,7 +32,7 @@ local POINTS = {
 
 -- Grades Armee de l'Air, attribues automatiquement selon les points valides.
 -- Pour regler : changer "min" (points a atteindre). Garder l'ordre croissant.
--- (Rien a voir avec s.grade = ROOKIE/INTERMEDIATE/EXPERT, choisi dans le menu F10.)
+-- (Rien a voir avec s.grade = ROOKIE/INTERMEDIATE/EXPERT, ancien choix du menu F10, retire le 03/11.)
 local RANKS = {
     { min = 0,    name = "Aspirant" },
     { min = 10,   name = "Sous-lieutenant" },
@@ -54,7 +54,7 @@ local AIR_DEFENCE_KEYWORDS = {
 
 -- Champs numeriques sauvegardes dans Scores.lua
 local SCORE_FIELDS = {
-    "traps", "airair", "airsol", "airmer", "points",
+    "traps", "landings", "airair", "airsol", "airmer", "points",
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
 }
@@ -319,6 +319,15 @@ local function GroupPlayerName(group)
     return nil
 end
 
+-- Appelle fn(unitID, playerName) pour chaque joueur du groupe.
+-- DCS ne dit pas qui a clique dans un menu F10 de groupe : chacun recoit donc ses propres infos.
+local function ForEachGroupPlayer(group, fn)
+    for _, u in pairs(group:GetUnits() or {}) do
+        local name = u and u:IsAlive() and u:GetPlayerName()
+        if name then fn(u:GetID(), name) end
+    end
+end
+
 ScoreMenuHandler = EVENTHANDLER:New()
 ScoreMenuHandler:HandleEvent(EVENTS.Birth)
 
@@ -338,6 +347,16 @@ function ScoreMenuHandler:OnEventBirth(EventData)
         if unit:InAir() then
             StartFlight(playerName)
         end
+
+        -- Message d'accueil, au joueur seul, a chaque apparition
+        local s = InitPlayer(playerName)
+        local _, rank = GetRank(s.points)
+        MessageToPlayer(UnitIDFromEvent(EventData),
+            "Bienvenue sur Blue Sky, " .. playerName .. " !\n" ..
+            "GRADE : " .. rank.name .. " (" .. s.points .. " pts)\n" ..
+            "Frequences PA / tankers : sur le kneeboard\n" ..
+            "Tes stats : F10 > STATISTIQUES\n" ..
+            "Discord : discord.gg/zVEsRbm8h2", 15)
     end
 
     local group = unit:GetGroup()
@@ -414,14 +433,18 @@ function CarrierHandler:OnEventLand(EventData)
     local base = tostring(EventData.PlaceName)
     local unitID = dcsUnit:getID()
     local elapsed, f = CloseFlight(playerName)
+    -- Pas de vol en cours : faux Land envoye par DCS au spawn (pont du PA en multi), on ignore
+    if not elapsed then return end
     local s = InitPlayer(playerName)
     local carrier = CARRIERS[base]
 
     -- Base terrestre : on valide tout de suite
     if not carrier then
         CommitFlightKills(playerName, f, elapsed)
+        s.landings = s.landings + 1
         SaveScores()
-        MessageToPlayer(unitID, "Bienvenue a " .. base .. ", " .. playerName .. FlightSummary(f, elapsed), 10)
+        MessageToPlayer(unitID, "Bienvenue a " .. base .. ", " .. playerName ..
+            "\nAtterrissages total : " .. s.landings .. FlightSummary(f, elapsed), 10)
         trigger.action.outSoundForUnit(unitID, "PA.ogg")
         return
     end
@@ -470,7 +493,6 @@ local function OnPlayerDeath(EventData)
     if life and life.dead then return end -- deja compte pour cette vie
     if life then life.dead = true else PlayerLife[playerName] = { dead = true } end
 
-    local unitID = UnitIDFromEvent(EventData)
     local elapsed = CloseFlight(playerName) -- temps ajoute, kills du vol jetes
     local s = InitPlayer(playerName)
     s.deaths = s.deaths + 1
@@ -480,8 +502,7 @@ local function OnPlayerDeath(EventData)
         playerName .. " est tombe au combat (morts : " .. s.deaths .. ")" ..
         (elapsed and ("\nTemps de vol ajoute : " .. FormatFlightTime(elapsed)) or "") ..
         "\nKills et points de ce vol perdus.", 8)
-    -- unitID peut etre nil (avion detruit) : le message global suffit
-    if unitID then trigger.action.outSoundForUnit(unitID, "troll.ogg") end
+    -- Pas de troll.ogg ici : reserve au train casse sur PA (DCS envoie aussi Dead en quittant le slot)
 end
 
 function LifeHandler:OnEventCrash(EventData) OnPlayerDeath(EventData) end
@@ -496,6 +517,9 @@ function LifeHandler:OnEventPlayerLeaveUnit(EventData)
     if not playerName then return end
 
     if CloseFlight(playerName) then SaveScores() end
+    -- Vie terminee : DCS envoie ensuite Dead/PilotDead pour l'avion retire (briefing, respawn),
+    -- a ignorer jusqu'au prochain Birth (sinon troll.ogg + mort comptee a tort)
+    if PlayerLife[playerName] then PlayerLife[playerName].dead = true else PlayerLife[playerName] = { dead = true } end
     -- L'avion abandonne ne doit plus etre attribue au pilote
     if EventData.IniUnitName then UnitPlayer[EventData.IniUnitName] = nil end
 end
@@ -703,15 +727,13 @@ function RankLine(points)
     return line
 end
 
-function ShowPlayerScores(GroupObject, playerName)
-    if not GroupObject or not GroupObject:IsAlive() or not playerName then return end
-
+local function PlayerScoresText(playerName)
     local s = InitPlayer(playerName)
     local f = Flights[playerName] or NewFlight()
 
     local txt =
         "==========[ SCORES PILOTE ]==========\n\n" ..
-        "Pilote : " .. playerName .. "  (" .. s.grade .. ")\n" ..
+        "Pilote : " .. playerName .. "\n" ..
         RankLine(s.points) .. "\n\n" ..
         "KILLS | VOL | TOTAL\n" ..
         string.format("A/A   | %2d  | %3d\n", f.airair, s.airair) ..
@@ -721,6 +743,7 @@ function ShowPlayerScores(GroupObject, playerName)
         string.format("PTS VOL    : %3d\n", f.points) ..
         string.format("PTS TOTAL  : %3d\n", s.points) ..
         string.format("APPONTAGES : %3d\n", s.traps) ..
+        string.format("ATTERRIS.  : %3d\n", s.landings) ..
         string.format("MORTS      : %3d\n", s.deaths) ..
         string.format("TEAMKILLS  : %3d\n", s.teamkills) ..
         string.format("VOLS       : %3d\n", s.flights) ..
@@ -730,8 +753,14 @@ function ShowPlayerScores(GroupObject, playerName)
         "HEURES COMPLETES : " .. FormatFlightTimeLong(s.completedFlightTime) .. "  (atterri)\n" ..
         "VOL LE PLUS LONG : " .. FormatFlightTime(s.maxFlightTime) .. "\n" ..
         "RAVITAILLEMENT   : " .. FormatFlightTime(s.refuelTime)
+    return txt
+end
 
-    MESSAGE:New(txt, 15):ToGroup(GroupObject)
+function ShowPlayerScores(GroupObject)
+    if not GroupObject or not GroupObject:IsAlive() then return end
+    ForEachGroupPlayer(GroupObject, function(unitID, playerName)
+        MessageToPlayer(unitID, PlayerScoresText(playerName), 15)
+    end)
 end
 
 -- Classement generique : source = table de stats, field = champ a trier
@@ -752,17 +781,19 @@ end
 local function FormatPts(v) return v .. " pts" end
 
 -- Echelle des grades, avec une fleche sur le grade du pilote
-function ShowRankScale(GroupObject, playerName)
-    if not GroupObject or not GroupObject:IsAlive() or not playerName then return end
-    local s = InitPlayer(playerName)
-    local current = GetRank(s.points)
+function ShowRankScale(GroupObject)
+    if not GroupObject or not GroupObject:IsAlive() then return end
+    ForEachGroupPlayer(GroupObject, function(unitID, playerName)
+        local s = InitPlayer(playerName)
+        local current = GetRank(s.points)
 
-    local lines = { "=== ECHELLE DES GRADES ===\n" }
-    for i, rank in ipairs(RANKS) do
-        lines[#lines + 1] = string.format("%s%5d pts  %s", i == current and ">> " or "   ", rank.min, rank.name)
-    end
-    lines[#lines + 1] = "\n" .. RankLine(s.points)
-    MESSAGE:New(table.concat(lines, "\n"), 15):ToGroup(GroupObject)
+        local lines = { "=== ECHELLE DES GRADES ===\n" }
+        for i, rank in ipairs(RANKS) do
+            lines[#lines + 1] = string.format("%s%5d pts  %s", i == current and ">> " or "   ", rank.min, rank.name)
+        end
+        lines[#lines + 1] = "\n" .. RankLine(s.points)
+        MessageToPlayer(unitID, table.concat(lines, "\n"), 15)
+    end)
 end
 
 function ShowGlobalRanking(GroupObject)
@@ -790,56 +821,25 @@ function ShowRefuelRanking(GroupObject)
 end
 
 ------------------------------------------------------------
--- GRADES + MENU F10 STATISTIQUES
+-- MENU F10 STATISTIQUES (un par groupe ; "Mes scores" et l'echelle sont envoyes a chaque joueur)
+-- Sous-menu GRADES (ROOKIE/INTERMEDIATE/EXPERT) retire le 03/11 : ne servait a rien. s.grade reste dans Scores.lua.
 ------------------------------------------------------------
-local GRADES = {
-    { value = "ROOKIE", label = "Rookie" },
-    { value = "INTERMEDIATE", label = "Intermediate" },
-    { value = "EXPERT", label = "Expert" },
-}
-
-function SetPlayerGrade(GroupObject, playerName, newGrade)
-    if not GroupObject or not GroupObject:IsAlive() or not playerName or not newGrade then return end
-
-    InitPlayer(playerName).grade = newGrade
-    SaveScores()
-
-    -- On reconstruit le menu pour deplacer la coche
-    local groupName = GroupObject:GetName()
-    if groupName and PlayerScoreMenus[groupName] then
-        PlayerScoreMenus[groupName]:Remove()
-        PlayerScoreMenus[groupName] = nil
-    end
-    AddScoreMenuForGroup(GroupObject)
-
-    MESSAGE:New("Grade selectionne : " .. newGrade, 8):ToGroup(GroupObject)
-end
-
 function AddScoreMenuForGroup(GroupObject)
     if not GroupObject or not GroupObject:IsAlive() then return end
 
     local groupName = GroupObject:GetName()
     if not groupName or PlayerScoreMenus[groupName] then return end
-
-    local playerName = GroupPlayerName(GroupObject)
-    if not playerName then return end
-    local s = InitPlayer(playerName)
+    if not GroupPlayerName(GroupObject) then return end
 
     local root = MENU_GROUP:New(GroupObject, "STATISTIQUES")
-    MENU_GROUP_COMMAND:New(GroupObject, "Mes scores", root, ShowPlayerScores, GroupObject, playerName)
-    MENU_GROUP_COMMAND:New(GroupObject, "Echelle des grades", root, ShowRankScale, GroupObject, playerName)
+    MENU_GROUP_COMMAND:New(GroupObject, "Mes scores", root, ShowPlayerScores, GroupObject)
+    MENU_GROUP_COMMAND:New(GroupObject, "Echelle des grades", root, ShowRankScale, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 global", root, ShowGlobalRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 vol en cours", root, ShowFlightRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 heures de vol", root, ShowTotalFlightTimeRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 heures completes", root, ShowCompletedFlightTimeRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 vol le plus long", root, ShowFlightTimeRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 ravitaillement", root, ShowRefuelRanking, GroupObject)
-
-    local gradeMenu = MENU_GROUP:New(GroupObject, "GRADES", root)
-    for _, g in ipairs(GRADES) do
-        local label = (s.grade == g.value) and ("✓ " .. g.label) or g.label
-        MENU_GROUP_COMMAND:New(GroupObject, label, gradeMenu, SetPlayerGrade, GroupObject, playerName, g.value)
-    end
 
     PlayerScoreMenus[groupName] = root
 end

@@ -1,6 +1,7 @@
 # CONFORMITÉ JURIDIQUE — Site Blue Sky France
 
-_Dernière mise à jour : 21/10/2026_
+_Dernière mise à jour : 03/11/2026 (base sur R2D2, scores fusionnés ; page Confidentialité mise à jour : stats additionnées,
+atterrissages, vol en cours et trajectoire sur la carte, stockage chez le fondateur en France)_
 
 > Suivi de travail. Ce que voient les visiteurs, ce sont les **pages du site**, reliées depuis le pied de page bleu
 > de toutes les pages (colonne « Infos légales » + dernière ligne) :
@@ -21,7 +22,7 @@ _Dernière mise à jour : 21/10/2026_
 | Contenu publié par les visiteurs | Aucun → pas de mécanisme de signalement DSA nécessaire sur le site. |
 | Tiers contactés (reçoivent l'IP) | GitHub Pages (toutes), Apps Script (toutes : pastille serveur), Discord API (Accueil, Discord), OpenStreetMap (Carte). Google Fonts et unpkg **supprimés** (polices dans `web/assets/fonts/`, Leaflet 1.9.4 dans `web/assets/leaflet/`, empreinte SHA-384 identique à l'ancien SRI). |
 | Données publiques | Pseudos DCS + stats ; joueurs en ligne + position en jeu ; pseudo Discord + rôle du staff ; organisateur des événements ; prénom « Thibaud » dans l'équipe (`config.js` → `staff`). |
-| Stockage | Feuille Google « BS Stats » (Pilotes, Serveur, Changelog, **Demandes**) + propriétés LIVE/DISCORD ; base PostgreSQL de DCSServerBot (UCID, pseudo, **IP**, historique `players_hist`, liaison Discord, stats de mission) chez Thibaud et chez Weefe. |
+| Stockage | Feuille Google « BS Stats » (Pilotes, Serveur, Changelog, **Demandes**) + propriétés LIVE/DISCORD ; base PostgreSQL de DCSServerBot (UCID, pseudo, **IP**, historique `players_hist`, liaison Discord, stats de mission, et depuis le 03/11 les scores fusionnés `bluesky_scores`) sur **R2D2**, serveur de Thibaud en France (depuis le 28/10). Anciennes copies : base locale du MSI (gardée en secours) et ancienne installation de Weefe. |
 
 ## 3. Ce qui a été fait (21/10/2026)
 - Pages mentions légales, confidentialité, cookies, mes données, datées, en HTML, publiques ; liens dans le pied de page de toutes les pages.
@@ -45,14 +46,21 @@ _Dernière mise à jour : 21/10/2026_
    base du bot (UCID, IP, historique) = **12 mois** après la dernière connexion ; demandes = 1 an après traitement.
    À appliquer une fois par an : `/prune` (Discord, « users », 365 jours) et `supprimer_pilote.py` pour les pilotes absents depuis 3 ans.
 5. Optionnel : `upload_errors: false` dans `cloud.yaml` du bot (les rapports de plantage partent chez le développeur de DCSServerBot).
-6. Informer Weefe : il garde une copie de la base du bot ; les suppressions et durées s'appliquent aussi chez lui.
+6. Informer Weefe : son PC n'a plus de base (agent du cluster, la base est sur R2D2), mais son ancienne installation
+   de DCSServerBot en garde une copie : la supprimer, ou y appliquer aussi les suppressions et durées.
+   Même chose pour la base locale du MSI (copie du 28/10).
 
 ## 5. Procédure pour une demande de suppression (délai : 1 mois, RGPD art. 12.3)
 1. E-mail reçu / ligne « A traiter » dans l'onglet Demandes.
 2. Vérifier que c'est bien la personne (pseudo Discord cohérent, ou connexion au serveur avec ce pseudo).
-3. **Mission arrêtée**, sur la machine du bot : `python tools/supprimer_pilote.py "…\Saved Games\DCS\Scores.lua" "pseudo"`
-   (sauvegarde automatique dans `mission/bakup/`). Faire pareil avec le Scores.lua de Weefe.
-4. Retirer le pseudo des alias dans `web/js/config.js` si l'outil le signale, pousser le site.
+3. Sur Discord (rôle DCS Admin) : **`/supprimer_pilote pseudo`** (depuis le 03/11/2026). Le bot efface d'un coup **tous
+   les pseudos du même UCID** du total (R2D2) et republie le site. Les `Scores.lua` des serveurs (MSI, Weefe) qui les
+   contiennent encore sont ignorés pour ces pseudos, puis nettoyés automatiquement au prochain lancement de mission.
+   Si la personne rejoue plus tard, elle repart de zéro. Limite : un serveur **jamais lu** par R2D2 (nouveau serveur)
+   réimporterait le pilote ; le nettoyer avant avec `python tools/supprimer_pilote.py "…\Scores.lua" "pseudo"`.
+   Ancien pseudo sans UCID connu (avant le bot) : le donner aussi à `/supprimer_pilote`.
+4. Retirer le pseudo des alias dans `web/js/config.js` (`pilotAliases`) s'il y est, et de `web/data/stats.json`
+   (`tools/supprimer_pilote.py` le fait), pousser le site.
 5. Discord : `/prune user:<membre ou UCID>` (efface le joueur de la base du bot).
    ⚠️ À vérifier : que `players_hist` (historique des IP) est bien vidé aussi (sinon `DELETE FROM players_hist WHERE ucid = …`).
 6. Mettre « Traité le JJ/MM » dans la feuille, prévenir la personne sur Discord.

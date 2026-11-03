@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from core import EventListener, Player, Server, chat_command
+from core import EventListener, Player, Server, chat_command, event
 
 from . import scores as sc
 
@@ -19,6 +19,14 @@ if TYPE_CHECKING:
 
 
 class BlueSkyEventListener(EventListener["BlueSky"]):
+
+    @event(name='bsHost')
+    async def bsHost(self, server: Server, data: dict) -> None:
+        # envoyé par lua/commands.lua à chaque relevé de la carte live
+        try:
+            await self.plugin.record_host(server, data.get('ucid'), data.get('name'))
+        except Exception as ex:
+            self.log.warning(f'BlueSky: hôte non enregistré ({ex!r})')
 
     @chat_command(name='discord', help='lien du Discord Blue Sky et prochain evenement')
     async def discord(self, server: Server, player: Player, _params: list[str]):
@@ -40,7 +48,7 @@ class BlueSkyEventListener(EventListener["BlueSky"]):
 
     @chat_command(name='stats', help='tes scores Blue Sky')
     async def stats(self, server: Server, player: Player, _params: list[str]):
-        p = self.plugin.scores_of(server).get(player.name)
+        p = self.plugin.pilot_scores(player.name)
         if not p:
             await player.sendChatMessage("Pas encore de scores a ton nom : pose-toi apres un vol pour les valider.")
             return

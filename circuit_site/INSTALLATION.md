@@ -1,7 +1,10 @@
 # Circuit stats → site Blue Sky
 
+> État au 03/11/2026 : c'est le **bot** (§ 0) qui alimente le site, depuis R2D2, pour les deux serveurs (MSI et Weefe).
+> Le hook `BS_site.lua` (§ 2) n'est plus utilisé, ni Google Sites (§ 4). Schéma d'origine :
+
 ```
-Serveur Weefe : script Caucase.lua → Scores.lua
+Serveur DCS  : script Caucase.lua → Scores.lua
                 Scripts\Hooks\BS_site.lua → JSON → curl ──► Apps Script ──► Google Sheet "BS Stats"
 Ton PC        : publier_maj.bat (changelog)  ─────────────►      │
                                                     ?format=json ──► site (GitHub Pages)
@@ -9,9 +12,9 @@ Ton PC        : publier_maj.bat (changelog)  ───────────�
 
 ## 0. Commerce triangulaire DCS ↔ bot Discord ↔ site (recommandé)
 
-Le bot Discord (DCSServerBot + plugin `bluesky`, dans `bot BS\`) tourne sur le même PC que le serveur DCS.
-C'est lui le pivot : il remplace le hook `BS_site.lua` (n'installe pas les deux sur le même serveur).
-Le hook reste utile pour un serveur DCS où notre bot ne tourne pas (ex. celui de Weefe avec son propre bot) : voir § 2.
+Le bot Discord (DCSServerBot + plugin `bluesky`, dans `bot BS\`) a son maître sur R2D2 et un agent sur chaque PC
+serveur DCS (MSI, PC de Weefe). C'est lui le pivot : il remplace le hook `BS_site.lua` (n'installe pas les deux sur le même serveur).
+Les scores des serveurs sont fusionnés sur R2D2 avant l'envoi au site. Le hook ne servirait plus que pour un serveur hors cluster : voir § 2.
 
 ```
                  Scores.lua, positions (30 s)                stats, joueurs en ligne, carte live
@@ -57,7 +60,7 @@ Mise en route :
 ⚠️ Après chaque modification de `Code.gs`, fais **Déployer → Gérer les déploiements → ✏️ → Version : nouvelle version**,
 sinon l'ancienne version reste en ligne. L'URL ne change pas.
 
-## 2. Sans le bot : hook sur le serveur de Weefe (une fois)
+## 2. Sans le bot : hook sur un serveur hors cluster (plus utilisé)
 1. Copier `BS_site.lua`, avec l'URL et le token remplis, dans
    `C:\Users\<weefe>\Saved Games\DCS.<nom_serveur>\Scripts\Hooks\` (créer `Hooks` s'il n'existe pas).
 2. Redémarrer le serveur DCS. Dans `Logs\dcs.log`, on doit voir `BS_SITE ... BS_site.lua charge`,
@@ -71,7 +74,7 @@ sinon l'ancienne version reste en ligne. L'URL ne change pas.
 Après une modification de `mission\script Caucase.lua`, double-clique sur `publier_maj.bat`.
 Le script te demande la version et les notes, puis les envoie dans l'onglet Changelog.
 
-## 4. Google Sites
+## 4. Google Sites (abandonné : le site est sur GitHub Pages)
 1. sites.google.com → **Vide** → nomme le site « Blue Sky France ».
 2. Page « Classement » : **Insérer → Intégrer → Par URL** → colle l'URL de l'application Web
    → « Page entière ». Agrandis le cadre.

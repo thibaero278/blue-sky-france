@@ -7,6 +7,18 @@ local utils     = base.require("DCSServerBotUtils")
 
 -- Positions des joueurs pour la carte live du site (reponse : dcsbot.bsGetLive dans mission.lua)
 function dcsbot.bsGetLive(json)
+    -- UCID de l'hôte (id 1), que DCSServerBot ignore : le plugin l'enregistre pour regrouper ses pseudos
+    local ok, ucid = pcall(net.get_player_info, 1, 'ucid')
+    if ok and ucid and ucid ~= '' then
+        utils.sendBotTable({ command = 'bsHost', ucid = ucid, name = net.get_player_info(1, 'name') })
+    end
     local script = 'dcsbot.bsGetLive(' .. utils.basicSerialize(json.channel or "-1") .. ')'
+    net.dostring_in('mission', 'a_do_script(' .. utils.basicSerialize(script) .. ')')
+end
+
+-- Scores fusionnés de tous les serveurs (R2D2) → script de mission (mission.lua : dcsbot.bsSetScores)
+function dcsbot.bsSetScores(json)
+    local script = 'dcsbot.bsSetScores(' .. utils.basicSerialize(json.scores or '{}') .. ', ' ..
+                   utils.basicSerialize(json.remove or '[]') .. ')'
     net.dostring_in('mission', 'a_do_script(' .. utils.basicSerialize(script) .. ')')
 end

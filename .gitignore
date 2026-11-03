@@ -26,3 +26,7 @@ desktop.ini
 # Scores du serveur (donnees, pas du code)
 mission/Scores.lua
 mission/Scores.lua.tmp
+
+# PDF internes (adresses, architecture) : jamais publiés
+/Circuit-Blue-Sky.pdf
+/Serveur-Bot-Blue-Sky.pdf

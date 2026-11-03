@@ -29,11 +29,53 @@ DCS World n'est pas inclus.
 
 Vérification : `powershell -ExecutionPolicy Bypass -File tools\Test-BlueSkyEnvironment.ps1 -RequireDiscord`.
 
+## Cluster R2D2 + MSI (depuis le 28/10/2026)
+
+| Machine | Rôle | Lancement |
+|---|---|---|
+| **R2D2** (serveur maison, Debian) | Maître : Discord, PostgreSQL, envoi vers le site. Tourne 24 h/24. | Docker, `~/bluesky-bot` (fichiers dans `r2d2\`), redémarre seul |
+| **MSI** | Agent : DCS, `Scores.lua`. `no_master` : sans R2D2 il attend. | `BLUE-SKY-CONTROL.cmd` → GO, comme avant |
+
+- La base est sur R2D2 (`db`, Docker) ; le MSI s'y connecte par Tailscale (IP Tailscale de R2D2, port 5432).
+  La base PostgreSQL du MSI n'est plus utilisée (copie du 28/10, gardée en secours).
+- `config\dcssb\` est la même sur les deux machines : après une modif, la recopier sur R2D2 puis
+  `docker compose restart bot` (dans `~/bluesky-bot`). Idem pour le plugin (`bot\DCSServerBot\plugins\bluesky`).
+- ⚠️ Ne pas relancer `CONFIGURER-DISCORD.cmd` : il régénère un `nodes.yaml` sans R2D2.
+- Logs R2D2 : `docker compose logs -f bot` ou `~/bluesky-bot/DCSServerBot/logs/dcssb-R2D2.log`.
+
+### Sauvegarde de la base (depuis le 30/10/2026)
+
+- `r2d2\backup-db.sh` (copié dans `~/bluesky-bot`) : `pg_dump` de `dcsserverbot` + rôles PostgreSQL dans
+  `~/backups/bluesky-bot`, gardés 14 jours. Lancé chaque jour à 4 h par la crontab de `thibaud`.
+- ⚠️ Même disque que la base : protège d'une erreur ou d'une base cassée, **pas** d'une panne du disque.
+- Restauration testée le 30/10 (38 tables, mêmes nombres de lignes). Pour restaurer, dans `~/bluesky-bot` :
+  1. `docker compose stop bot`
+  2. `docker compose exec -T db psql -U postgres -c "drop database dcsserverbot" -c "create database dcsserverbot"`
+  3. `docker compose exec -T db pg_restore -U postgres -d dcsserverbot < ~/backups/bluesky-bot/dcsserverbot-AAAA-MM-JJ.dump`
+  4. `docker compose start bot`
+  - Volume `pgdata` perdu (rôles disparus) : passer d'abord `globals-AAAA-MM-JJ.sql` avec `psql -U postgres`.
+
+### PC de Weefe (agent, depuis le 02/11/2026)
+
+- 2e agent du cluster (serveur « Weefe le GOAT », SRS auto). R2D2 lui est partagé par Tailscale. Voir `GUIDE-WEEFE.md`.
+- **Envoyer un fichier ou une mise à jour à Weefe** : conteneur `partage` (nginx, `r2d2\partage.conf`, port 8099,
+  Tailscale seulement, lecture seule). Bouton **FICHIERS / MAJ** du panneau :
+  - `~/bluesky-bot/partage/fichiers/…` → téléchargé dans `Recus de Thibaud\` (dossier du bot) ;
+  - `~/bluesky-bot/partage/maj/<chemin dans le dossier du bot>` → copié par-dessus, ancienne version en `.bak`.
+  - Déposer avec `scp` **sans** `-p` (le panneau ne reprend un fichier que s'il est plus récent ou de taille différente).
+  - Ce qui est dans `maj/` s'applique aussi au MSI si on clique le bouton ici.
+
 ## Plugin `bluesky` : lien DCS ↔ Discord ↔ site
 
-Le plugin lit `Scores.lua` et les positions des joueurs sur le serveur DCS, compte l'activité Discord et lit les
+Le plugin lit `Scores.lua` et les positions des joueurs sur chaque serveur DCS, compte l'activité Discord et lit les
 événements planifiés, puis pousse tout vers le site (relais Apps Script, voir `site\circuit_site\INSTALLATION.md`).
-- Discord : `/pilote`, `/classement`, `/enligne`, `/annonce` (DCS Admin) ; salon fil (promotions, bilans) si `feed_channel` est rempli.
+- **Scores fusionnés** (depuis le 03/11/2026, v1.5) : le total de chaque pilote est dans la base de R2D2 ; chaque lecture
+  d'un `Scores.lua` y ajoute ce que ce serveur a gagné depuis la lecture d'avant (un serveur jamais lu : maximum par stat).
+  Le total est renvoyé à la mission à son lancement. Supprimer un pilote : voir `site\CONFORMITE.md` § 5.
+- **Pseudos regroupés par UCID** (03/11/2026) : les pseudos d'un même compte DCS (tables `players` / `players_hist`)
+  comptent pour un seul pilote, affiché sous son pseudo actuel (site, Discord, jeu). L'hôte est ajouté à `players` par le plugin
+  (DCSServerBot l'ignore). La table `bluesky_scores` reste par pseudo.
+- Discord : `/pilote`, `/classement`, `/enligne`, `/annonce` et `/supprimer_pilote` (RGPD, tous les pseudos de l'UCID) (DCS Admin) ; salon fil (promotions seulement) si `feed_channel` est rempli.
 - Missions : clic droit sur le briefing dans #missions-dcs → Applications → **Publier sur le site** → choisir l'événement Discord.
   Le bot poste un sondage d'inscription dans #inscriptions ; le site affiche les inscrits et une page `mission.html`.
 - Temps passé en vocal (total par jour, sans nom) → graphique de la page Discord du site.
@@ -42,7 +84,8 @@ Le plugin lit `Scores.lua` et les positions des joueurs sur le serveur DCS, comp
   `creditsystem` et `cloud` ne sont plus chargés.
 - En jeu : `-discord`, `-site`, `-stats` (réponse seulement au joueur qui tape la commande, rien à la connexion).
 - Réglages : `config\dcssb\plugins\bluesky.yaml` (modèle `config\templates\plugins\bluesky.yaml.template`).
-- Tables PostgreSQL `bluesky_activity`, `bluesky_presence` créées au démarrage (version 1.1 du plugin).
+- Tables PostgreSQL `bluesky_activity`, `bluesky_presence` (v1.1), `bluesky_scores`, `bluesky_scores_base` (v1.5),
+  créées au démarrage (`db\tables.sql`, mises à jour par `db\update_v*.sql`).
 
 ## Ajouter une fonctionnalité
 
@@ -54,7 +97,8 @@ Le plugin lit `Scores.lua` et les positions des joueurs sur le serveur DCS, comp
 
 ## Règles
 
-- **Un seul bot actif à la fois avec le même token** : ne pas le lancer pendant qu'il tourne chez Weefe.
+- **Un seul bot Discord avec ce token** : le maître R2D2. Les agents (MSI, PC de Weefe) n'ouvrent pas Discord ;
+  l'ancienne installation de Weefe ne doit plus être lancée.
 - Le token et les mots de passe PostgreSQL sont dans `config\dcssb\.secret\` et `config\secrets\`
   (exclus par `.gitignore`). Ne jamais les partager ; si le token fuite, le régénérer sur le portail
   développeur Discord.

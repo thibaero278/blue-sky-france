@@ -7,7 +7,7 @@ DEFAULT:
   live_interval: 30               # s entre deux relevés des positions (carte live) ; 0 = coupé
   live_idle_interval: 120         # s entre deux envois quand personne n'est connecté
   discord_interval: 15            # min entre deux envois de l'activité Discord et du planning
-  feed_channel: -1                # ID du salon Discord pour promotions / bilans de vol ; -1 = coupé
+  feed_channel: -1                # ID du salon Discord pour promotions ; -1 = coupé
   announce_events_ingame: true    # nouvel événement Discord -> message dans DCS
   site_url: https://thibaero278.github.io/blue-sky-france/
   discord_invite: https://discord.gg/zVEsRbm8h2
@@ -21,6 +21,7 @@ DEFAULT:
   signup_channel: 1562459201618452540    # salon où le bot poste le sondage d'inscription
   publish_role: DCS Admin                # qui peut publier une mission
   voice_stats: true                      # temps passé en vocal (total par jour, sans nom) pour le site
+  voice_delay: 30                        # s : après une entrée/sortie de vocal, mise à jour de « En vocal maintenant » sur le site
   vote_delay: 1                          # min : délai d'envoi au site après un vote (votes groupés)
   # Commandes masquées : voir hide_commands / hide_chat_commands dans plugins\bluesky\commands.py (DEFAULTS).
   # Pour changer la liste, recopier ici la liste complète, ex. :

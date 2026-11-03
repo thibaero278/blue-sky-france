@@ -1,7 +1,8 @@
 """Plugin Blue Sky : le bot fait circuler les infos entre le serveur DCS, Discord et le site web.
 
     DCS ──(Scores.lua, positions)──▶ bot ──▶ site (stats, carte live, joueurs en ligne)
-     ▲                                │  └──▶ Discord (promotions, bilans de vol, /pilote, /classement)
+     ▲     (Scores.lua de chaque serveur fusionnés dans la base de R2D2, total renvoyé à chaque mission)
+     ▲                                │  └──▶ Discord (promotions, /pilote, /classement)
      └──(annonces, événements)────────┘
     Discord ──(activité, temps en vocal, événements planifiés)──▶ bot ──▶ site (page Discord, planning)
     #missions-dcs ──(clic droit « Publier sur le site »)──▶ bot ──▶ sondage dans #inscriptions + page mission du site
@@ -12,6 +13,8 @@ Le site est statique (GitHub Pages) : le bot pousse ses données vers le relais 
 """
 
 import asyncio
+import copy
+import json
 import math
 import os
 import re
@@ -22,6 +25,7 @@ import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+from psycopg.types.json import Json
 
 from core import Coalition, Plugin, Server, Status, command, utils
 from services.bot import DCSServerBot
@@ -36,7 +40,7 @@ DEFAULTS = {
     'live_interval': 30,           # s entre deux relevés de positions (0 = carte live coupée)
     'live_idle_interval': 120,     # s entre deux envois quand personne n'est connecté (le site passe « hors ligne » après 3 min)
     'discord_interval': 15,        # min entre deux envois de l'activité Discord / du planning
-    'feed_channel': -1,            # salon Discord du fil DCS (promotions, bilans), -1 = coupé
+    'feed_channel': -1,            # salon Discord du fil DCS (promotions), -1 = coupé
     'announce_events_ingame': True,
     'site_url': 'https://thibaero278.github.io/blue-sky-france/',
     'discord_invite': 'https://discord.gg/zVEsRbm8h2',
@@ -48,6 +52,7 @@ DEFAULTS = {
     'signup_channel': 1562459201618452540,    # salon où le bot poste le sondage d'inscription
     'publish_role': 'DCS Admin',              # rôle (de main.yaml) qui peut publier une mission
     'voice_stats': True,                      # temps passé en vocal (total par jour, sans nom) pour le site
+    'voice_delay': 30,                        # s : après une entrée/sortie de vocal, envoi au site groupé (« En vocal maintenant »)
     'vote_delay': 1,                          # min : après un vote, envoi au site groupé (tous les votes de cette minute)
     # Commandes slash des autres plugins à masquer (« groupe » ou « groupe sous-commande »).
     # Les plugins restent chargés : mission, monitoring… en ont besoin.
@@ -83,11 +88,23 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     def __init__(self, bot: DCSServerBot, listener):
         super().__init__(bot, listener)
         self._session: aiohttp.ClientSession | None = None
-        self._last: dict[str, dict] = {}       # dernier Scores.lua lu, par serveur
-        self._mtime: dict[str, datetime] = {}
+        # Scores fusionnés de tous les serveurs (table bluesky_scores) et dernier Scores.lua lu par serveur
+        # (bluesky_scores_base) : ce qu'un serveur a gagné depuis sa dernière lecture s'ajoute au total.
+        self._total: dict[str, dict] = {}
+        self._base: dict[str, dict] = {}
+        self._alias: dict[str, str] = {}  # pseudo → pseudo actuel du même UCID (tables players de DCSServerBot)
+        self._hosts: dict[str, tuple[str, str]] = {}  # hôte déjà enregistré, par serveur : (ucid, pseudo)
+        self._scores_loaded = asyncio.Event()
+        self._scores_lock = asyncio.Lock()
+        # total envoyé à un serveur, pas encore confirmé → (heure d'envoi, base d'avant) ; son fichier n'est pas lu en attendant
+        self._push_pending: dict[str, tuple[datetime, dict | None]] = {}
+        self._raw: dict[str, bytes] = {}       # contenu brut lu, pour ne retraiter que s'il change
         self._live_ok: dict[str, bool] = {}
         self._live_idle: dict[str, datetime] = {}  # dernier envoi « serveur vide », par serveur
+        self._trails: dict[str, dict[str, list]] = {}  # trajectoires depuis le décollage, par serveur puis avion
+        self._trails_sent: dict[str, datetime | None] = {}  # None = dernier envoi vide
         self._voice: dict[int, datetime] = {}  # membre en vocal → depuis quand (temps pas encore compté)
+        self._voice_since: dict[int, datetime] = {}  # salon vocal occupé → depuis quand (page Discord du site)
         self._polls: set[int] = set()          # messages des sondages d'inscription (pour réagir aux votes)
         self._push_soon: asyncio.Task | None = None
         self._publish_menu = app_commands.ContextMenu(name='Publier sur le site', callback=self.publish_mission)
@@ -103,19 +120,41 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         path = os.path.expandvars(self.cfg(server)['scores_file'])
         return path if os.path.isabs(path) else os.path.join(server.instance.home, path)
 
-    def local_servers(self) -> list[Server]:
-        return [s for s in self.bus.servers.values() if not s.is_remote]
+    def all_servers(self) -> list[Server]:
+        # aussi les serveurs des autres nœuds : le bot tourne sur R2D2, DCS sur le MSI
+        return list(self.bus.servers.values())
 
-    def scores_of(self, server: Server) -> dict[str, dict]:
-        if server.name not in self._last:
-            self._last[server.name] = sc.read_scores(self.scores_path(server)) or {}
-        return self._last[server.name]
+    def scores_of(self, _server: Server) -> dict[str, dict]:
+        # total de tous les serveurs, rempli par stats_loop (le fichier peut être sur un autre nœud)
+        return self.all_scores()
 
     def all_scores(self) -> dict[str, dict]:
-        out = {}
-        for server in self.local_servers():
-            out |= self.scores_of(server)
-        return out
+        # pseudos d'un même compte DCS regroupés ; self._total reste par pseudo (c'est lui qui est fusionné)
+        return sc.group(self._total, self._alias)
+
+    def pilot_scores(self, name: str) -> dict | None:
+        return self.all_scores().get(self._alias.get(name, name))
+
+    async def record_host(self, server: Server, ucid: str, name: str) -> None:
+        """DCSServerBot ignore l'hôte (id 1), même en mémoire : son UCID arrive par l'événement bsHost
+        (lua/commands.lua). On l'enregistre dans players avec la même requête que Player.prep, pour que ses
+        pseudos soient aussi regroupés par UCID (players_hist suit ses changements)."""
+        if not ucid or not name or self._hosts.get(server.name) == (ucid, name):
+            return
+        async with self.apool.connection() as conn:
+            await conn.execute("""
+                INSERT INTO players (ucid, discord_id, name, last_seen)
+                VALUES (%s, -1, %s, (now() AT TIME ZONE 'utc'))
+                ON CONFLICT (ucid) DO UPDATE SET name=excluded.name, last_seen=excluded.last_seen
+            """, (ucid, name))
+        self._hosts[server.name] = (ucid, name)
+        await self.load_aliases()
+
+    async def load_aliases(self) -> None:
+        async with self.apool.connection() as conn:
+            cursor = await conn.execute('SELECT p.ucid, p.name, h.name FROM players p '
+                                        'LEFT JOIN players_hist h ON h.ucid = p.ucid')
+            self._alias = sc.aliases(await cursor.fetchall())
 
     async def cog_load(self) -> None:
         await super().cog_load()
@@ -159,7 +198,11 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     # ---------- DCS → site + Discord : Scores.lua ----------
     @tasks.loop(seconds=60)
     async def stats_loop(self):
-        for server in self.local_servers():
+        try:
+            await self.load_aliases()
+        except Exception as ex:
+            self.log.warning(f'BlueSky: pseudos par UCID non relus ({ex!r})')
+        for server in self.all_servers():
             try:
                 await self.check_scores(server)
             except Exception as ex:
@@ -168,20 +211,83 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     @stats_loop.before_loop
     async def before_stats(self):
         await self.bot.wait_until_ready()
+        async with self.apool.connection() as conn:
+            cursor = await conn.execute('SELECT name, data FROM bluesky_scores')
+            self._total = {name: data for name, data in await cursor.fetchall()}
+            cursor = await conn.execute('SELECT server, data FROM bluesky_scores_base')
+            self._base = {name: data for name, data in await cursor.fetchall()}
+        await self.load_aliases()
+        self._scores_loaded.set()
 
     async def check_scores(self, server: Server, force: bool = False) -> None:
-        path = self.scores_path(server)
-        mt = sc.mtime(path)
-        if mt is None or (not force and self._mtime.get(server.name) == mt):
+        if server.status == Status.UNREGISTERED:
+            return  # nœud du serveur arrêté : inutile d'attendre le délai de lecture
+        await self._scores_loaded.wait()
+        async with self._scores_lock:
+            await self._check_scores(server, force)
+
+    async def _check_scores(self, server: Server, force: bool) -> None:
+        if server.name in self._push_pending:
+            return  # le fichier va être remplacé par le total : le lire maintenant compterait deux fois
+        try:
+            raw = await server.node.read_file(self.scores_path(server))
+        except (FileNotFoundError, OSError):
+            return  # pas encore de Scores.lua
+        except (asyncio.TimeoutError, TimeoutError):
+            return  # nœud du serveur injoignable (MSI éteint) : on retentera
+        if not isinstance(raw, bytes) or (not force and self._raw.get(server.name) == raw):
             return
-        new = sc.read_scores(path)
+        new = sc.parse_scores(raw)
         if new is None:
             return
-        old = self._last.get(server.name)
-        self._last[server.name], self._mtime[server.name] = new, mt
-        if old:  # pas de fil au premier chargement (sinon tout le monde serait « nouveau »)
-            await self.post_feed(server, old, new)
+        self._raw[server.name] = raw
+        base = self._base.get(server.name)
+        old, total = self._total, sc.merge(self._total, base or {}, new, first_read=base is None)
+        await self.save_scores(server, new, {n: p for n, p in total.items() if old.get(n) != p})
+        self._total = total
+        # pas de fil au premier chargement ni à l'import d'un nouveau serveur (le maximum ferait de fausses promotions)
+        if old and base is not None:
+            await self.post_feed(server, sc.group(old, self._alias), self.all_scores())
         await self.publish_stats(server)
+
+    async def save_scores(self, server: Server, base: dict[str, dict], changed: dict[str, dict]) -> None:
+        async with self.apool.connection() as conn:
+            async with conn.transaction():
+                await conn.execute('INSERT INTO bluesky_scores_base (server, data) VALUES (%s, %s) '
+                                   'ON CONFLICT (server) DO UPDATE SET data = EXCLUDED.data', (server.name, Json(base)))
+                for name, data in changed.items():
+                    await conn.execute('INSERT INTO bluesky_scores (name, data) VALUES (%s, %s) '
+                                       'ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data', (name, Json(data)))
+        self._base[server.name] = base
+
+    async def push_scores(self, server: Server) -> None:
+        """Envoie le total au script de mission (kneeboard, grades en jeu), qui remplace son Scores.lua."""
+        await self.check_scores(server, force=True)  # ce que le serveur a gagné juste avant l'envoi
+        async with self._scores_lock:
+            if not self._total or server.name in self._push_pending:
+                return
+            # le fichier du serveur va devenir le total envoyé : c'est sa nouvelle base. Les pilotes supprimés
+            # (dans la base, plus dans le total) y restent pour ne pas être recomptés si le fichier les garde encore.
+            sent = sc.for_mission(self._total, self._alias)
+            old_base = self._base.get(server.name)
+            removed = [n for n in (old_base or {}) if n not in sent]
+            self._push_pending[server.name] = (datetime.now(timezone.utc), old_base)
+            await self.save_scores(server, {**copy.deepcopy(old_base or {}), **copy.deepcopy(sent)}, {})
+            await server.send_to_dcs({'command': 'bsSetScores', 'scores': json.dumps(sent),
+                                      'remove': json.dumps(removed)})
+
+    async def cancel_push(self, server: Server) -> None:
+        """Total jamais confirmé par la mission : le fichier n'a pas changé, on remet la base d'avant l'envoi."""
+        async with self._scores_lock:
+            sent = self._push_pending.pop(server.name, None)
+            if not sent:
+                return
+            if sent[1] is not None:
+                await self.save_scores(server, sent[1], {})
+                return
+            async with self.apool.connection() as conn:  # serveur jamais lu avant l'envoi
+                await conn.execute('DELETE FROM bluesky_scores_base WHERE server = %s', (server.name,))
+            self._base.pop(server.name, None)
 
     async def publish_stats(self, server: Server) -> None:
         pilots = [{'name': n, **p} for n, p in self.scores_of(server).items()]
@@ -198,39 +304,24 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         channel = self.bot.get_channel(int(self.cfg(server)['feed_channel']))
         if not channel:
             return
+        # seulement les promotions : un message par vol ou par mort spammerait le salon
         for name, p in new.items():
             o = old.get(name, {})
-            gain = (p.get('points', 0) or 0) - (o.get('points', 0) or 0)
-            new_flight = (p.get('flights', 0) or 0) > (o.get('flights', 0) or 0)
-            new_death = (p.get('deaths', 0) or 0) > (o.get('deaths', 0) or 0)
-            if gain <= 0 and not new_flight and not new_death:
-                continue
-            rank, nxt = sc.rank_for(p.get('points', 0))
+            rank, _ = sc.rank_for(p.get('points', 0))
             old_rank, _ = sc.rank_for(o.get('points', 0))
-            if rank != old_rank:
-                embed = discord.Embed(title='🎖️ PROMOTION', color=0xd9b45a,
-                                      description=f'**{name}** est promu **{rank}** ({p.get("points", 0)} pts) !')
-            elif new_death:
-                embed = discord.Embed(title='💥 Vol perdu', color=0xd0342c,
-                                      description=f'**{name}** n\'est pas rentré : kills du vol non validés.')
-            else:
-                lines = [f'+{gain} pts → **{p.get("points", 0)} pts** ({rank})'] if gain > 0 else []
-                for key, one, many in (('airair', 'kill air-air', 'kills air-air'), ('airsol', 'kill air-sol', 'kills air-sol'),
-                                       ('airmer', 'kill air-mer', 'kills air-mer'), ('traps', 'appontage', 'appontages')):
-                    d = (p.get(key, 0) or 0) - (o.get(key, 0) or 0)
-                    if d > 0:
-                        lines.append(f'{d} {one if d == 1 else many}')
-                if nxt:
-                    lines.append(f'Prochain grade : {nxt[1]} à {nxt[0]} pts')
-                embed = discord.Embed(title=f'✈️ Bilan de {name}', color=0x2a5ca8, description='\n'.join(lines))
+            if rank == old_rank or (p.get('points', 0) or 0) <= (o.get('points', 0) or 0):
+                continue
+            embed = discord.Embed(title='🎖️ PROMOTION', color=0xd9b45a,
+                                  description=f'**{name}** est promu **{rank}** ({p.get("points", 0)} pts) !')
             embed.set_footer(text=server.display_name)
             await channel.send(embed=embed)
 
     # ---------- DCS → site : carte live ----------
-    @tasks.loop(seconds=30)
+    @tasks.loop(seconds=5)
     async def live_loop(self):
-        for server in self.local_servers():
+        for server in self.all_servers():
             if server.status not in (Status.RUNNING, Status.PAUSED):
+                await self.cancel_push(server)  # mission finie sans confirmation : son fichier redevient lisible
                 if self._live_ok.pop(server.name, None):
                     await self.publish('live', {'server': server.display_name, 'time': None, 'players': []})
                 continue
@@ -238,10 +329,22 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 data = await server.send_to_dcs_sync({'command': 'bsGetLive'}, timeout=10)
             except (asyncio.TimeoutError, TimeoutError):
                 continue  # mission en cours de chargement, ou mission.lua pas encore chargé
+            # script de mission chargé sans le total : on lui envoie (une fois par mission, confirmé par scoresSynced)
+            sent = self._push_pending.get(server.name)
+            if (data or {}).get('scoresSynced'):
+                self._push_pending.pop(server.name, None)
+            elif sent and (datetime.now(timezone.utc) - sent[0]).total_seconds() > 60:
+                await self.cancel_push(server)  # perdu en route : on renverra au prochain tour
+            elif (data or {}).get('scoresReady') and not sent:
+                await self.push_scores(server)
             players = (data or {}).get('players') or []
             if isinstance(players, dict):  # table Lua vide → {} en JSON
                 players = list(players.values())
+            ai = (data or {}).get('ai') or []
+            if isinstance(ai, dict):
+                ai = list(ai.values())
             online = [p.name for p in server.get_active_players()]
+            await self.update_trails(server, players + ai)
             # serveur vide : un envoi toutes les live_idle_interval s suffit (économise le quota du relais)
             now = datetime.now(timezone.utc)
             if not players and not online:
@@ -259,7 +362,47 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 'mission': server.current_mission.name if server.current_mission else '',
                 # tous les connectés (même sans avion), pour « Serveur · N en ligne » sur le site
                 'online': online,
+                'ai': ai,  # IA en vol (ennemis sans nom ni fréquence, filtré côté DCS)
+                'weather': (data or {}).get('weather'),
             })
+
+    TRAIL_STEP_S = 15   # un point de trajectoire toutes les 15 s
+    TRAIL_MAX = 150     # au-delà, on garde un point sur deux : tout le vol reste visible, en moins détaillé
+
+    async def update_trails(self, server: Server, units: list[dict]) -> None:
+        """Trajectoire de chaque avion depuis son décollage, gardée après l'atterrissage jusqu'au décollage suivant,
+        envoyée au relais toutes les 30 s (?format=trails)."""
+        trails = self._trails.setdefault(server.name, {})
+        now = datetime.now(timezone.utc)
+        seen = set()
+        for u in units:
+            key = u.get('id') or u.get('callsign')
+            if not key or u.get('lat') is None:
+                continue
+            seen.add(key)
+            if not u.get('air'):
+                if key in trails:
+                    trails[key]['landed'] = True  # posé : trajectoire gardée, le prochain décollage repart de zéro
+                continue
+            t = trails.get(key)
+            if not t or t.get('landed'):
+                t = trails[key] = {'at': None, 'pts': []}
+            if t['at'] and (now - t['at']).total_seconds() < self.TRAIL_STEP_S:
+                continue
+            t['at'] = now
+            t['pts'].append([round(u['lat'], 3), round(u['lon'], 3)])
+            if len(t['pts']) > self.TRAIL_MAX:
+                t['pts'] = t['pts'][::2]
+        for key in set(trails) - seen:
+            del trails[key]
+        last = self._trails_sent.get(server.name, 'jamais')
+        if last is None and not trails:
+            return  # rien en vol, déjà envoyé vide : on économise le quota du relais
+        if isinstance(last, datetime) and (now - last).total_seconds() < 30:
+            return
+        self._trails_sent[server.name] = now if trails else None
+        await self.publish('trails', {'server': server.display_name, 'time': now.isoformat(),
+                                      'trails': {k: v['pts'] for k, v in trails.items()}})
 
     @live_loop.before_loop
     async def before_live(self):
@@ -308,15 +451,47 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         now = datetime.now(timezone.utc)
         guild = self.bot.guilds[0]
         for channel in [*guild.voice_channels, *guild.stage_channels]:
+            self.track_channel(channel, now)
             for m in channel.members:
                 if not m.bot and m.voice and self.in_voice(m.voice):
                     self._voice.setdefault(m.id, now)
+
+    @staticmethod
+    def voice_members(channel) -> list[discord.Member]:
+        return [m for m in channel.members if not m.bot]
+
+    def track_channel(self, channel, now: datetime) -> None:
+        """Salon occupé : on retient depuis quand ; vide (ou AFK) : on l'oublie."""
+        if not channel:
+            return
+        if channel != channel.guild.afk_channel and self.voice_members(channel):
+            self._voice_since.setdefault(channel.id, now)
+        else:
+            self._voice_since.pop(channel.id, None)
+
+    def voice_live(self, guild: discord.Guild) -> list[dict]:
+        """Vocaux en cours pour le site : nom du salon, nombre de connectés, depuis quand (aucun pseudo)."""
+        now = datetime.now(timezone.utc)
+        out = []
+        for channel in [*guild.voice_channels, *guild.stage_channels]:
+            count = len(self.voice_members(channel))
+            if channel == guild.afk_channel or not count:
+                continue
+            out.append({'name': channel.name, 'count': count,
+                        'since': self._voice_since.setdefault(channel.id, now).isoformat(),
+                        'url': self.channel_url(guild, channel.id)})
+        return sorted(out, key=lambda v: -v['count'])
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState,
                                     after: discord.VoiceState):
         if member.bot or not self.cfg()['voice_stats'] or member.guild != self.bot.guilds[0]:
             return
+        if before.channel != after.channel:
+            now = datetime.now(timezone.utc)
+            self.track_channel(before.channel, now)
+            self.track_channel(after.channel, now)
+            self.push_soon(int(self.cfg()['voice_delay']))
         was_in, is_in = self.in_voice(before), self.in_voice(after)
         if was_in and not is_in:
             await self.flush_voice(member.id)
@@ -402,6 +577,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 'voiceSince': (min(voice) if voice else today).isoformat() if self.cfg()['voice_stats'] else None,
                 'voice': [round(voice.get(d, 0) / 60) for d in days] if self.cfg()['voice_stats'] else None,
             },
+            # vocaux en cours (page Discord) ; renvoyé ~30 s après chaque entrée/sortie (voice_delay)
+            'voiceLive': self.voice_live(guild) if self.cfg()['voice_stats'] else None,
             'events': events,
             'signupChannel': self.channel_url(guild, self.cfg()['signup_channel']),
             'staff': self.staff_json(guild),
@@ -619,9 +796,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                                         + f'. Sondage : {poll_msg.jump_url}\nLe site se met à jour d\'ici une minute.',
                                         ephemeral=True)
 
-    # ---------- vote dans un sondage d'inscription → site à jour dans la minute (vote_delay) ----------
+    # ---------- vote ou vocal → site à jour dans la minute (vote_delay, voice_delay) ----------
     def push_soon(self, delay: int) -> None:
-        """Envoi groupé : tous les votes reçus pendant « delay » secondes = un seul envoi au relais."""
+        """Envoi groupé : tous les votes / mouvements vocaux reçus pendant « delay » secondes = un seul envoi au relais."""
         if self._push_soon and not self._push_soon.done():
             return
 
@@ -718,12 +895,42 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         names = sorted(n for n in self.all_scores() if low in n.lower())
         return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names[:25]]
 
+    @command(description='RGPD : efface les stats d\'un pilote, avec tous ses pseudos (même UCID)')
+    @app_commands.guild_only()
+    @utils.app_has_role('DCS Admin')
+    @app_commands.autocomplete(pseudo=pilot_autocomplete)
+    async def supprimer_pilote(self, interaction: discord.Interaction, pseudo: str):
+        key = self._alias.get(pseudo, pseudo)
+        names = [n for n in self._total if self._alias.get(n, n) == key]
+        if not names:
+            # noinspection PyUnresolvedReferences
+            await interaction.response.send_message(f'Aucun pilote « {pseudo} » dans les scores.', ephemeral=True)
+            return
+        if not await utils.yn_question(interaction, f'Effacer définitivement les stats de « {key} » ?',
+                                       message='Pseudos effacés : ' + ', '.join(f'« {n} »' for n in names)):
+            await interaction.followup.send('Annulé.', ephemeral=True)
+            return
+        async with self._scores_lock:
+            async with self.apool.connection() as conn:
+                await conn.execute('DELETE FROM bluesky_scores WHERE name = ANY(%s)', (names,))
+            # les Scores.lua des serveurs les gardent encore : merge les ignore tant qu'ils ne rejouent pas,
+            # et push_scores les retire du fichier au prochain lancement de mission
+            self._total = {n: p for n, p in self._total.items() if n not in names}
+        await self.bot.audit(f'a supprimé les stats de {", ".join(names)} (RGPD).', user=interaction.user)
+        servers = self.all_servers()
+        if servers:
+            await self.publish_stats(servers[0])
+        await interaction.followup.send(
+            f'Stats effacées : {", ".join(names)}. Site à jour ; les fichiers des serveurs DCS seront nettoyés '
+            f'au prochain lancement de mission. Reste `/prune` pour la base du bot (voir CONFORMITE.md § 5).',
+            ephemeral=True)
+
     @command(description='Fiche d\'un pilote (Scores.lua du serveur DCS)')
     @app_commands.guild_only()
     @utils.app_has_role('DCS')
     @app_commands.autocomplete(pseudo=pilot_autocomplete)
     async def pilote(self, interaction: discord.Interaction, pseudo: str):
-        found = sc.find_pilot(self.all_scores(), pseudo)
+        found = sc.find_pilot(self.all_scores(), self._alias.get(pseudo, pseudo))
         if not found:
             # noinspection PyUnresolvedReferences
             await interaction.response.send_message(f'Aucun pilote « {pseudo} » dans les scores.', ephemeral=True)
@@ -738,7 +945,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             ('Heures complètes', sc.hours(p.get('completedFlightTime', 0))),
             ('Vol le plus long', sc.hours(p.get('maxFlightTime', 0))), ('Vols', p.get('flights', 0)),
             ('Kills A/A', p.get('airair', 0)), ('Kills A/S', p.get('airsol', 0)), ('Kills A/M', p.get('airmer', 0)),
-            ('Appontages', p.get('traps', 0)), ('Morts', p.get('deaths', 0)),
+            ('Appontages', p.get('traps', 0)), ('Atterrissages', p.get('landings', 0)), ('Morts', p.get('deaths', 0)),
             ('Ravitaillement', sc.hours(p.get('refuelTime', 0))),
         ]
         for label, value in rows:
