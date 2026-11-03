@@ -390,7 +390,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             if t['at'] and (now - t['at']).total_seconds() < self.TRAIL_STEP_S:
                 continue
             t['at'] = now
-            t['pts'].append([round(u['lat'], 3), round(u['lon'], 3)])
+            t['pts'].append([round(u['lat'], 3), round(u['lon'], 3), round(u.get('alt') or 0)])  # altitude en ft : couleur du tracé
             if len(t['pts']) > self.TRAIL_MAX:
                 t['pts'] = t['pts'][::2]
         for key in set(trails) - seen:

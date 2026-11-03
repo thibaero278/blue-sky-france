@@ -509,6 +509,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   (03/11, réponse attendue par mail). Supprimer la sauvegarde locale une fois le ticket clos.
   Hôte : l'UCID passe désormais par l'événement `bsHost` (lua/commands.lua → listener) ; le 1er essai (`server.get_player(id=1)`)
   ne marchait pas, le moteur ignorant l'hôte aussi en mémoire. **Vérifié** : `[ BS ]Thibaud | Breakdown` est dans `players` (03/11).
+  - Carte : **trajectoire colorée selon l'altitude** (comme ADS-B Exchange) : orange au sol → vert 10 000 ft → cyan 20 000
+    → bleu 30 000 → violet 40 000 ft et plus. Chaque point de trajectoire du bot porte l'altitude (`[lat, lon, alt ft]`,
+    `update_trails`) ; les anciens points sans altitude restent dorés. Testé en local avec un faux vol. `commands.py` déployé sur R2D2 (bot redémarré, 0 erreur).
 
 - 03/11/2026 (nuit) : **SRS toujours KO, trajectoire, classement, bannière Événements**.
   - SRS : le nouveau `callbacks.lua` était bien installé (01:34) mais DCS tournait depuis 01:03 : les hooks ne sont chargés

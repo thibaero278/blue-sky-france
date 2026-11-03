@@ -296,7 +296,7 @@
     }).catch(err => { console.warn('[BS] live indisponible :', err); return { demo: false, offline: true, players: [], error: String(err) }; });
   }
 
-  // Trajectoires depuis le décollage : { time, trails: { clé: [[lat, lon], …] } } (clé = id IA ou pseudo du joueur)
+  // Trajectoires depuis le décollage : { time, trails: { clé: [[lat, lon, alt ft], …] } } (clé = id IA ou pseudo du joueur)
   function loadTrails() {
     return C.statsUrl ? getJson(relayUrl('trails')).catch(err => { console.warn('[BS] trajectoires indisponibles :', err); return null; })
       : Promise.resolve(null);

@@ -13,8 +13,10 @@
   for (let lon = 36; lon <= 47; lon++) L.polyline([[40, lon], [47, lon]], grid).addTo(map);
   airfields.forEach(a => L.marker([a.lat, a.lon], { icon: L.divIcon({ className: '', html: '<div class="af"><span class="ring"></span><span class="nm">' + a.icao + '</span></div>', iconSize: [0, 0] }), keyboard: false })
     .addTo(map).bindTooltip(a.name + ' · ' + a.icao, { direction: 'top', offset: [0, -8] }));
-  // Trajectoire : seulement celle de l'avion sélectionné, depuis son décollage
-  const trailLine = L.polyline([], { color: '#d9b45a', weight: 3, opacity: 0.85, interactive: false }).addTo(map);
+  // Trajectoire : seulement celle de l'avion sélectionné, depuis son décollage, colorée selon l'altitude
+  const trailLayer = L.layerGroup().addTo(map);
+  // 0 ft orange → 10 000 vert → 20 000 cyan → 30 000 bleu → 40 000 ft et plus violet ; ancien point sans altitude : doré
+  const altColor = alt => alt == null ? '#d9b45a' : 'hsl(' + Math.round((25 + Math.min(Math.max(alt, 0), 40000) / 40000 * 255) / 10) * 10 + ',85%,52%)';
 
   const fl = p => p.alt < 5000 ? Math.round(p.alt) + ' ft' : 'FL' + String(Math.round(p.alt / 100)).padStart(3, '0');
   const hdg = p => String(Math.round(p.hdg)).padStart(3, '0') + '°';
@@ -96,7 +98,7 @@
       else Object.assign(p, n);
       p.fix = { lat: p.lat, lon: p.lon, at: Date.now() };
       // posé : trajectoire gardée jusqu'au décollage suivant
-      if (p.air) { if (p.landed) { p.trail = []; p.landed = false; } p.trail.push([p.lat, p.lon]); } else p.landed = true;
+      if (p.air) { if (p.landed) { p.trail = []; p.landed = false; } p.trail.push([p.lat, p.lon, p.alt]); } else p.landed = true;
       if (!p.marker) p.marker = L.marker([p.lat, p.lon], { icon: iconFor(p) }).addTo(map).on('click', () => select(p.key, true));
       p.marker.setLatLng([p.lat, p.lon]).setIcon(iconFor(p)).setZIndexOffset(p.ship ? -500 : p.air ? (p.ai ? 500 : 1000) : 0);
     });
@@ -123,7 +125,8 @@
       const out = [pts[0]];
       for (let i = 0; i < pts.length - 1; i++) {
         const [a, b] = [pts[i], pts[i + 1]];
-        out.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]);
+        const mix = w => a.map((v, k) => v == null || b[k] == null ? v ?? b[k] : v * w + b[k] * (1 - w));  // lat, lon, altitude
+        out.push(mix(.75), mix(.25));
       }
       out.push(pts[pts.length - 1]);
       pts = out;
@@ -132,7 +135,18 @@
   }
   function drawTrail() {
     const p = units.find(x => x.key === selected);
-    trailLine.setLatLngs(p && p.trail.length ? smooth(p.trail.concat([[p.lat, p.lon]])) : []);
+    trailLayer.clearLayers();
+    if (!p || !p.trail.length) return;
+    // un tracé par suite de segments de même couleur
+    const pts = smooth(p.trail.concat([[p.lat, p.lon, p.alt]]));
+    let run = [pts[0]], color = altColor(pts[0][2]);
+    const flush = () => run.length > 1 && L.polyline(run, { color, weight: 3, opacity: 0.9, interactive: false }).addTo(trailLayer);
+    for (let i = 1; i < pts.length; i++) {
+      const c = altColor(pts[i][2]);
+      run.push(pts[i]);
+      if (c !== color) { flush(); run = [pts[i]]; color = c; }
+    }
+    flush();
   }
 
   function renderList() {
