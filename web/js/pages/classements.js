@@ -7,9 +7,11 @@
     { id: 'hours', label: 'Heures de vol', unit: 'heures' },
     { id: 'airKills', label: 'Kills air', unit: 'kills air' },
     { id: 'groundKills', label: 'Kills sol', unit: 'kills sol' },
-    { id: 'traps', label: 'Appontages', unit: 'appontages' }
+    { id: 'traps', label: 'Appontages', unit: 'appontages' },
+    { id: 'landings', label: 'Atterrissages', unit: 'atterrissages' },
+    { id: 'deaths', label: 'Morts', unit: 'morts' }
   ];
-  const COLS = [['hours', 'Heures'], ['airKills', 'Kills air'], ['groundKills', 'Kills sol'], ['traps', 'Appont.'], ['deaths', 'Morts'], ['points', 'Points']];
+  const COLS = [['hours', 'Heures'], ['airKills', 'Kills air'], ['groundKills', 'Kills sol'], ['traps', 'Appont.'], ['landings', 'Atterr.'], ['deaths', 'Morts'], ['points', 'Points']];
   const val = (p, m) => m === 'hours' ? fmt.h1(p.hours) + ' h' : fmt.n(p[m]);
   const num = (p, m) => m === 'hours' ? fmt.h1(p.hours) : fmt.n(p[m]);
 
@@ -42,7 +44,7 @@
     const rows = ranked.map((p, i) => ({ p, rank: i + 1 })).filter(({ p }) => !ql || p.callsign.toLowerCase().includes(ql));
     $('table').innerHTML = `
       <div class="tr th"><span>#</span><span>Pilote</span><span>Grade</span>
-        ${COLS.map(([k, l]) => k === 'deaths' ? `<span style="text-align:right">${l}</span>` : `<button data-m="${k}"${k === metric ? ' class="on"' : ''}>${l}</button>`).join('')}
+        ${COLS.map(([k, l]) => `<button data-m="${k}"${k === metric ? ' class="on"' : ''}>${l}</button>`).join('')}
       </div>
       ${rows.map(({ p, rank }) => `
         <div class="tr row" data-id="${p.id}" tabindex="0">

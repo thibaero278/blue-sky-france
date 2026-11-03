@@ -49,6 +49,9 @@
     $('nTitle').textContent = ne ? ne.title : 'Rien de prévu';
     $('nWhen').textContent = ne ? [fmt.dateLong(ne.date), fmt.hour(ne.date), ne.map].filter(Boolean).join(' · ') : '';
     if (ne) $('nSignup').href = signupUrl(ne);
+    // fond : bannière de l'événement Discord, le ravitaillement B-52 s'il n'en a pas (comme sur l'accueil)
+    const bg = (ne && ne.image) || 'assets/ravito-b52.webp';
+    if ($('nBg').getAttribute('src') !== bg) $('nBg').setAttribute('src', bg);
   }
   // Sondage de l'événement, sinon le salon #inscriptions, sinon l'événement Discord
   const signupUrl = e => e.signupUrl || ev.signupChannel || C.signupChannel || e.url || C.discordInvite;

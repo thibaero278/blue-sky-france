@@ -37,7 +37,7 @@
 
 <section class="wrap" style="padding-top:40px; display:flex; flex-wrap:wrap; gap:16px">
   <div data-reveal class="photo-card ev-next">
-    <img class="bg" src="assets/ravito-b52.webp" alt="" loading="lazy">
+    <img class="bg" id="nBg" src="assets/ravito-b52.webp" alt="" loading="lazy" onerror="if (!this.src.endsWith('ravito-b52.webp')) this.src = 'assets/ravito-b52.webp'">
     <span class="label" style="color:#cfdcef">Prochain vol</span>
     <span class="display" style="font-weight:700; font-size:clamp(36px, 4vw, 52px); line-height:.95" id="nTitle">–</span>
     <span style="font-size:15px; color:#dbe3ef" id="nWhen"></span>
@@ -78,9 +78,9 @@
 
 <script src="js/config.js?v=6"></script>
 <script src="data/evenements.js"></script>
-<script src="js/data.js?v=6"></script>
+<script src="js/data.js?v=8"></script>
 <script src="js/layout.js?v=6"></script>
 <script src="js/motion.js?v=6"></script>
-<script src="js/pages/evenements.js?v=6"></script>
+<script src="js/pages/evenements.js?v=7"></script>
 </body>
 </html>

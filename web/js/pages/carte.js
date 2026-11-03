@@ -95,7 +95,8 @@
       if (!p) { p = { ...n, trail: [] }; units.push(p); }
       else Object.assign(p, n);
       p.fix = { lat: p.lat, lon: p.lon, at: Date.now() };
-      if (p.air) p.trail.push([p.lat, p.lon]); else p.trail = [];
+      // posé : trajectoire gardée jusqu'au décollage suivant
+      if (p.air) { if (p.landed) { p.trail = []; p.landed = false; } p.trail.push([p.lat, p.lon]); } else p.landed = true;
       if (!p.marker) p.marker = L.marker([p.lat, p.lon], { icon: iconFor(p) }).addTo(map).on('click', () => select(p.key, true));
       p.marker.setLatLng([p.lat, p.lon]).setIcon(iconFor(p)).setZIndexOffset(p.ship ? -500 : p.air ? (p.ai ? 500 : 1000) : 0);
     });
@@ -131,7 +132,7 @@
   }
   function drawTrail() {
     const p = units.find(x => x.key === selected);
-    trailLine.setLatLngs(p && p.air ? smooth(p.trail.concat([[p.lat, p.lon]])) : []);
+    trailLine.setLatLngs(p && p.trail.length ? smooth(p.trail.concat([[p.lat, p.lon]])) : []);
   }
 
   function renderList() {
