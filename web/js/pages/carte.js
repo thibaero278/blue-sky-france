@@ -236,7 +236,7 @@
         : nOnline ? '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>' : '<span style="color:#8a91a3">Personne en ligne</span>';
       $('liveDemo').innerHTML = demo ? demoBadge('Démo · export live à venir') : '';
       $('noteSrc').textContent = d.offline ? 'Serveur DCS arrêté ou sans mission · la carte se remplit dès qu’une mission tourne'
-        : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les 5 s'
+        : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les ' + delay / 1000 + ' s'
         : 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions';
       sync((d.players || []).concat(d.ai || []));
       if (++polls % 6 === 0) fetchTrail();  // trajectoire du sélectionné relue toutes les 30 s
@@ -246,11 +246,18 @@
 
   // Relu toutes les 5 s quand le serveur tourne (le bot envoie les positions toutes les 5 s), toutes les 2 min sinon ;
   // rien tant que l'onglet est caché, relu dès qu'on y revient.
-  let timer = null;
-  const schedule = () => { timer = setTimeout(poll, offline ? 120e3 : 5e3); };
+  // Garde-fou quota Google : un relais lent (> 3 s, Apps Script saturé) double l'intervalle jusqu'à 60 s,
+  // un relais rapide le divise par deux jusqu'à revenir à 5 s. Relais en erreur = « hors ligne », relu toutes les 2 min.
+  let timer = null, delay = 5e3;
+  const schedule = took => {
+    if (took != null) delay = took > 3e3 ? Math.min(delay * 2, 60e3) : Math.max(5e3, delay / 2);
+    timer = setTimeout(poll, offline ? 120e3 : delay);
+  };
   function poll() {
     timer = null;
-    if (!document.hidden) load().then(schedule);
+    if (document.hidden) return;
+    const t0 = Date.now();
+    load().then(() => schedule(Date.now() - t0));
   }
   // Entre deux envois du bot (5 s), on fait avancer les avions en vol selon leur cap et leur vitesse
   // shortcut: estimation en ligne droite, l'avion « saute » un peu à chaque vraie position ; suffisant à 5 s.
