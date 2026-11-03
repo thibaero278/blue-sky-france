@@ -75,6 +75,8 @@ Le plugin lit `Scores.lua` et les positions des joueurs sur chaque serveur DCS, 
 - **Pseudos regroupés par UCID** (03/11/2026) : les pseudos d'un même compte DCS (tables `players` / `players_hist`)
   comptent pour un seul pilote, affiché sous son pseudo actuel (site, Discord, jeu). L'hôte est ajouté à `players` par le plugin
   (DCSServerBot l'ignore). La table `bluesky_scores` reste par pseudo.
+- **Mode Blue Sky** (03/11/2026) : activé au sol dans le menu F10 de la mission, il ajoute le temps du vol à `bsFlightTime`
+  (heures Blue Sky : site, `/pilote`, `/classement`) et donne l'icône F-18 Blue Sky sur la carte (`bs` dans `lua/mission.lua`).
 - Discord : `/pilote`, `/classement`, `/enligne`, `/annonce` et `/supprimer_pilote` (RGPD, tous les pseudos de l'UCID) (DCS Admin) ; salon fil (promotions seulement) si `feed_channel` est rempli.
 - Missions : clic droit sur le briefing dans #missions-dcs → Applications → **Publier sur le site** → choisir l'événement Discord.
   Le bot poste un sondage d'inscription dans #inscriptions ; le site affiche les inscrits et une page `mission.html`.

@@ -528,6 +528,25 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   - Garde-fou quota Apps Script (`carte.js`) : relais lent (> 3 s) → intervalle de la carte doublé jusqu'à 60 s, relais rapide →
     divisé par deux jusqu'à 5 s ; relais en erreur → « hors ligne », relu toutes les 2 min. Testé avec un relais lent simulé (5 → 10 s).
 
+- 03/11/2026 (soir) : **FICHIERS / MAJ en 403 chez Weefe**. Tailscale s'est mis à jour sur R2D2 à 6 h 23 ; depuis, Docker
+  présentait les clients du partage avec l'adresse `172.18.0.1` au lieu de leur IP Tailscale et `partage.conf` refusait tout.
+  Le conteneur `partage` tourne maintenant en `network_mode: host` (nginx écoute 8099 directement, vraie IP du client).
+  Vérifié : Tailscale → 200, réseau local → 403. Sauvegardes `~/backups/*.avant-partage-host-20261103`.
+
+- 03/11/2026 (soir) : **Mode Blue Sky** (demande de Thibaud). Choix : ouvert à tous ; activable **au sol seulement** ;
+  coupé à l'atterrissage, à la mort / au crash / à l'éjection, au changement de slot, par le bouton, et à chaque apparition.
+  - Mission : menu F10 **MODE BLUE SKY** (Activer (au sol) / Desactiver), table `BSMode`, champ `bsFlightTime` dans Scores.lua
+    (temps du vol ajouté à la fin du vol, y compris s'il finit par une mort ; « Desactiver » en vol compte le temps déjà volé).
+    Le clic vaut pour tous les joueurs du groupe (DCS ne dit pas qui a cliqué). Ligne dans « Mes scores », « Top 10 heures
+    Blue Sky », rappel dans le message d'accueil. Sauvegarde `bakup\script Caucase_2026-11-03_avant-mode-bluesky.lua`.
+    Testé hors jeu (lupa, faux DCS/MOOSE : 7 cas). **Pas testé en jeu.** Injecté dans les 2 .miz (DAY de `Saved Games\…\Blue sky multi\`,
+    BAD NIGHT reprise du partage R2D2 et rangée dans `mission\`) ; anciennes en `bakup\*_2026-11-03_19-52-53.miz.bak`.
+  - Plugin : `lua/mission.lua` envoie `bs: true` pour la carte ; `/pilote` (Heures Blue Sky) et `/classement` (critère Heures Blue Sky).
+  - Site : F-18 aux couleurs Blue Sky sur la carte pour les pilotes en mode (livrée « Blue Sky Aerobatics » dessinée par Thibaud :
+    `web/assets/f18-bluesky.svg` = original (PNG dans un SVG), `f18-bluesky.webp` 160 px = ce qu'affiche la carte), « Mode Blue Sky »
+    dans la fiche ; colonne et tri « Heures Blue Sky » + ligne dans la fiche pilote (Classements). Testé en local (faux live).
+  - `Code.gs` : colonne `bsFlightTime`. **À redéployer** (sinon le site affiche 0).
+
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
 2. **Thibaud** : STOP → GO sur le MSI puis lancer la mission, et vérifier en jeu :

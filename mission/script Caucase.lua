@@ -57,6 +57,7 @@ local SCORE_FIELDS = {
     "traps", "landings", "airair", "airsol", "airmer", "points",
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
+    "bsFlightTime",
 }
 
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
@@ -72,6 +73,7 @@ Flights = {}              -- vol en cours par pilote
 RefuelStart = {}          -- debut du contact ravitaillement par pilote
 UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite est deja morte)
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
+BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
 
 function InitPlayer(playerName)
     local s = Scores[playerName] or {}
@@ -263,6 +265,9 @@ FlightClosedAt = FlightClosedAt or {} -- fin du dernier vol, par pilote (detecti
 local function CloseFlight(playerName)
     StopRefuel(playerName)
     FlightClosedAt[playerName] = timer.getTime()
+    -- Fin du vol (atterrissage, mort, ejection, changement de slot) : le mode Blue Sky s'arrete aussi
+    local bs = BSMode[playerName]
+    BSMode[playerName] = nil
 
     local f = Flights[playerName]
     Flights[playerName] = nil
@@ -271,6 +276,10 @@ local function CloseFlight(playerName)
     local elapsed = timer.getTime() - f.startTime
     local s = InitPlayer(playerName)
     s.totalFlightTime = s.totalFlightTime + elapsed
+    if bs then
+        s.bsFlightTime = s.bsFlightTime + elapsed
+        f.bsTime = elapsed
+    end
     s.flights = s.flights + 1
     if elapsed > s.maxFlightTime then
         s.maxFlightTime = math.floor(elapsed)
@@ -304,13 +313,15 @@ local function FlightSummary(f, elapsed)
            "\nKills A/M ce vol : " .. f.airmer ..
            "\nScore de ce vol : " .. f.points ..
            "\nTemps de vol : " .. FormatFlightTime(elapsed) ..
-           (f.refuelTime > 0 and ("\nRavitaillement : " .. FormatFlightTime(f.refuelTime)) or "")
+           (f.refuelTime > 0 and ("\nRavitaillement : " .. FormatFlightTime(f.refuelTime)) or "") ..
+           (f.bsTime and ("\nMode Blue Sky : +" .. FormatFlightTime(f.bsTime) .. " (termine, a reactiver au sol)") or "")
 end
 
 ------------------------------------------------------------
 -- NAISSANCE (spawn dans un slot) + MENU STATISTIQUES
 ------------------------------------------------------------
 PlayerScoreMenus = PlayerScoreMenus or {}
+PlayerBSMenus = PlayerBSMenus or {}
 
 -- Unites DCS du groupe, lues directement dans DCS : MOOSE (GROUP:GetUnits) ne connait pas
 -- toujours les avions des slots dynamiques des bases
@@ -352,6 +363,7 @@ function ScoreMenuHandler:OnEventBirth(EventData)
         PlayerLife[playerName] = { dead = false }
         RefuelStart[playerName] = nil
         Flights[playerName] = nil
+        BSMode[playerName] = nil -- a reactiver a chaque apparition
         InitPlayer(playerName)
         -- Slot en vol (air start) : pas d'event decollage, on lance le timer ici
         if dcsUnit:inAir() then
@@ -366,6 +378,7 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             "GRADE : " .. rank.name .. " (" .. s.points .. " pts)\n" ..
             "Frequences PA / tankers : sur le kneeboard\n" ..
             "Tes stats : F10 > STATISTIQUES\n" ..
+            "Vol Blue Sky : F10 > MODE BLUE SKY (au sol)\n" ..
             "Discord : discord.gg/zVEsRbm8h2", 15)
     end
 
@@ -386,6 +399,10 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             if groupName and PlayerScoreMenus[groupName] then
                 PlayerScoreMenus[groupName]:Remove()
                 PlayerScoreMenus[groupName] = nil
+            end
+            if groupName and PlayerBSMenus[groupName] then
+                PlayerBSMenus[groupName]:Remove()
+                PlayerBSMenus[groupName] = nil
             end
             AddScoreMenuForGroup(group)
             return nil
@@ -794,7 +811,9 @@ local function PlayerScoresText(playerName)
         "HEURES DE VOL    : " .. FormatFlightTimeLong(s.totalFlightTime) .. "  (morts compris)\n" ..
         "HEURES COMPLETES : " .. FormatFlightTimeLong(s.completedFlightTime) .. "  (atterri)\n" ..
         "VOL LE PLUS LONG : " .. FormatFlightTime(s.maxFlightTime) .. "\n" ..
-        "RAVITAILLEMENT   : " .. FormatFlightTime(s.refuelTime)
+        "RAVITAILLEMENT   : " .. FormatFlightTime(s.refuelTime) .. "\n" ..
+        "HEURES BLUE SKY  : " .. FormatFlightTimeLong(s.bsFlightTime) ..
+        "  (mode " .. (BSMode[playerName] and "ACTIF" or "inactif") .. ")"
     return txt
 end
 
@@ -862,6 +881,48 @@ function ShowRefuelRanking(GroupObject)
     ShowRanking(GroupObject, "TOP 10 RAVITAILLEMENT", Scores, "refuelTime", FormatFlightTime)
 end
 
+function ShowBlueSkyRanking(GroupObject)
+    ShowRanking(GroupObject, "TOP 10 HEURES BLUE SKY", Scores, "bsFlightTime", FormatFlightTimeLong)
+end
+
+------------------------------------------------------------
+-- MODE BLUE SKY : active au sol, compte les heures du vol jusqu'a l'atterrissage.
+-- Coupe par CloseFlight (atterrissage, mort, ejection, changement de slot), par le bouton, et a chaque Birth.
+-- DCS ne dit pas qui a clique : le clic vaut pour tous les joueurs du groupe.
+------------------------------------------------------------
+local function SetBlueSkyMode(GroupObject, on)
+    if not GroupObject or not GroupObject:IsAlive() then return end
+    for _, u in ipairs(GroupDCSUnits(GroupObject)) do
+        local name = u:isExist() and u:getPlayerName()
+        if name then
+            local id = u:getID()
+            if on and u:inAir() then
+                MessageToPlayer(id, "MODE BLUE SKY\nA activer au sol, avant le decollage.", 8)
+            elseif on and not BSMode[name] then
+                BSMode[name] = true
+                MessageToPlayer(id, "MODE BLUE SKY ACTIF\nTon prochain vol compte dans tes heures Blue Sky.\n" ..
+                    "Il s'arrete a l'atterrissage, si tu meurs, t'ejectes ou changes de slot.", 10)
+            elseif not on and BSMode[name] then
+                -- coupe en vol : le temps deja vole compte
+                local elapsed = GetCurrentFlightTime(name)
+                BSMode[name] = nil
+                if elapsed then
+                    local s = InitPlayer(name)
+                    s.bsFlightTime = s.bsFlightTime + elapsed
+                    SaveScores()
+                end
+                MessageToPlayer(id, "MODE BLUE SKY DESACTIVE" ..
+                    (elapsed and ("\nTemps compte : " .. FormatFlightTime(elapsed)) or ""), 8)
+            else
+                MessageToPlayer(id, "MODE BLUE SKY deja " .. (on and "actif." or "inactif."), 5)
+            end
+        end
+    end
+end
+
+function ActivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, true) end
+function DeactivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, false) end
+
 ------------------------------------------------------------
 -- MENU F10 STATISTIQUES (un par groupe ; "Mes scores" et l'echelle sont envoyes a chaque joueur)
 -- Sous-menu GRADES (ROOKIE/INTERMEDIATE/EXPERT) retire le 03/11 : ne servait a rien. s.grade reste dans Scores.lua.
@@ -882,8 +943,14 @@ function AddScoreMenuForGroup(GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 heures completes", root, ShowCompletedFlightTimeRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 vol le plus long", root, ShowFlightTimeRanking, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Top 10 ravitaillement", root, ShowRefuelRanking, GroupObject)
+    MENU_GROUP_COMMAND:New(GroupObject, "Top 10 heures Blue Sky", root, ShowBlueSkyRanking, GroupObject)
+
+    local bs = MENU_GROUP:New(GroupObject, "MODE BLUE SKY")
+    MENU_GROUP_COMMAND:New(GroupObject, "Activer (au sol)", bs, ActivateBlueSky, GroupObject)
+    MENU_GROUP_COMMAND:New(GroupObject, "Desactiver", bs, DeactivateBlueSky, GroupObject)
 
     PlayerScoreMenus[groupName] = root
+    PlayerBSMenus[groupName] = bs
 end
 
 ------------------------------------------------------------

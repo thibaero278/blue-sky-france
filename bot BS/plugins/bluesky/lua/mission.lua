@@ -59,6 +59,7 @@ local function playerUnit(unit)
         spd      = math.floor(math.sqrt(v.x ^ 2 + v.y ^ 2 + v.z ^ 2) * MS_TO_KT + 0.5),
         base     = base_name,
         flight   = currentFlight(name),
+        bs       = (BSMode and BSMode[name]) and true or nil,  -- mode Blue Sky (script Caucase.lua) : icône spéciale sur le site
     }
 end
 

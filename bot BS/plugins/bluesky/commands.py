@@ -78,7 +78,7 @@ DEFAULTS = {
 POLL_ANSWERS = (('yes', 'Présent', '✅'), ('maybe', 'Peut-être', '❔'), ('no', 'Absent', '❌'))
 METRICS = {
     'points': 'Points', 'totalFlightTime': 'Heures de vol', 'airair': 'Kills air-air', 'airsol': 'Kills air-sol',
-    'airmer': 'Kills air-mer', 'traps': 'Appontages', 'refuelTime': 'Ravitaillement',
+    'airmer': 'Kills air-mer', 'traps': 'Appontages', 'refuelTime': 'Ravitaillement', 'bsFlightTime': 'Heures Blue Sky',
 }
 
 
@@ -943,6 +943,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         rows = [
             ('Heures de vol', sc.hours(p.get('totalFlightTime', p.get('maxFlightTime', 0)))),
             ('Heures complètes', sc.hours(p.get('completedFlightTime', 0))),
+            ('Heures Blue Sky', sc.hours(p.get('bsFlightTime', 0))),
             ('Vol le plus long', sc.hours(p.get('maxFlightTime', 0))), ('Vols', p.get('flights', 0)),
             ('Kills A/A', p.get('airair', 0)), ('Kills A/S', p.get('airsol', 0)), ('Kills A/M', p.get('airmer', 0)),
             ('Appontages', p.get('traps', 0)), ('Atterrissages', p.get('landings', 0)), ('Morts', p.get('deaths', 0)),
@@ -960,7 +961,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     @app_commands.choices(critere=[app_commands.Choice(name=v, value=k) for k, v in METRICS.items()])
     async def classement(self, interaction: discord.Interaction, critere: str = 'points'):
         ranked = sorted(self.all_scores().items(), key=lambda kv: kv[1].get(critere, 0) or 0, reverse=True)[:10]
-        time_metric = critere in ('totalFlightTime', 'refuelTime')
+        time_metric = critere in ('totalFlightTime', 'refuelTime', 'bsFlightTime')
         lines = [f'`{i:>2}.` **{n}** — ' + (sc.hours(p.get(critere, 0)) if time_metric else str(p.get(critere, 0)))
                  for i, (n, p) in enumerate(ranked, 1)]
         embed = discord.Embed(title=f'Top 10 · {METRICS.get(critere, critere)}', color=0x2a5ca8,

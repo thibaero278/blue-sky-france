@@ -62,7 +62,7 @@
 
   // ---------- stats serveur (Scores.lua → hook → Apps Script) ----------
   // Un pilote tel qu'exporté par Code.gs : name, grade, points, totalFlightTime, completedFlightTime,
-  // maxFlightTime, flights, airair, airsol, airmer, traps, deaths, teamkills, refuelTime, rang, landings
+  // maxFlightTime, flights, airair, airsol, airmer, traps, deaths, teamkills, refuelTime, rang, landings, bsFlightTime
   function normPilot(r, i) {
     const n = k => Number(r[k]) || 0;
     const points = n('points');
@@ -70,6 +70,7 @@
       id: i, callsign: String(r.name ?? '?'), points,
       // ancien format (sans heures totales) : on se rabat sur le vol le plus long
       hours: (r.totalFlightTime != null ? n('totalFlightTime') : n('maxFlightTime')) / 3600, completedHours: n('completedFlightTime') / 3600,
+      bsHours: n('bsFlightTime') / 3600,  // vols en mode Blue Sky (F10 > MODE BLUE SKY)
       longest: n('maxFlightTime'), flights: n('flights'),
       airKills: n('airair'), groundKills: n('airsol'), navalKills: n('airmer'),
       traps: n('traps'), landings: n('landings'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
@@ -91,7 +92,7 @@
         maxFlightTime: Math.round(3600 + r() * 7200), flights,
         airair: Math.round(points / 9 * (0.5 + r() * 0.6)), airsol: Math.round(points / 3 * (0.4 + r() * 0.6)), airmer: Math.round(points / 60 * r()),
         traps: Math.round(flights * r() * 0.6), deaths: Math.round(flights * (0.05 + r() * 0.2)), teamkills: r() > 0.85 ? 1 : 0,
-        refuelTime: Math.round(r() * 3 * 3600), grade: 'ROOKIE'
+        refuelTime: Math.round(r() * 3 * 3600), bsFlightTime: Math.round(total * r() * 0.5), grade: 'ROOKIE'
       };
     });
     return {
@@ -267,9 +268,9 @@
       demo: true,
       weather: { wind: '240° / 12 kt', visibility: '10 km +', clouds: 'FEW 4 500 ft', temp: '14 °C', qnh: '1013 hPa · 29.92 inHg' },
       players: [
-        { callsign: 'Branch', aircraft: 'F/A-18C', air: true, lat: 42.42, lon: 42.10, hdg: 72, alt: 18500, spd: 420,
+        { callsign: 'Branch', aircraft: 'F/A-18C', bs: true, air: true, lat: 42.42, lon: 42.10, hdg: 72, alt: 18500, spd: 420,
           flight: { time: 2710, points: 9, refuel: 240, airair: 3, airsol: 0, airmer: 0 } },
-        { callsign: 'Breakdown', aircraft: 'F/A-18C', air: true, lat: 42.30, lon: 41.75, hdg: 64, alt: 19200, spd: 428,
+        { callsign: 'Breakdown', aircraft: 'F/A-18C', bs: true, air: true, lat: 42.30, lon: 41.75, hdg: 64, alt: 19200, spd: 428,
           flight: { time: 4380, points: 7, refuel: 0, airair: 1, airsol: 4, airmer: 0 } },
         { callsign: 'Smokey', aircraft: 'F-16C', air: true, lat: 43.05, lon: 43.30, hdg: 118, alt: 24000, spd: 465 },
         { callsign: 'Mistral', aircraft: 'M-2000C', air: true, lat: 43.32, lon: 43.85, hdg: 140, alt: 21000, spd: 450 },

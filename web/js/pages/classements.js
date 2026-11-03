@@ -5,15 +5,17 @@
   const METRICS = [
     { id: 'points', label: 'Points', unit: 'points' },
     { id: 'hours', label: 'Heures de vol', unit: 'heures' },
+    { id: 'bsHours', label: 'Heures Blue Sky', unit: 'heures Blue Sky' },
     { id: 'airKills', label: 'Kills air', unit: 'kills air' },
     { id: 'groundKills', label: 'Kills sol', unit: 'kills sol' },
     { id: 'traps', label: 'Appontages', unit: 'appontages' },
     { id: 'landings', label: 'Atterrissages', unit: 'atterrissages' },
     { id: 'deaths', label: 'Morts', unit: 'morts' }
   ];
-  const COLS = [['hours', 'Heures'], ['airKills', 'Kills air'], ['groundKills', 'Kills sol'], ['traps', 'Appont.'], ['landings', 'Atterr.'], ['deaths', 'Morts'], ['points', 'Points']];
-  const val = (p, m) => m === 'hours' ? fmt.h1(p.hours) + ' h' : fmt.n(p[m]);
-  const num = (p, m) => m === 'hours' ? fmt.h1(p.hours) : fmt.n(p[m]);
+  const COLS = [['hours', 'Heures'], ['bsHours', 'H. Blue Sky'], ['airKills', 'Kills air'], ['groundKills', 'Kills sol'], ['traps', 'Appont.'], ['landings', 'Atterr.'], ['deaths', 'Morts'], ['points', 'Points']];
+  const HOURS = ['hours', 'bsHours'];
+  const val = (p, m) => HOURS.includes(m) ? fmt.h1(p[m]) + ' h' : fmt.n(p[m]);
+  const num = (p, m) => HOURS.includes(m) ? fmt.h1(p[m]) : fmt.n(p[m]);
 
   const params = new URLSearchParams(location.search);
   let S = null, metric = METRICS.some(m => m.id === params.get('tri')) ? params.get('tri') : 'points', q = '';
@@ -102,6 +104,7 @@
     ];
     const details = [
       ['Heures complètes (atterri)', fmt.h1(p.completedHours) + ' h'],
+      ['Heures Blue Sky (mode F10)', fmt.h1(p.bsHours) + ' h'],
       ['Vol le plus long', fmt.dur(p.longest)],
       ['Temps au ravitaillement', fmt.dur(p.refuel)],
       ['Niveau des bots (F10)', p.level || '—']

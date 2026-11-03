@@ -50,12 +50,21 @@
   const colorOf = p => selected === p.key ? '#d9b45a' : enemy(p) ? '#d0342c' : p.ai ? '#13a89e' : '#2a5ca8';
   // Même rendu que svgShapeToSVG de tar1090 (contour 2× l'épaisseur, détails à 0,6×)
   const svg = (p, scale) => {
+    if (p.bs && !p.ai) return bsSvg(p, scale);
     const s = window.BS_SHAPES[shapeOf(p)], k = s.strokeScale || 1, c = colorOf(p);
     return '<svg viewBox="' + s.viewBox + '" width="' + Math.round(s.w * scale) + '" height="' + Math.round(s.h * scale)
       + '" style="transform:rotate(' + Math.round(p.hdg) + 'deg)">'
       + s.path.map(d => '<path paint-order="stroke" fill="' + c + '" stroke="#13213a" stroke-width="' + (1.2 * k) + '" d="' + d + '"/>').join('')
       + (s.accent || []).map(d => '<path fill="none" stroke="#13213a" stroke-width="' + (0.36 * (s.accentMult || 1) * k) + '" d="' + d + '"/>').join('')
       + '</svg>';
+  };
+
+  // Pilote en mode Blue Sky (F10 > MODE BLUE SKY) : F-18 aux couleurs de l'escadrille, quel que soit son avion.
+  // Livrée dessinée par Thibaud (assets/f18-bluesky.svg, réduite en .webp), nez en haut ; halo or si sélectionné.
+  const bsSvg = (p, scale) => {
+    const w = Math.round(38 * scale);
+    return '<img class="bsj' + (selected === p.key ? ' sel' : '') + '" src="assets/f18-bluesky.webp" alt="" width="' + w + '" height="' + w
+      + '" style="transform:rotate(' + Math.round(p.hdg) + 'deg)">';
   };
 
   // Porte-avions vus du dessus, noir et blanc : CVN (pont oblique), Kuznetsov (tremplin), Tarawa (pont droit)
@@ -168,7 +177,7 @@
     const kind = p.ship ? SHIP_NAMES[p.ship] : ROLES[p.role];
     const side = p.ai ? (enemy(p) ? (p.ship ? 'Ennemi · ' : 'IA ennemie · ') : (p.ship ? 'Ami · ' : 'IA amie · ')) + kind + ' · ' : '';
     $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : p.callsign;
-    $('fType').textContent = side + p.aircraft + (p.ship ? '' : ' · ' + (p.air ? 'En vol' : 'Au sol' + (p.base ? ' · ' + p.base : '')));
+    $('fType').textContent = side + (p.bs && !p.ai ? 'Mode Blue Sky · ' : '') + p.aircraft +(p.ship ? '' : ' · ' + (p.air ? 'En vol' : 'Au sol' + (p.base ? ' · ' + p.base : '')));
     $('fAlt').textContent = p.ship ? '—' : p.air ? fl(p) : Math.round(p.alt) + ' ft';
     $('fSpd').textContent = Math.round(p.spd) + ' kt';
     $('fHdg').textContent = hdg(p);
