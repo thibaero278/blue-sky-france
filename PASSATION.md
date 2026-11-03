@@ -546,6 +546,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     `web/assets/f18-bluesky.svg` = original (PNG dans un SVG), `f18-bluesky.webp` 160 px = ce qu'affiche la carte), « Mode Blue Sky »
     dans la fiche ; colonne et tri « Heures Blue Sky » + ligne dans la fiche pilote (Classements). Testé en local (faux live).
   - `Code.gs` : colonne `bsFlightTime`. **À redéployer** (sinon le site affiche 0).
+  - Déployé le 03/11 au soir : site (commit 04ea838), plugin sur R2D2 (bot redémarré, 0 erreur ; sauvegardes
+    `~/backups/*.avant-mode-bluesky-20261103`), `partage/maj` (2 copies du plugin) et les 2 .miz dans `partage/fichiers`.
+    Reste : Thibaud STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO + .miz dans ses Missions, test en jeu.
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
