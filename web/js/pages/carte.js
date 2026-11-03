@@ -1,5 +1,5 @@
 (function () {
-  const { C, esc, fmt, airfields, loadLive, loadTrails, loadStats, demoBadge } = window.BS;
+  const { C, esc, fmt, insignia, airfields, loadLive, loadTrails, loadStats, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
   let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, polls = 0;
@@ -160,10 +160,17 @@
     const radio = [['Fréquence', p.freq], ['TACAN', p.tacan], ['ICLS', p.icls], ['Link 4', p.link4]].filter(([, v]) => v);
     $('fRadio').style.display = radio.length ? '' : 'none';
     $('fRadio').innerHTML = radio.map(([k, v]) => '<div><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>').join('');
+    const cur = !p.ai && p.flight, mins = s => Math.floor(s / 60);
+    $('fFlight').style.display = cur ? '' : 'none';
+    if (cur) $('fFlight').innerHTML =
+      [['En vol depuis', cur.time >= 3600 ? Math.floor(cur.time / 3600) + ' h ' + String(mins(cur.time) % 60).padStart(2, '0') : mins(cur.time) + ' min'],
+       ['Points du vol', fmt.n(cur.points)], ['Ravitaillé', mins(cur.refuel) + ' min'],
+       ['Kills A/A', fmt.n(cur.airair)], ['Kills A/S', fmt.n(cur.airsol)], ['Kills A/M', fmt.n(cur.airmer)]]
+      .map(([k, v]) => '<div><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>').join('');
     const st = !p.ai && statsOf(p.callsign);
     $('fStats').style.display = st ? '' : 'none';
-    if (st) $('fStats').innerHTML = [['Grade', st.grade.name], ['Points', fmt.n(st.points)], ['Heures', fmt.h1(st.hours) + ' h'],
-      ['Victoires', fmt.n(st.airKills + st.groundKills + st.navalKills)], ['Appontages', fmt.n(st.traps)], ['Atterrissages', fmt.n(st.landings)]]
+    $('fRank').innerHTML = st ? insignia(st.grade, 'xs') : '';
+    if (st) $('fStats').innerHTML = [['Points', fmt.n(st.points)], ['Heures', fmt.h1(st.hours) + ' h']]
       .map(([k, v]) => '<div><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>').join('');
     $('fPos').textContent = dm(p.lat, 'N', 'S', 2) + '  ' + dm(p.lon, 'E', 'W', 3);
     $('followBtn').classList.toggle('on', follow);

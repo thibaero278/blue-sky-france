@@ -369,6 +369,7 @@ button { font-family: var(--f-text); }
 .focus .grid div { display: flex; flex-direction: column; gap: 2px; }
 .focus .k { font-family: var(--f-mono); font-size: 10px; letter-spacing: .12em; color: #9aa6ba; text-transform: uppercase; }
 .focus .stats .v { font-size: 14px; }
+.focus .ins { background: #1f3460; border: 1px solid rgba(255,255,255,.15); }
 .focus .v { font-family: var(--f-mono); font-size: 16px; font-weight: 600; color: var(--hud); }
 .focus button { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: 999px; padding: 7px 12px; font-family: var(--f-mono); font-size: 11px; cursor: pointer; }
 .focus button.on { background: var(--hud); color: var(--ink); border-color: var(--hud); }

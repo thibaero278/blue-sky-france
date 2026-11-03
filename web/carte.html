@@ -14,13 +14,13 @@
 <meta property="og:url" content="https://thibaero278.github.io/blue-sky-france/carte.html">
 <meta property="og:image" content="https://thibaero278.github.io/blue-sky-france/assets/forma-eiffel.webp">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="assets/ecusson.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#13213a">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="assets/leaflet/leaflet.css">
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 <link rel="stylesheet" href="css/motion.css">
 <script>document.documentElement.classList.add('motion');setTimeout(function(){if(!window.BSMotion)document.documentElement.classList.remove('motion')},3000)</script>
 </head>
@@ -52,7 +52,7 @@
     </div>
     <div class="focus" id="focus">
       <div class="row">
-        <div style="display:flex; flex-direction:column; gap:4px"><span class="k" id="fType"></span><span class="cs" id="fCs">—</span></div>
+        <div style="display:flex; flex-direction:column; gap:4px"><span class="k" id="fType"></span><span style="display:flex; align-items:center; gap:10px"><span id="fRank"></span><span class="cs" id="fCs">—</span></span></div>
         <div style="display:flex; gap:6px"><button id="followBtn">Suivre</button><button class="x" id="closeFocus" aria-label="Fermer" style="width:30px; height:30px; padding:0">✕</button></div>
       </div>
       <div class="grid">
@@ -61,6 +61,7 @@
         <div><span class="k">Cap</span><span class="v" id="fHdg">—</span></div>
       </div>
       <div class="grid" id="fRadio" style="grid-template-columns:repeat(2, 1fr); display:none"></div>
+      <div class="grid stats" id="fFlight" style="display:none"></div>
       <div class="grid stats" id="fStats" style="display:none"></div>
       <span class="mono" style="font-size:11px; color:#9aa6ba" id="fPos">—</span>
     </div>
@@ -81,10 +82,10 @@
 
 <script src="assets/leaflet/leaflet.js"></script>
 <script src="js/config.js?v=6"></script>
-<script src="js/data.js?v=7"></script>
+<script src="js/data.js?v=8"></script>
 <script src="js/layout.js?v=6"></script>
 <script src="js/motion.js?v=6"></script>
 <script src="js/markers.js?v=7"></script>
-<script src="js/pages/carte.js?v=7"></script>
+<script src="js/pages/carte.js?v=9"></script>
 </body>
 </html>

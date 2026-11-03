@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://thibaero278.github.io/blue-sky-france/confidentialite.html">
 <meta property="og:image" content="https://thibaero278.github.io/blue-sky-france/assets/forma-eiffel.webp">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="assets/ecusson.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#13213a">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -28,9 +28,9 @@
 <main class="wrap legal">
   <div class="eyebrow">Informations légales</div>
   <h1 class="h1">Confidentialité</h1>
-  <p class="maj">Dernière mise à jour : 21 octobre 2026</p>
+  <p class="maj">Dernière mise à jour : 3 novembre 2026</p>
 
-  <p class="intro">Cette page explique quelles données Blue Sky France utilise, pourquoi, combien de temps on les garde et comment les faire supprimer. Elle couvre ce site, le serveur DCS Blue Sky et le bot Discord de la communauté.</p>
+  <p class="intro">Cette page explique quelles données Blue Sky France utilise, pourquoi, combien de temps on les garde et comment les faire supprimer. Elle couvre ce site, les serveurs DCS Blue Sky et le bot Discord de la communauté.</p>
 
   <div class="box"><p><strong>En bref :</strong> le site n'a pas de compte, pas de formulaire d'inscription et pas de cookie. Ce qui est public, c'est votre <strong>pseudo en jeu et vos stats DCS</strong>, et votre pseudo Discord si vous vous inscrivez à une mission. Vous pouvez les faire effacer à tout moment sur la page <a href="mes-donnees.html">Supprimer mes stats</a>.</p></div>
 
@@ -42,8 +42,8 @@
 
   <h3>1. Classements et statistiques de jeu</h3>
   <ul>
-    <li><strong>Données :</strong> pseudo en jeu, points, grade, heures de vol, nombre de vols, victoires air-air / air-sol / air-mer, appontages, morts, tirs fratricides, temps de ravitaillement.</li>
-    <li><strong>D'où elles viennent :</strong> le script de la mission, quand vous volez sur le serveur DCS Blue Sky.</li>
+    <li><strong>Données :</strong> pseudo en jeu, points, grade, heures de vol, nombre de vols, victoires air-air / air-sol / air-mer, appontages, atterrissages, morts, tirs fratricides, temps de ravitaillement.</li>
+    <li><strong>D'où elles viennent :</strong> le script de la mission, quand vous volez sur un serveur DCS Blue Sky. Les stats de tous les serveurs Blue Sky sont additionnées sur le serveur de la communauté, puis renvoyées en jeu pour que vous retrouviez votre total sur chaque serveur.</li>
     <li><strong>Pourquoi :</strong> classements, grades et progression des pilotes, sur le site, sur Discord (commandes du bot) et en jeu.</li>
     <li><strong>Base légale :</strong> intérêt légitime de la communauté à faire vivre ses classements. Vous pouvez vous y opposer et demander l'effacement.</li>
     <li><strong>Public :</strong> oui, visible par tous sur la page Classements.</li>
@@ -51,8 +51,8 @@
 
   <h3>2. Joueurs en ligne et carte live</h3>
   <ul>
-    <li><strong>Données :</strong> pseudo en jeu, type d'avion, et position, cap, altitude et vitesse <em>dans le jeu</em> (positions virtuelles, rien de votre position réelle).</li>
-    <li><strong>Pourquoi :</strong> montrer qui vole en ce moment et où, sur la carte live.</li>
+    <li><strong>Données :</strong> pseudo en jeu, type d'avion, et position, cap, altitude et vitesse <em>dans le jeu</em> (positions virtuelles, rien de votre position réelle), trajectoire depuis le décollage, et pour le vol en cours : durée, temps de ravitaillement, points et victoires pas encore validés (ils le sont à l'atterrissage).</li>
+    <li><strong>Pourquoi :</strong> montrer qui vole en ce moment, où, et comment se passe son vol, sur la carte live.</li>
     <li><strong>Base légale :</strong> intérêt légitime.</li>
     <li><strong>Public :</strong> oui, tant que vous êtes connecté au serveur.</li>
   </ul>
@@ -94,7 +94,7 @@
     <table class="tbl">
       <thead><tr><th>Destinataire</th><th>Rôle</th><th>Pays et garantie</th></tr></thead>
       <tbody>
-        <tr><td data-l="Destinataire">Administrateurs du serveur Blue Sky</td><td data-l="Rôle">Gestion du serveur DCS et du bot</td><td data-l="Pays">France</td></tr>
+        <tr><td data-l="Destinataire">Administrateurs du serveur Blue Sky</td><td data-l="Rôle">Gestion des serveurs DCS et du bot. La base du bot et le total des stats sont stockés sur un serveur personnel du fondateur.</td><td data-l="Pays">France</td></tr>
         <tr><td data-l="Destinataire">GitHub, Inc.</td><td data-l="Rôle">Hébergement du site</td><td data-l="Pays">États-Unis : Data Privacy Framework UE–États-Unis</td></tr>
         <tr><td data-l="Destinataire">Google (Sheets, Apps Script)</td><td data-l="Rôle">Stockage des classements et relais vers le site</td><td data-l="Pays">États-Unis : Data Privacy Framework UE–États-Unis</td></tr>
         <tr><td data-l="Destinataire">Discord Inc.</td><td data-l="Rôle">Communauté, bot, liaison de compte</td><td data-l="Pays">États-Unis : Data Privacy Framework UE–États-Unis et clauses contractuelles types</td></tr>
@@ -110,7 +110,8 @@
       <thead><tr><th>Données</th><th>Durée</th></tr></thead>
       <tbody>
         <tr><td data-l="Données">Statistiques de jeu (classements)</td><td data-l="Durée">Tant que vous volez sur le serveur. Effacées après 3 ans sans connexion, ou avant si vous le demandez.</td></tr>
-        <tr><td data-l="Données">Joueurs en ligne, positions sur la carte</td><td data-l="Durée">Non conservées : remplacées par le relevé suivant (toutes les 30 secondes environ).</td></tr>
+        <tr><td data-l="Données">Joueurs en ligne, positions et vol en cours sur la carte</td><td data-l="Durée">Non conservés : remplacés par le relevé suivant (toutes les 30 secondes environ).</td></tr>
+        <tr><td data-l="Données">Trajectoire sur la carte</td><td data-l="Durée">Effacée à l'atterrissage ou à la déconnexion.</td></tr>
         <tr><td data-l="Données">UCID, adresses IP, historique (base du bot)</td><td data-l="Durée">12 mois après votre dernière connexion au serveur.</td></tr>
         <tr><td data-l="Données">Membres en ligne (chiffre global)</td><td data-l="Durée">30 jours.</td></tr>
         <tr><td data-l="Données">Inscrits à une mission (pseudo Discord sur le site)</td><td data-l="Durée">Affichés jusqu'au début de l'événement ; la mission et ses inscrits sont retirés du site au plus tard 7 jours après. Le sondage reste sur Discord.</td></tr>

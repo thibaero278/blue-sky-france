@@ -267,8 +267,10 @@
       demo: true,
       weather: { wind: '240° / 12 kt', visibility: '10 km +', clouds: 'FEW 4 500 ft', temp: '14 °C', qnh: '1013 hPa · 29.92 inHg' },
       players: [
-        { callsign: 'Branch', aircraft: 'F/A-18C', air: true, lat: 42.42, lon: 42.10, hdg: 72, alt: 18500, spd: 420 },
-        { callsign: 'Breakdown', aircraft: 'F/A-18C', air: true, lat: 42.30, lon: 41.75, hdg: 64, alt: 19200, spd: 428 },
+        { callsign: 'Branch', aircraft: 'F/A-18C', air: true, lat: 42.42, lon: 42.10, hdg: 72, alt: 18500, spd: 420,
+          flight: { time: 2710, points: 9, refuel: 240, airair: 3, airsol: 0, airmer: 0 } },
+        { callsign: 'Breakdown', aircraft: 'F/A-18C', air: true, lat: 42.30, lon: 41.75, hdg: 64, alt: 19200, spd: 428,
+          flight: { time: 4380, points: 7, refuel: 0, airair: 1, airsol: 4, airmer: 0 } },
         { callsign: 'Smokey', aircraft: 'F-16C', air: true, lat: 43.05, lon: 43.30, hdg: 118, alt: 24000, spd: 465 },
         { callsign: 'Mistral', aircraft: 'M-2000C', air: true, lat: 43.32, lon: 43.85, hdg: 140, alt: 21000, spd: 450 },
         { callsign: 'Fennec', aircraft: 'A-10C II', air: true, lat: 42.62, lon: 43.55, hdg: 25, alt: 9500, spd: 290 },
@@ -281,7 +283,7 @@
       ]
     };
   }
-  // Format (bot, plugin bluesky) : { time (ISO), missionTime (s), weather?:{...}, players:[{callsign, aircraft, air, lat, lon, hdg, alt(ft), spd(kt), base}] }
+  // Format (bot, plugin bluesky) : { time (ISO), missionTime (s), weather?:{...}, players:[{callsign, aircraft, air, lat, lon, hdg, alt(ft), spd(kt), base, flight?:{time(s), points, refuel(s), airair, airsol, airmer}}] }
   // Relais ?format=live (démo seulement si aucun relais n'est configuré). Données de plus de 3 min => serveur hors ligne.
   // Relais injoignable => hors ligne aussi (jamais de faux pilotes), la page réessaie plus tard.
   function loadLive() {
