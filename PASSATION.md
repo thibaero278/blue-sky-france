@@ -491,6 +491,16 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     erreur), moteur du MSI, `partage/maj`. Sauvegarde `~/backups/bluesky-plugin-avant-rgpd-20261103.tgz`.
     **STOP/GO du MSI nécessaire** pour les fichiers Lua. Commande pas encore utilisée en réel.
   - `CONFORMITE.md` § 5 réécrit.
+- 03/11/2026 : **slots dynamiques des bases ignorés par le script** (vol de Thibaud en F-5E-3_FC dynamique à Kobuleti,
+  mission BAD NIGHT : aucun message). Cause : DCS n'a envoyé **aucun décollage** (absent du debrief.log) → pas de vol en
+  cours → atterrissage ignoré ; l'apparition reposait sur `EventData.IniUnit` de MOOSE, souvent vide pour ces avions.
+  Les deux missions (DAY et BAD NIGHT) ont le spawn dynamique sur 29 bases. Corrigé dans `script Caucase.lua` :
+  apparition et menu F10 par les objets DCS (`IniDCSUnit`, groupe ajouté à MOOSE par `_DATABASE:AddGroup`),
+  `GroupPlayerName` / `ForEachGroupPlayer` lisent les unités dans DCS, **détection de décollage de secours** toutes les 5 s
+  (joueur en l'air sans vol en cours, pas dans les 10 s après la fin d'un vol), et un vrai Takeoff ne remet plus à zéro
+  un vol déjà lancé. Testé hors jeu (lupa : slot dynamique sans IniUnit ni Takeoff, rebond, groupe à 2 joueurs).
+  Sauvegarde `bakup\script Caucase_2026-11-03_avant-slots-dynamiques.lua` ; injecté dans les 2 .miz (anciennes dans `bakup\`).
+  **Validé en jeu par Thibaud** (03/11). Les 2 .miz (DAY + BAD NIGHT) déposées dans FICHIERS pour Weefe.
 - 03/11/2026 : **poussé sur GitHub** (plugin, script, docs ; fichiers jamais suivis de `bot BS/` laissés hors dépôt) puis
   **historique Git nettoyé** (`git filter-repo --replace-text`) : IP publique, MAC, IP de la box et IP locales remplacées par
   « (masqué) » dans tous les commits, push forcé (0 fork). Contenu final identique (même arbre). Sauvegarde de l'ancien
@@ -498,7 +508,7 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   Purge du cache GitHub des anciens commits (756f466, 249fa05, 284f85d) demandée au support : **ticket #4945116**
   (03/11, réponse attendue par mail). Supprimer la sauvegarde locale une fois le ticket clos.
   Hôte : l'UCID passe désormais par l'événement `bsHost` (lua/commands.lua → listener) ; le 1er essai (`server.get_player(id=1)`)
-  ne marchait pas, le moteur ignorant l'hôte aussi en mémoire. **À vérifier** : une ligne dans `players` après une mission sur le MSI.
+  ne marchait pas, le moteur ignorant l'hôte aussi en mémoire. **Vérifié** : `[ BS ]Thibaud | Breakdown` est dans `players` (03/11).
 
 - 03/11/2026 (nuit) : **SRS toujours KO, trajectoire, classement, bannière Événements**.
   - SRS : le nouveau `callbacks.lua` était bien installé (01:34) mais DCS tournait depuis 01:03 : les hooks ne sont chargés

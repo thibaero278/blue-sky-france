@@ -258,8 +258,11 @@ end
 
 -- Ferme le vol actif : ajoute le temps au cumul (qu'il finisse bien ou mal).
 -- Renvoie la duree (nil si aucun vol actif) et les stats du vol.
+FlightClosedAt = FlightClosedAt or {} -- fin du dernier vol, par pilote (detection de decollage de secours)
+
 local function CloseFlight(playerName)
     StopRefuel(playerName)
+    FlightClosedAt[playerName] = timer.getTime()
 
     local f = Flights[playerName]
     Flights[playerName] = nil
@@ -309,11 +312,16 @@ end
 ------------------------------------------------------------
 PlayerScoreMenus = PlayerScoreMenus or {}
 
+-- Unites DCS du groupe, lues directement dans DCS : MOOSE (GROUP:GetUnits) ne connait pas
+-- toujours les avions des slots dynamiques des bases
+local function GroupDCSUnits(group)
+    local g = group and group:GetDCSObject()
+    return g and g:isExist() and g:getUnits() or {}
+end
+
 local function GroupPlayerName(group)
-    local units = group and group:GetUnits()
-    if not units then return nil end
-    for _, u in pairs(units) do
-        local name = u and u:GetPlayerName()
+    for _, u in ipairs(GroupDCSUnits(group)) do
+        local name = u:isExist() and u:getPlayerName()
         if name then return name end
     end
     return nil
@@ -322,9 +330,9 @@ end
 -- Appelle fn(unitID, playerName) pour chaque joueur du groupe.
 -- DCS ne dit pas qui a clique dans un menu F10 de groupe : chacun recoit donc ses propres infos.
 local function ForEachGroupPlayer(group, fn)
-    for _, u in pairs(group:GetUnits() or {}) do
-        local name = u and u:IsAlive() and u:GetPlayerName()
-        if name then fn(u:GetID(), name) end
+    for _, u in ipairs(GroupDCSUnits(group)) do
+        local name = u:isExist() and u:getPlayerName()
+        if name then fn(u:getID(), name) end
     end
 end
 
@@ -332,26 +340,28 @@ ScoreMenuHandler = EVENTHANDLER:New()
 ScoreMenuHandler:HandleEvent(EVENTS.Birth)
 
 function ScoreMenuHandler:OnEventBirth(EventData)
-    local unit = EventData.IniUnit
-    if not unit or not unit:IsAlive() then return end
+    -- Objet DCS plutot que MOOSE (EventData.IniUnit) : marche aussi pour les slots dynamiques
+    local dcsUnit = EventData.IniDCSUnit
+    if not dcsUnit or not dcsUnit.isExist or not dcsUnit:isExist() then return end
+    if Object.getCategory(dcsUnit) ~= Object.Category.UNIT then return end
 
     -- Nouvelle vie du pilote
-    local playerName = EventData.IniPlayerName
+    local playerName = EventData.IniPlayerName or dcsUnit:getPlayerName()
     if playerName then
-        UnitPlayer[EventData.IniUnitName] = playerName
+        UnitPlayer[dcsUnit:getName()] = playerName
         PlayerLife[playerName] = { dead = false }
         RefuelStart[playerName] = nil
         Flights[playerName] = nil
         InitPlayer(playerName)
         -- Slot en vol (air start) : pas d'event decollage, on lance le timer ici
-        if unit:InAir() then
+        if dcsUnit:inAir() then
             StartFlight(playerName)
         end
 
         -- Message d'accueil, au joueur seul, a chaque apparition
         local s = InitPlayer(playerName)
         local _, rank = GetRank(s.points)
-        MessageToPlayer(UnitIDFromEvent(EventData),
+        MessageToPlayer(dcsUnit:getID(),
             "Bienvenue sur Blue Sky, " .. playerName .. " !\n" ..
             "GRADE : " .. rank.name .. " (" .. s.points .. " pts)\n" ..
             "Frequences PA / tankers : sur le kneeboard\n" ..
@@ -359,7 +369,11 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             "Discord : discord.gg/zVEsRbm8h2", 15)
     end
 
-    local group = unit:GetGroup()
+    local dcsGroup = dcsUnit:getGroup()
+    local groupName = dcsGroup and dcsGroup:getName()
+    if not groupName then return end
+    -- groupe ne en cours de mission (slot dynamique) : on l'ajoute a la base MOOSE pour MENU_GROUP
+    local group = GROUP:FindByName(groupName) or _DATABASE:AddGroup(groupName)
     if not group then return end
 
     local tries = 0
@@ -393,10 +407,38 @@ TakeoffHandler:HandleEvent(EVENTS.Takeoff)
 function TakeoffHandler:OnEventTakeoff(EventData)
     local playerName = PlayerFromEvent(EventData)
     if not playerName then return end -- IA : on ignore
+    local f = Flights[playerName]
+    if f and f.active then return end -- deja lance par la detection ci-dessous
 
     StartFlight(playerName)
     MessageToPlayer(UnitIDFromEvent(EventData), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
 end
+
+-- Secours : DCS n'envoie pas toujours le decollage (constate le 03/11 en slot dynamique, F-5E a Kobuleti).
+-- Toutes les 5 s, un joueur en l'air sans vol en cours demarre son vol
+-- (pas dans les 10 s apres la fin d'un vol : rebond a l'atterrissage).
+local function CheckAirbornePlayers()
+    local now = timer.getTime()
+    for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
+        for _, u in ipairs(coalition.getPlayers(side) or {}) do
+            local name = u:isExist() and u:getPlayerName()
+            local f = name and Flights[name]
+            if name and u:inAir() and not (f and f.active) and not (PlayerLife[name] and PlayerLife[name].dead)
+               and now - (FlightClosedAt[name] or -100) > 10 then
+                UnitPlayer[u:getName()] = name
+                StartFlight(name)
+                MessageToPlayer(u:getID(), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
+            end
+        end
+    end
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(CheckAirbornePlayers)
+    if not ok then env.warning("BlueSky : detection decollage : " .. tostring(err)) end
+    return timer.getTime() + 5
+end, nil, timer.getTime() + 5)
+timer.scheduleFunction(CheckAirbornePlayers, nil, timer.getTime() + 5)
 
 ------------------------------------------------------------
 -- ATTERRISSAGE / APPONTAGE
