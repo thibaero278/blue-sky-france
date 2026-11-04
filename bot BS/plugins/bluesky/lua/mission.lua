@@ -60,6 +60,7 @@ local function playerUnit(unit)
         base     = base_name,
         flight   = currentFlight(name),
         bs       = (BSMode and BSMode[name]) and true or nil,  -- mode Blue Sky (script Caucase.lua) : icône spéciale sur le site
+        crew     = BSCrew and BSCrew[unit:getName()] or nil,   -- autres places (multi-équipage)
     }
 end
 
@@ -203,6 +204,15 @@ function dcsbot.bsSetScores(json, removeJson)
     SaveScores()
     BS_SCORES_SYNCED = true
     env.info('BlueSky : scores fusionnes recus de R2D2')
+end
+
+-- Places 2, 3... de chaque avion (lua/commands.lua, toutes les 5 s) → script de mission (BSCrew)
+function dcsbot.bsSetCrew(json)
+    local crew = net.json2lua(json)
+    if type(crew) ~= 'table' then return end
+    for k in pairs(BSCrew or {}) do BSCrew[k] = nil end  -- même table : le script garde sa référence
+    BSCrew = BSCrew or {}
+    for unit, names in pairs(crew) do BSCrew[unit] = names end
 end
 
 function dcsbot.bsGetLive(channel)

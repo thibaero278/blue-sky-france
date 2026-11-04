@@ -74,6 +74,8 @@ RefuelStart = {}          -- debut du contact ravitaillement par pilote
 UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite est deja morte)
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
 BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
+BSCrew = {}               -- unite -> places 2, 3... occupees (pseudos), envoye toutes les 5 s par le bot (mission.lua)
+CrewUnit = {}             -- membre d'equipage en vol -> unite ou son vol a commence
 
 function InitPlayer(playerName)
     local s = Scores[playerName] or {}
@@ -265,6 +267,7 @@ FlightClosedAt = FlightClosedAt or {} -- fin du dernier vol, par pilote (detecti
 local function CloseFlight(playerName)
     StopRefuel(playerName)
     FlightClosedAt[playerName] = timer.getTime()
+    CrewUnit[playerName] = nil
     -- Fin du vol (atterrissage, mort, ejection, changement de slot) : le mode Blue Sky s'arrete aussi
     local bs = BSMode[playerName]
     BSMode[playerName] = nil
@@ -285,6 +288,30 @@ local function CloseFlight(playerName)
         s.maxFlightTime = math.floor(elapsed)
     end
     return elapsed, f
+end
+
+------------------------------------------------------------
+-- MULTI-EQUIPAGE (Apache, F-14...) : DCS n'envoie les events qu'au nom du pilote (place 1).
+-- Les autres places (BSCrew) ont chacune leur vol, demarre, ferme et valide comme celui du pilote :
+-- heures, kills, points, atterrissages, morts, ravitaillement, mode Blue Sky.
+------------------------------------------------------------
+-- { pilote, place 2, place 3... } de l'unite
+local function Crew(unitName, playerName)
+    local list = { playerName }
+    for _, c in ipairs(unitName and BSCrew[unitName] or {}) do
+        if c ~= playerName then list[#list + 1] = c end
+    end
+    return list
+end
+
+local function EventUnitName(EventData)
+    return EventData.IniUnitName or EventData.IniDCSUnitName
+end
+
+local function StartCrewFlight(name, unitName)
+    StartFlight(name)
+    CrewUnit[name] = unitName
+    PlayerLife[name] = { dead = false }
 end
 
 -- Valide les kills/points d'un vol dans le total.
@@ -338,12 +365,14 @@ local function GroupPlayerName(group)
     return nil
 end
 
--- Appelle fn(unitID, playerName) pour chaque joueur du groupe.
+-- Appelle fn(unitID, playerName, dcsUnit) pour chaque joueur du groupe, equipage compris.
 -- DCS ne dit pas qui a clique dans un menu F10 de groupe : chacun recoit donc ses propres infos.
 local function ForEachGroupPlayer(group, fn)
     for _, u in ipairs(GroupDCSUnits(group)) do
-        local name = u:isExist() and u:getPlayerName()
-        if name then fn(u:getID(), name) end
+        local pilot = u:isExist() and u:getPlayerName()
+        if pilot then
+            for _, name in ipairs(Crew(u:getName(), pilot)) do fn(u:getID(), name, u) end
+        end
     end
 end
 
@@ -424,11 +453,18 @@ TakeoffHandler:HandleEvent(EVENTS.Takeoff)
 function TakeoffHandler:OnEventTakeoff(EventData)
     local playerName = PlayerFromEvent(EventData)
     if not playerName then return end -- IA : on ignore
-    local f = Flights[playerName]
-    if f and f.active then return end -- deja lance par la detection ci-dessous
-
-    StartFlight(playerName)
-    MessageToPlayer(UnitIDFromEvent(EventData), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
+    local unitName = EventUnitName(EventData)
+    for i, name in ipairs(Crew(unitName, playerName)) do
+        local f = Flights[name]
+        if not (f and f.active) then -- sinon deja lance par la detection ci-dessous
+            if i == 1 then
+                StartFlight(name)
+                MessageToPlayer(UnitIDFromEvent(EventData), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
+            else
+                StartCrewFlight(name, unitName)
+            end
+        end
+    end
 end
 
 -- Secours : DCS n'envoie pas toujours le decollage (constate le 03/11 en slot dynamique, F-5E a Kobuleti).
@@ -446,7 +482,24 @@ local function CheckAirbornePlayers()
                 StartFlight(name)
                 MessageToPlayer(u:getID(), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
             end
+            -- equipage monte en vol (ou decollage rate) : son vol commence maintenant
+            if name and u:inAir() then
+                for i, c in ipairs(Crew(u:getName(), name)) do
+                    local fc = Flights[c]
+                    if i > 1 and not (fc and fc.active) and now - (FlightClosedAt[c] or -100) > 10 then
+                        StartCrewFlight(c, u:getName())
+                    end
+                end
+            end
         end
+    end
+    -- place quittee en vol : temps ajoute, kills du vol perdus (comme un pilote qui change de slot)
+    for c, unitName in pairs(CrewUnit) do
+        local still = false
+        for _, n in ipairs(BSCrew[unitName] or {}) do
+            if n == c then still = true end
+        end
+        if not still and CloseFlight(c) then SaveScores() end
     end
 end
 
@@ -489,13 +542,20 @@ function CarrierHandler:OnEventLand(EventData)
     local dcsUnit = EventData.IniDCSUnit
     if not playerName or not dcsUnit then return end
 
+    for i, name in ipairs(Crew(dcsUnit:getName(), playerName)) do
+        local elapsed, f = CloseFlight(name)
+        -- Pas de vol en cours : faux Land envoye par DCS au spawn (pont du PA en multi), on ignore
+        if elapsed then LandFlight(name, f, elapsed, EventData, dcsUnit, i == 1) end
+    end
+end
+
+-- Atterrissage d'un membre de l'equipage (sound : son joue une seule fois par avion)
+function LandFlight(playerName, f, elapsed, EventData, dcsUnit, sound)
     local base = tostring(EventData.PlaceName)
     local unitID = dcsUnit:getID()
-    local elapsed, f = CloseFlight(playerName)
-    -- Pas de vol en cours : faux Land envoye par DCS au spawn (pont du PA en multi), on ignore
-    if not elapsed then return end
     local s = InitPlayer(playerName)
     local carrier = CARRIERS[base]
+    local function Sound(file) if sound then trigger.action.outSoundForUnit(unitID, file) end end
 
     -- Base terrestre : on valide tout de suite
     if not carrier then
@@ -504,7 +564,7 @@ function CarrierHandler:OnEventLand(EventData)
         SaveScores()
         MessageToPlayer(unitID, "Bienvenue a " .. base .. ", " .. playerName ..
             "\nAtterrissages total : " .. s.landings .. FlightSummary(f, elapsed), 10)
-        trigger.action.outSoundForUnit(unitID, "PA.ogg")
+        Sound("PA.ogg")
         return
     end
 
@@ -519,7 +579,7 @@ function CarrierHandler:OnEventLand(EventData)
         if IsGearStateSuspicious(dcsUnit) then
             SaveScores()
             MessageToPlayer(unitID, TROLL_MESSAGES[math.random(#TROLL_MESSAGES)] .. FlightSummary(f, elapsed), 10)
-            trigger.action.outSoundForUnit(unitID, "troll.ogg")
+            Sound("troll.ogg")
             return nil
         end
 
@@ -528,7 +588,7 @@ function CarrierHandler:OnEventLand(EventData)
         MessageToPlayer(unitID,
             "AIRBOSS - " .. carrier .. "\nBienvenue a bord, " .. playerName ..
             "\nAppontages total : " .. s.traps .. FlightSummary(f, elapsed), 10)
-        trigger.action.outSoundForUnit(unitID, "PA.ogg")
+        Sound("PA.ogg")
         return nil
     end, nil, timer.getTime() + 1)
 end
@@ -545,22 +605,25 @@ LifeHandler:HandleEvent(EVENTS.PlayerLeaveUnit)
 LifeHandler:HandleEvent(EVENTS.MissionEnd)
 
 local function OnPlayerDeath(EventData)
-    local playerName = PlayerFromEvent(EventData)
-    if not playerName then return end
+    local pilot = PlayerFromEvent(EventData)
+    if not pilot then return end
 
-    local life = PlayerLife[playerName]
-    if life and life.dead then return end -- deja compte pour cette vie
-    if life then life.dead = true else PlayerLife[playerName] = { dead = true } end
+    for _, playerName in ipairs(Crew(EventUnitName(EventData), pilot)) do
+        local life = PlayerLife[playerName]
+        if not (life and life.dead) then -- sinon deja compte pour cette vie
+            if life then life.dead = true else PlayerLife[playerName] = { dead = true } end
 
-    local elapsed = CloseFlight(playerName) -- temps ajoute, kills du vol jetes
-    local s = InitPlayer(playerName)
-    s.deaths = s.deaths + 1
-    SaveScores()
+            local elapsed = CloseFlight(playerName) -- temps ajoute, kills du vol jetes
+            local s = InitPlayer(playerName)
+            s.deaths = s.deaths + 1
+            SaveScores()
 
-    trigger.action.outText(
-        playerName .. " est tombe au combat (morts : " .. s.deaths .. ")" ..
-        (elapsed and ("\nTemps de vol ajoute : " .. FormatFlightTime(elapsed)) or "") ..
-        "\nKills et points de ce vol perdus.", 8)
+            trigger.action.outText(
+                playerName .. " est tombe au combat (morts : " .. s.deaths .. ")" ..
+                (elapsed and ("\nTemps de vol ajoute : " .. FormatFlightTime(elapsed)) or "") ..
+                "\nKills et points de ce vol perdus.", 8)
+        end
+    end
     -- Pas de troll.ogg ici : reserve au train casse sur PA (DCS envoie aussi Dead en quittant le slot)
 end
 
@@ -572,15 +635,18 @@ function LifeHandler:OnEventDead(EventData) OnPlayerDeath(EventData) end
 -- Le pilote quitte son avion (changement de slot, deco) en plein vol :
 -- temps ajoute, kills du vol perdus, pas de mort.
 function LifeHandler:OnEventPlayerLeaveUnit(EventData)
-    local playerName = PlayerFromEvent(EventData)
-    if not playerName then return end
+    local pilot = PlayerFromEvent(EventData)
+    if not pilot then return end
 
-    if CloseFlight(playerName) then SaveScores() end
-    -- Vie terminee : DCS envoie ensuite Dead/PilotDead pour l'avion retire (briefing, respawn),
-    -- a ignorer jusqu'au prochain Birth (sinon troll.ogg + mort comptee a tort)
-    if PlayerLife[playerName] then PlayerLife[playerName].dead = true else PlayerLife[playerName] = { dead = true } end
+    -- l'equipage descend avec le pilote (DCS vide l'avion)
+    for _, playerName in ipairs(Crew(EventUnitName(EventData), pilot)) do
+        if CloseFlight(playerName) then SaveScores() end
+        -- Vie terminee : DCS envoie ensuite Dead/PilotDead pour l'avion retire (briefing, respawn),
+        -- a ignorer jusqu'au prochain Birth (sinon troll.ogg + mort comptee a tort)
+        if PlayerLife[playerName] then PlayerLife[playerName].dead = true else PlayerLife[playerName] = { dead = true } end
+    end
     -- L'avion abandonne ne doit plus etre attribue au pilote
-    if EventData.IniUnitName then UnitPlayer[EventData.IniUnitName] = nil end
+    if EventData.IniUnitName and UnitPlayer[EventData.IniUnitName] == pilot then UnitPlayer[EventData.IniUnitName] = nil end
 end
 
 -- Fin de mission : temps de vol des pilotes en l'air ajoute
@@ -599,15 +665,20 @@ RefuelHandler:HandleEvent(EVENTS.Refueling)
 RefuelHandler:HandleEvent(EVENTS.RefuelingStop)
 
 function RefuelHandler:OnEventRefueling(EventData)
-    local playerName = PlayerFromEvent(EventData)
-    if not playerName or RefuelStart[playerName] then return end
-    RefuelStart[playerName] = timer.getTime()
+    local pilot = PlayerFromEvent(EventData)
+    if not pilot then return end
+    for _, playerName in ipairs(Crew(EventUnitName(EventData), pilot)) do
+        RefuelStart[playerName] = RefuelStart[playerName] or timer.getTime()
+    end
 end
 
 function RefuelHandler:OnEventRefuelingStop(EventData)
     local playerName = PlayerFromEvent(EventData)
     if not playerName then return end
 
+    for i, name in ipairs(Crew(EventUnitName(EventData), playerName)) do
+        if i > 1 then StopRefuel(name) end
+    end
     local duration = StopRefuel(playerName)
     if not duration then return end
     SaveScores()
@@ -718,10 +789,14 @@ function KillHandler:OnEventKill(EventData)
 
     local unitID = EventData.IniDCSUnit:getID()
     local s = InitPlayer(playerName)
+    local crew = Crew(EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getName() or EventUnitName(EventData), playerName)
 
-    -- TEAMKILL : compteur seul, aucun point
+    -- TEAMKILL : compteur seul, aucun point (compte pour tout l'equipage)
     if EventData.TgtCoalition and EventData.IniCoalition and EventData.TgtCoalition == EventData.IniCoalition then
-        s.teamkills = s.teamkills + 1
+        for _, name in ipairs(crew) do
+            local sc = InitPlayer(name)
+            sc.teamkills = sc.teamkills + 1
+        end
         SaveScores()
         MessageToPlayer(unitID, "TEAMKILL !\nAucun point.\nTeamkills total : " .. s.teamkills, 8)
         return
@@ -730,17 +805,21 @@ function KillHandler:OnEventKill(EventData)
     local kind, points, title, typeLabel = ClassifyKill(EventData)
     if not kind then return end
 
-    -- En vol : en attente jusqu'a l'atterrissage. Au sol : valide direct.
-    local f = Flights[playerName]
-    local pending = f and f.active
-    if pending then
-        f[kind] = f[kind] + 1
-        f.points = f.points + points
-    else
-        f = NewFlight()
-        f[kind], f.points = 1, points
-        CommitFlightKills(playerName, f)
-        SaveScores()
+    -- En vol : en attente jusqu'a l'atterrissage. Au sol : valide direct. Chaque membre d'equipage a le kill entier.
+    local f, pending
+    for i, name in ipairs(crew) do
+        local fc = Flights[name]
+        local pend = fc and fc.active
+        if pend then
+            fc[kind] = fc[kind] + 1
+            fc.points = fc.points + points
+        else
+            fc = NewFlight()
+            fc[kind], fc.points = 1, points
+            CommitFlightKills(name, fc)
+            SaveScores()
+        end
+        if i == 1 then f, pending = fc, pend end
     end
 
     local targetPoint = GetTargetPoint(EventData)
@@ -892,32 +971,29 @@ end
 ------------------------------------------------------------
 local function SetBlueSkyMode(GroupObject, on)
     if not GroupObject or not GroupObject:IsAlive() then return end
-    for _, u in ipairs(GroupDCSUnits(GroupObject)) do
-        local name = u:isExist() and u:getPlayerName()
-        if name then
-            local id = u:getID()
-            if on and u:inAir() then
-                MessageToPlayer(id, "MODE BLUE SKY\nA activer au sol, avant le decollage.", 8)
-            elseif on and not BSMode[name] then
-                BSMode[name] = true
-                MessageToPlayer(id, "MODE BLUE SKY ACTIF\nTon prochain vol compte dans tes heures Blue Sky.\n" ..
-                    "Il s'arrete a l'atterrissage, si tu meurs, t'ejectes ou changes de slot.", 10)
-            elseif not on and BSMode[name] then
-                -- coupe en vol : le temps deja vole compte
-                local elapsed = GetCurrentFlightTime(name)
-                BSMode[name] = nil
-                if elapsed then
-                    local s = InitPlayer(name)
-                    s.bsFlightTime = s.bsFlightTime + elapsed
-                    SaveScores()
-                end
-                MessageToPlayer(id, "MODE BLUE SKY DESACTIVE" ..
-                    (elapsed and ("\nTemps compte : " .. FormatFlightTime(elapsed)) or ""), 8)
-            else
-                MessageToPlayer(id, "MODE BLUE SKY deja " .. (on and "actif." or "inactif."), 5)
+    -- equipage compris : chaque place a son mode
+    ForEachGroupPlayer(GroupObject, function(id, name, u)
+        if on and u:inAir() then
+            MessageToPlayer(id, "MODE BLUE SKY\nA activer au sol, avant le decollage.", 8)
+        elseif on and not BSMode[name] then
+            BSMode[name] = true
+            MessageToPlayer(id, "MODE BLUE SKY ACTIF (" .. name .. ")\nTon prochain vol compte dans tes heures Blue Sky.\n" ..
+                "Il s'arrete a l'atterrissage, si tu meurs, t'ejectes ou changes de slot.", 10)
+        elseif not on and BSMode[name] then
+            -- coupe en vol : le temps deja vole compte
+            local elapsed = GetCurrentFlightTime(name)
+            BSMode[name] = nil
+            if elapsed then
+                local s = InitPlayer(name)
+                s.bsFlightTime = s.bsFlightTime + elapsed
+                SaveScores()
             end
+            MessageToPlayer(id, "MODE BLUE SKY DESACTIVE (" .. name .. ")" ..
+                (elapsed and ("\nTemps compte : " .. FormatFlightTime(elapsed)) or ""), 8)
+        else
+            MessageToPlayer(id, "MODE BLUE SKY deja " .. (on and "actif." or "inactif.") .. " (" .. name .. ")", 5)
         end
-    end
+    end)
 end
 
 function ActivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, true) end

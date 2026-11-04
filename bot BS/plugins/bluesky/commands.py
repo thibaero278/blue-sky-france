@@ -358,6 +358,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             await self.publish('live', {
                 'server': server.display_name, 'time': now.isoformat(),
                 'missionTime': (data or {}).get('time'),  # secondes depuis minuit, heure de la mission
+                # temps réel depuis le lancement de la mission (Sim.getRealTime, relevé par DCSServerBot à chaque keep-alive)
+                'uptime': int(server.current_mission.real_time or 0) or None if server.current_mission else None,
                 'map': server.current_mission.map if server.current_mission else '', 'players': players,
                 'mission': server.current_mission.name if server.current_mission else '',
                 # tous les connectés (même sans avion), pour « Serveur · N en ligne » sur le site

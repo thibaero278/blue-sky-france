@@ -2,7 +2,7 @@
   const { C, esc, fmt, insignia, airfields, loadLive, loadTrails, loadStats, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
-  let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, polls = 0;
+  let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0;
 
   const map = L.map('map', { minZoom: 6, maxZoom: 12, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
@@ -76,7 +76,9 @@
   const shipSvg = (p, size) => '<svg viewBox="-17 -17 34 34" width="' + size + '" height="' + size + '" style="transform:rotate(' + Math.round(p.hdg) + 'deg)" fill="#fbfaf7" stroke="'
     + (selected === p.key ? '#d9b45a' : enemy(p) ? '#d0342c' : '#13213a') + '" stroke-width="1.2" stroke-linejoin="round">' + SHIPS[p.ship] + '</svg>';
   const SHIP_NAMES = { cvn: 'Porte-avions (CVN)', kuz: 'Porte-avions (Kuznetsov)', lha: 'Porte-aéronefs (Tarawa)' };
-  const label = p => p.ai ? (enemy(p) ? '' : esc(p.callsign || '')) : esc(p.callsign);
+  // multi-équipage : « Pilote + Gunner »
+  const crewName = p => esc([p.callsign].concat(p.crew || []).join(' + '));
+  const label = p => p.ai ? (enemy(p) ? '' : esc(p.callsign || '')) : crewName(p);
   const iconFor = p => {
     const sel = selected === p.key ? ' sel' : '';
     if (p.ship) return L.divIcon({ className: '', html: '<div class="shp' + sel + '">' + shipSvg(p, 44)
@@ -166,7 +168,7 @@
     $('plist').innerHTML = list.map(p => `
       <button class="p${selected === p.key ? ' sel' : ''}" data-key="${esc(p.key)}">
         <span class="ic${p.air || p.ship ? '' : ' g'}">${p.ship ? shipSvg(p, 26) : p.air ? svg(p, 0.85) : '<span class="sq"></span>'}</span>
-        <span class="nm"><b>${p.ai ? (enemy(p) ? 'Inconnu' : esc(p.callsign || ROLES[p.role] || SHIP_NAMES[p.ship])) : esc(p.callsign)}</b><small>${esc(p.aircraft)}${p.ai && !enemy(p) && p.freq ? ' · ' + esc(p.freq) : ''}${p.air || !p.base ? '' : ' · ' + esc(p.base)}</small></span>
+        <span class="nm"><b>${p.ai ? (enemy(p) ? 'Inconnu' : esc(p.callsign || ROLES[p.role] || SHIP_NAMES[p.ship])) : crewName(p)}</b><small>${esc(p.aircraft)}${p.ai && !enemy(p) && p.freq ? ' · ' + esc(p.freq) : ''}${p.air || !p.base ? '' : ' · ' + esc(p.base)}</small></span>
         <span class="data">${p.ship ? '<span>' + Math.round(p.spd) + ' kt</span><span>' + hdg(p) + '</span>' : p.air ? '<span>' + fl(p) + '</span><span>' + Math.round(p.spd) + ' kt · ' + hdg(p) + '</span>' : '<span>Au sol</span>'}</span>
       </button>`).join('') || '<div class="empty" style="padding:24px">' + (filter === 'ai' ? 'Aucune IA en vol' : 'Aucun pilote connecté') + '</div>';
   }
@@ -176,7 +178,7 @@
     if (!p) return;
     const kind = p.ship ? SHIP_NAMES[p.ship] : ROLES[p.role];
     const side = p.ai ? (enemy(p) ? (p.ship ? 'Ennemi · ' : 'IA ennemie · ') : (p.ship ? 'Ami · ' : 'IA amie · ')) + kind + ' · ' : '';
-    $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : p.callsign;
+    $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : [p.callsign].concat(p.crew || []).join(' + ');
     $('fType').textContent = side + (p.bs && !p.ai ? 'Mode Blue Sky · ' : '') + p.aircraft +(p.ship ? '' : ' · ' + (p.air ? 'En vol' : 'Au sol' + (p.base ? ' · ' + p.base : '')));
     $('fAlt').textContent = p.ship ? '—' : p.air ? fl(p) : Math.round(p.alt) + ' ft';
     $('fSpd').textContent = Math.round(p.spd) + ' kt';
@@ -254,6 +256,8 @@
       if (d.weather) setWeather(d.weather);
       if (!demo && !d.weather) setWeather({});
       missionT0 = !d.offline && d.missionTime != null ? { t: d.missionTime, at: Date.now() } : null;
+      // relevé côté bot à quelques dizaines de secondes près : on avance à partir de l'heure de l'envoi
+      upT0 = !d.offline && d.uptime ? { t: d.uptime, at: d.time ? new Date(d.time).getTime() : Date.now() } : demo ? { t: 8040, at: Date.now() } : null;
       const nOnline = (d.online || d.players || []).length;
       $('srv').innerHTML = demo ? demoBadge() : d.offline ? '<span style="color:#8a91a3">Hors ligne</span>'
         : nOnline ? '<span class="dot"></span><span style="color:#0b7d75">En ligne</span>' : '<span style="color:#8a91a3">Personne en ligne</span>';
@@ -305,4 +309,10 @@
   });
   // Heure in-game : envoyée par le serveur (secondes depuis minuit), horloge fictive en démo, « --:--:-- » serveur éteint
   setInterval(() => ($('clock').textContent = fmt.gameClock(missionT0, demo)), 1000);
+  const upText = () => {
+    if (!upT0) return '–';
+    const m = Math.floor((upT0.t + (Date.now() - upT0.at) / 1000) / 60);
+    return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') : m + ' min';
+  };
+  setInterval(() => ($('uptime').textContent = upText()), 1000);
 })();

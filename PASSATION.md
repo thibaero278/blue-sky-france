@@ -549,6 +549,21 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   - Déployé le 03/11 au soir : site (commit 04ea838), plugin sur R2D2 (bot redémarré, 0 erreur ; sauvegardes
     `~/backups/*.avant-mode-bluesky-20261103`), `partage/maj` (2 copies du plugin) et les 2 .miz dans `partage/fichiers`.
     Reste : Thibaud STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO + .miz dans ses Missions, test en jeu.
+  - ⚠️ Réenregistrer la mission dans l'éditeur DCS y remet l'ancien script (vu le 03/11 à 21 h 21) : recharger le
+    « DO SCRIPT FILE » avant d'enregistrer, ou faire réinjecter le script.
+
+- 04/11/2026 : **Durée de la mission sur la carte + multi-équipage** (après une grosse session sur le serveur).
+  - Carte : case « Mission lancée depuis » (`uptime` = `current_mission.real_time` de DCSServerBot, temps réel pauses comprises,
+    relevé au keep-alive, à ~1 min près ; le site avance l'horloge entre deux envois).
+  - Multi-équipage (Apache, F-14…) : DCS n'envoie les événements qu'au nom du pilote. `lua/commands.lua` (hook) lit les places 2+
+    (`getMulticrewAllParameters`, comme DCSServerBot) et les passe à la mission toutes les 5 s (`dcsbot.bsSetCrew` → `BSCrew`).
+    Le script donne à **chaque place** son vol : heures, vols, kills et points entiers (validés à l'atterrissage), atterrissages,
+    appontages, morts, teamkills, ravitaillement, mode Blue Sky (le clic vaut aussi pour l'équipage). Place montée en vol :
+    vol démarré à la détection suivante (5 s) ; place quittée en vol : vol fermé, temps compté, kills perdus. Messages et son
+    restent ceux du pilote (même écran). Sans le bot, l'équipage ne gagne rien (comme avant). Carte : « Pilote + Gunner ».
+  - Sauvegarde `bakup\script Caucase_2026-11-04_avant-multi-equipage.lua`. Testé hors jeu (lupa : 7 cas mode Blue Sky + 4 cas
+    équipage). **Lecture des places côté DCS pas testable hors jeu** (protégée par pcall). **Pas testé en jeu : à tester à deux.**
+    Injecté dans les 2 .miz (anciennes en `bakup\*_2026-11-04_02-01-47.miz.bak`).
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
