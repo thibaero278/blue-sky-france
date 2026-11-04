@@ -84,10 +84,29 @@
     if (p.ship) return L.divIcon({ className: '', html: '<div class="shp' + sel + '">' + shipSvg(p, 44)
       + (enemy(p) ? '' : '<span class="tg">' + esc(p.callsign || SHIP_NAMES[p.ship]) + '</span>') + '</div>', iconSize: [0, 0] });
     if (!p.air) return L.divIcon({ className: '', html: '<div class="gnd' + sel + '"><span class="sq"></span></div>', iconSize: [0, 0] });
-    const name = label(p);
+    // avions superposés à l'écran (formation) : une seule étiquette, une ligne par avion (voir declutter)
+    const line = q => { const n = label(q); return (n ? n + ' ' : '') + '<i>' + fl(q) + '</i>'; };
+    const tag = p.lead ? '' : '<span class="tg">' + [p].concat(p.stack || []).map(line).join('<br>') + '</span>';
     return L.divIcon({ className: '', html: '<div class="ac' + sel + (p.ai ? ' ai' : '') + '">' + svg(p, p.ai ? 1 : 1.15)
-      + '<span class="tg">' + (name ? name + ' ' : '') + '<i>' + fl(p) + '</i></span></div>', iconSize: [0, 0] });
+      + tag + '</div>', iconSize: [0, 0] });
   };
+
+  // Regroupe les avions en vol à moins de 28 px les uns des autres (joueurs d'abord) : le premier porte l'étiquette
+  function declutter() {
+    const air = units.filter(p => p.air && !p.ship).sort((a, b) => a.ai - b.ai);
+    air.forEach(p => { p.lead = null; p.stack = null; });
+    air.forEach((p, i) => {
+      if (p.lead) return;
+      const pt = map.latLngToLayerPoint([p.lat, p.lon]);
+      air.slice(i + 1).forEach(q => {
+        if (!q.lead && pt.distanceTo(map.latLngToLayerPoint([q.lat, q.lon])) < 28) { q.lead = p; (p.stack = p.stack || []).push(q); }
+      });
+      // l'étiquette du groupe passe au-dessus des avions qu'elle chevauche
+      p.marker.setZIndexOffset((p.ai ? 500 : 1000) + (p.stack ? 100 : 0));
+    });
+    units.forEach(p => p.marker.setIcon(iconFor(p)));
+  }
+  map.on('zoomend', () => declutter());
 
   // Noms internes DCS (envoyés par le serveur) → noms lisibles
   const TYPES = { 'FA-18C_hornet': 'F/A-18C', 'F-16C_50': 'F-16C', 'A-10C_2': 'A-10C II', 'AV8BNA': 'AV-8B', 'F-15ESE': 'F-15E',
@@ -111,13 +130,14 @@
       // posé : trajectoire gardée jusqu'au décollage suivant
       if (p.air) { if (p.landed) { p.trail = []; p.landed = false; } p.trail.push([p.lat, p.lon, p.alt]); } else p.landed = true;
       if (!p.marker) p.marker = L.marker([p.lat, p.lon], { icon: iconFor(p) }).addTo(map).on('click', () => select(p.key, true));
-      p.marker.setLatLng([p.lat, p.lon]).setIcon(iconFor(p)).setZIndexOffset(p.ship ? -500 : p.air ? (p.ai ? 500 : 1000) : 0);
+      p.marker.setLatLng([p.lat, p.lon]).setZIndexOffset(p.ship ? -500 : p.air ? (p.ai ? 500 : 1000) : 0);
     });
     units = units.filter(p => {
       if (seen.has(p.key)) return true;
       map.removeLayer(p.marker); return false;
     });
     if (selected && !units.some(p => p.key === selected)) selected = null;
+    declutter();
   }
 
   // Trajectoire complète du sélectionné (relais ?format=trails, envoyée par le bot toutes les 30 s)
