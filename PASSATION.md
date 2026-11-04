@@ -564,6 +564,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   - Sauvegarde `bakup\script Caucase_2026-11-04_avant-multi-equipage.lua`. Testé hors jeu (lupa : 7 cas mode Blue Sky + 4 cas
     équipage). **Lecture des places côté DCS pas testable hors jeu** (protégée par pcall). **Pas testé en jeu : à tester à deux.**
     Injecté dans les 2 .miz (anciennes en `bakup\*_2026-11-04_02-01-47.miz.bak`).
+  - Déployé le 04/11 (2 h) : R2D2 (bot redémarré, 0 erreur ; sauvegardes `~/backups/*.avant-equipage-20261104`),
+    `partage/maj` (2 copies) et les 2 .miz dans `partage/fichiers`. Site : commit 2029f62.
+    Reste : STOP → GO (MSI et Weefe), Weefe FICHIERS / MAJ + .miz, **test à deux dans un Apache**.
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
