@@ -69,6 +69,34 @@
     ];
     $('totals').innerHTML = totals.map(([l, v]) => `<div class="card kpi"><span class="label">${l}</span><b data-count="${String(v).replace(/\D/g, '')}">${v}</b></div>`).join('');
 
+    const RECORDS = [
+      ['points', 'Le plus de points', p => fmt.n(p.points) + ' pts'],
+      ['hours', "Le plus d'heures de vol", p => fmt.h1(p.hours) + ' h'],
+      ['longest', 'Vol le plus long', p => fmt.dur(p.longest)],
+      ['bsHours', "Le plus d'heures Blue Sky", p => fmt.h1(p.bsHours) + ' h'],
+      ['airKills', 'Le plus de kills air', p => fmt.n(p.airKills)],
+      ['groundKills', 'Le plus de kills sol', p => fmt.n(p.groundKills)],
+      ['navalKills', 'Le plus de kills mer', p => fmt.n(p.navalKills)],
+      ['traps', "Le plus d'appontages", p => fmt.n(p.traps)],
+      ['landings', "Le plus d'atterrissages", p => fmt.n(p.landings)],
+      ['flights', 'Le plus de vols', p => fmt.n(p.flights)],
+      ['refuel', 'Le plus de temps au ravitaillement', p => fmt.dur(p.refuel)],
+      ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
+      ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
+      ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],
+      ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft'],
+      ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h']
+    ];
+    const dist = m => m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m) + ' m';
+    // à égalité, le premier pilote trouvé garde le record ; sans valeur, la case reste vide
+    $('records').innerHTML = RECORDS.map(([k, label, show, lowest]) => {
+      const has = p => lowest ? p[k] != null : p[k] > 0;
+      const best = S.pilots.filter(has).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
+      return best
+        ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}</span></button>`
+        : `<div class="card kpi" style="opacity:.55"><span class="label">${label}</span><b style="font-size:26px">—</b><span class="mono" style="font-size:13px; color:#8a91a3">Pas encore de record</span></div>`;
+    }).join('');
+
     $('grades').innerHTML = GRADES.map(g => `
       <div class="card grade-card">${insignia(g, 'md')}
         <span style="flex:1; min-width:0"><b>${esc(g.name)}</b><span class="mono" style="font-size:12px; color:#8a91a3">dès ${fmt.n(g.min)} pts</span></span>

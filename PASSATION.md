@@ -578,6 +578,16 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     Déployé le 05/11 : R2D2 (bot redémarré, BlueSky chargé, 0 erreur ; sauvegardes `~/backups/*.avant-fantome-20261105`),
     `partage/maj` (2 copies). Reste : STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO. Pas testé en jeu.
 
+- 05/11/2026 : **Section « Les records » sur la page Classements** (site seul, phase 1).
+  - 11 records tirés des scores existants (points, heures, vol le plus long, heures Blue Sky, kills air/sol/mer, appontages,
+    atterrissages, vols, ravitaillement) : pilote en tête + valeur, clic = fiche pilote. Égalité : le premier trouvé garde le record.
+  - 5 cases vides « Pas encore de record » en attente de la **phase 2** (script de mission + `scores.py`, pas commencée) :
+    champs attendus dans Scores.lua `maxKillsFlight`, `maxKillDistance` et `minKillDistance` (m, reprendre `shooterDist`
+    déjà calculé au kill), `maxAltitude` (m, affichée en ft), `maxSpeed` (m/s, affichée en km/h).
+    Côté bot : les ajouter à `MAX_FIELDS` ; `minKillDistance` doit garder le **plus petit** (cas à coder dans `merge`).
+    `data.js` les lit déjà (max/min aussi pour la fusion des pseudos). Ces records partent de zéro (pas d'historique).
+  - Abandonné : avion le plus joué (trop de travail : champ non numérique dans Scores.lua).
+
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
 2. **Thibaud** : STOP → GO sur le MSI puis lancer la mission, et vérifier en jeu :

@@ -35,7 +35,8 @@
   const pad = n => String(n).padStart(2, '0');
   const fmt = {
     n: x => Number(x).toLocaleString('fr-FR'),
-    h1: x => (Math.round(x * 10) / 10).toLocaleString('fr-FR'),
+    // un vol court (ex. 1 min 40 = 0,03 h) ne doit pas s'afficher « 0 »
+    h1: x => x > 0 && x < 0.05 ? '< 0,1' : (Math.round(x * 10) / 10).toLocaleString('fr-FR'),
     dur: s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + ' h ' + pad(m) : m + ' min'; },
     dateLong: d => d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
     dateShort: d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -74,6 +75,9 @@
       longest: n('maxFlightTime'), flights: n('flights'),
       airKills: n('airair'), groundKills: n('airsol'), navalKills: n('airmer'),
       traps: n('traps'), landings: n('landings'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
+      // records ajoutés au script de mission plus tard : absents des anciens scores (distances en m, altitude en m, vitesse en m/s)
+      bestFlightKills: n('maxKillsFlight'), farKill: n('maxKillDistance'), nearKill: r.minKillDistance != null ? n('minKillDistance') : null,
+      maxAlt: n('maxAltitude'), maxSpeed: n('maxSpeed'),
       level: r.grade || '', grade: gradeFor(points)
     };
   }
@@ -118,7 +122,9 @@
       if (!cur) { out.set(cs, { ...p, name: cs }); return; }
       Object.entries(p).forEach(([k, v]) => {
         if (typeof v !== 'number') { if (cur[k] == null || cur[k] === 'ROOKIE') cur[k] = v; return; }
-        cur[k] = k === 'maxFlightTime' ? Math.max(cur[k] || 0, v) : (cur[k] || 0) + v;
+        cur[k] = k === 'minKillDistance' ? Math.min(cur[k] ?? v, v)
+          : ['maxFlightTime', 'maxKillsFlight', 'maxKillDistance', 'maxAltitude', 'maxSpeed'].includes(k) ? Math.max(cur[k] || 0, v)
+          : (cur[k] || 0) + v;
       });
     });
     return [...out.values()].map(normPilot);
