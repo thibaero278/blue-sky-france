@@ -57,7 +57,7 @@ local SCORE_FIELDS = {
     "traps", "landings", "airair", "airsol", "airmer", "points",
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
-    "bsFlightTime",
+    "bsFlightTime", "maxKillsFlight", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
 }
 
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
@@ -97,7 +97,9 @@ function GetRank(points)
 end
 
 local function NewFlight()
-    return { active = false, startTime = nil, airair = 0, airsol = 0, airmer = 0, points = 0, refuelTime = 0 }
+    -- killFar / killNear : distances avion-cible du vol en m (0 = aucune)
+    return { active = false, startTime = nil, airair = 0, airsol = 0, airmer = 0, points = 0, refuelTime = 0,
+             killFar = 0, killNear = 0 }
 end
 
 local function GetFlight(playerName)
@@ -211,6 +213,44 @@ function FormatFlightTimeLong(seconds)
     return string.format("%02dh%02dm", math.floor(t / 3600), math.floor(t / 60) % 60)
 end
 
+------------------------------------------------------------
+-- RECORDS DU SERVEUR : le record perso du pilote est mis a jour ; s'il bat le record du serveur, annonce a tous.
+-- 0 = pas encore de record (pas d'annonce pour un tout premier record, sinon spam au deploiement).
+------------------------------------------------------------
+local function FormatDistance(m)
+    return m >= 1000 and string.format("%.1f km", m / 1000) or (math.floor(m) .. " m")
+end
+
+local RECORDS = {
+    maxFlightTime   = { "Vol le plus long", FormatFlightTime },
+    maxKillsFlight  = { "Plus de kills en un vol", function(v) return v .. " kills" end },
+    maxKillDistance = { "Kill le plus loin", FormatDistance },
+    minKillDistance = { "Kill le plus proche", FormatDistance, true },
+    maxAltitude     = { "Altitude max", function(v) return math.floor(v * 3.28084) .. " ft" end },
+    maxSpeed        = { "Vitesse max", function(v) return math.floor(v * 3.6) .. " km/h" end },
+}
+
+local function Better(field, a, b) -- a bat b ?
+    if a <= 0 then return false end
+    if RECORDS[field][3] then return b <= 0 or a < b end
+    return a > b
+end
+
+function SetRecord(playerName, s, field, value)
+    value = math.floor(value or 0)
+    if not Better(field, value, s[field] or 0) then return end
+    local holder, best = nil, 0
+    for name, p in pairs(Scores) do
+        if Better(field, p[field] or 0, best) then holder, best = name, p[field] end
+    end
+    s[field] = value
+    if best > 0 and Better(field, value, best) then
+        local label, fmt = RECORDS[field][1], RECORDS[field][2]
+        MESSAGE:New("*** RECORD BATTU ***\n\n" .. label .. " : " .. playerName .. "\n" .. fmt(value) ..
+            "\n(ancien : " .. fmt(best) .. (holder ~= playerName and (" par " .. holder) or "") .. ")", 12):ToAll()
+    end
+end
+
 local function PlayerFromEvent(EventData)
     if EventData.IniPlayerName then return EventData.IniPlayerName end
     local unitName = EventData.IniUnitName or EventData.IniDCSUnitName
@@ -284,9 +324,10 @@ local function CloseFlight(playerName)
         f.bsTime = elapsed
     end
     s.flights = s.flights + 1
-    if elapsed > s.maxFlightTime then
-        s.maxFlightTime = math.floor(elapsed)
-    end
+    SetRecord(playerName, s, "maxFlightTime", elapsed)
+    -- records relevés pendant le vol (SampleFlights), gardés comme le vol le plus long, même si le vol finit mal
+    SetRecord(playerName, s, "maxAltitude", f.maxAlt)
+    SetRecord(playerName, s, "maxSpeed", f.maxSpeed)
     return elapsed, f
 end
 
@@ -324,6 +365,10 @@ local function CommitFlightKills(playerName, f, elapsed)
     s.airsol = s.airsol + f.airsol
     s.airmer = s.airmer + f.airmer
     s.points = s.points + f.points
+    -- record : le plus de kills valides sur un seul vol (A/A + A/S + A/M)
+    SetRecord(playerName, s, "maxKillsFlight", f.airair + f.airsol + f.airmer)
+    SetRecord(playerName, s, "maxKillDistance", f.killFar)
+    SetRecord(playerName, s, "minKillDistance", f.killNear)
     if elapsed then s.completedFlightTime = s.completedFlightTime + elapsed end
 
     local newIndex, rank = GetRank(s.points)
@@ -509,6 +554,34 @@ timer.scheduleFunction(function()
     return timer.getTime() + 5
 end, nil, timer.getTime() + 5)
 timer.scheduleFunction(CheckAirbornePlayers, nil, timer.getTime() + 5)
+
+-- Records d'altitude (m, au-dessus de la mer) et de vitesse (m/s, vitesse sol) : relevés chaque seconde
+-- pour chaque vol en cours, équipage compris. shortcut: un pic plus court qu'1 s peut être manqué, réduire l'intervalle si besoin.
+local function SampleFlights()
+    for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
+        for _, u in ipairs(coalition.getPlayers(side) or {}) do
+            local name = u:isExist() and u:getPlayerName()
+            if name and u:inAir() then
+                local alt = u:getPoint().y
+                local v = u:getVelocity()
+                local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+                for _, c in ipairs(Crew(u:getName(), name)) do
+                    local f = Flights[c]
+                    if f and f.active then
+                        f.maxAlt = math.max(f.maxAlt or 0, alt)
+                        f.maxSpeed = math.max(f.maxSpeed or 0, speed)
+                    end
+                end
+            end
+        end
+    end
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(SampleFlights)
+    if not ok then env.warning("BlueSky : records altitude/vitesse : " .. tostring(err)) end
+    return timer.getTime() + 1
+end, nil, timer.getTime() + 1)
 
 ------------------------------------------------------------
 -- ATTERRISSAGE / APPONTAGE
@@ -805,25 +878,30 @@ function KillHandler:OnEventKill(EventData)
     local kind, points, title, typeLabel = ClassifyKill(EventData)
     if not kind then return end
 
+    local targetPoint = GetTargetPoint(EventData)
+    local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
+    -- distance avion-cible pour les records (meme calcul que le message), au moins 1 m (0 = pas de record)
+    local killDist = Distance2D(shooterPoint, targetPoint)
+    killDist = killDist and math.max(1, math.floor(killDist))
+
     -- En vol : en attente jusqu'a l'atterrissage. Au sol : valide direct. Chaque membre d'equipage a le kill entier.
     local f, pending
     for i, name in ipairs(crew) do
         local fc = Flights[name]
         local pend = fc and fc.active
-        if pend then
-            fc[kind] = fc[kind] + 1
-            fc.points = fc.points + points
-        else
-            fc = NewFlight()
-            fc[kind], fc.points = 1, points
+        if not pend then fc = NewFlight() end
+        fc[kind] = fc[kind] + 1
+        fc.points = fc.points + points
+        if killDist then
+            fc.killFar = math.max(fc.killFar or 0, killDist)
+            if (fc.killNear or 0) == 0 or killDist < fc.killNear then fc.killNear = killDist end
+        end
+        if not pend then
             CommitFlightKills(name, fc)
             SaveScores()
         end
         if i == 1 then f, pending = fc, pend end
     end
-
-    local targetPoint = GetTargetPoint(EventData)
-    local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
 
     -- Petit delai pour laisser le tracker enregistrer l'impact
     timer.scheduleFunction(function()

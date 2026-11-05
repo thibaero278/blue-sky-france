@@ -87,13 +87,15 @@
       ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft'],
       ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h']
     ];
+    // 20261106 → " · depuis le 06/11/2026" ; pas de date (ancien record ou record cumulé) → rien
+    const since = d => d ? ` · depuis le ${String(d).slice(6, 8)}/${String(d).slice(4, 6)}/${String(d).slice(0, 4)}` : '';
     const dist = m => m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m) + ' m';
     // à égalité, le premier pilote trouvé garde le record ; sans valeur, la case reste vide
     $('records').innerHTML = RECORDS.map(([k, label, show, lowest]) => {
       const has = p => lowest ? p[k] != null : p[k] > 0;
       const best = S.pilots.filter(has).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
       return best
-        ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}</span></button>`
+        ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}${since(best.at[k])}</span></button>`
         : `<div class="card kpi" style="opacity:.55"><span class="label">${label}</span><b style="font-size:26px">—</b><span class="mono" style="font-size:13px; color:#8a91a3">Pas encore de record</span></div>`;
     }).join('');
 

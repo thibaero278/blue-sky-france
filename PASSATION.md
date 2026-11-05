@@ -591,6 +591,48 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     Côté bot : les ajouter à `MAX_FIELDS` ; `minKillDistance` doit garder le **plus petit** (cas à coder dans `merge`).
     `data.js` les lit déjà (max/min aussi pour la fusion des pseudos). Ces records partent de zéro (pas d'historique).
   - Abandonné : avion le plus joué (trop de travail : champ non numérique dans Scores.lua).
+  - Phase 2 commencée le 05/11 : **`maxKillsFlight` codé** (record mis à jour dans `CommitFlightKills`, donc seulement pour les
+    kills validés à l'atterrissage), ajouté à `MAX_FIELDS` du bot. `Code.gs` a déjà les **5** colonnes de records
+    (un seul redéploiement Apps Script pour toute la phase 2). Convention : **0 = pas encore de record** (y compris pour
+    `minKillDistance`, que `data.js` traite comme vide). Sauvegarde `bakup\script Caucase_2026-11-05_avant-record-kills-vol.lua`.
+    Testé hors jeu (lupa : syntaxe + calcul du record ; fusion du bot). **Pas encore déployé** : script à réinjecter
+    dans les 2 .miz, `scores.py` sur R2D2, `Code.gs` à redéployer, site à pousser. Restent à coder : distances, altitude, vitesse.
+  - 06/11 : **`maxKillDistance` et `minKillDistance` codés**. Distance avion-cible au moment du kill (même `Distance2D`
+    que le message en jeu, en m, arrondie, au moins 1 m), sans repli sur l'impact. Rangée dans le vol (`killFar` / `killNear`)
+    puis validée avec les kills (`CommitFlightKills`) : vol crashé = distances perdues, comme les points. Chaque membre
+    d'équipage a la même distance. Bot : `MIN_FIELDS` + `best()` dans `scores.py` (plus petit non nul ; utilisé par
+    `merge` et `group`). Vérifié : `dcsbot.bsSetScores` recopie tous les champs, donc le total renvoyé en jeu garde les records.
+    Testé hors jeu (lupa + fusion du bot). Même sauvegarde que ci-dessus. **Toujours pas déployé.** Restent : altitude, vitesse.
+  - 06/11 : **`maxAltitude` et `maxSpeed` codés** → phase 2 entièrement codée. Nouvelle boucle `SampleFlights` (toutes les 1 s,
+    sous pcall) : pour chaque joueur en l'air, altitude au-dessus de la mer (`getPoint().y`, m) et vitesse sol
+    (norme de `getVelocity()`, m/s), rangées dans le vol de chaque membre d'équipage. Validées dans `CloseFlight` comme le
+    vol le plus long, donc **gardées même si le vol finit en crash ou éjection** (différent des kills). Site : ft et km/h.
+    Ajoutées à `MAX_FIELDS`. Testé hors jeu (lupa avec unités simulées + fusion du bot).
+    **À déployer d'un coup** : script dans les 2 .miz, `scores.py` sur R2D2 (bot redémarré), site poussé
+    (`data.js`, `classements.html`), et **Thibaud** : coller `Code.gs` dans Apps Script et redéployer. Puis test en jeu.
+  - 06/11 : **« RECORD BATTU » en jeu + date des records**.
+    - Script : `SetRecord(pilote, s, champ, valeur)` (avant `PlayerFromEvent`) remplace les mises à jour des 6 records
+      (vol le plus long, kills en un vol, kill loin / proche, altitude, vitesse). Si le pilote bat le **record du serveur**
+      (meilleur de la table `Scores` de la mission), message à tous 12 s : `*** RECORD BATTU ***` / record : pilote /
+      valeur / `(ancien : … par …)`. Pas d'annonce pour un tout premier record (évite le spam au déploiement).
+      Pas sur Discord (choix de Thibaud, pour l'instant). Avec équipage : une annonce par membre.
+    - Date : posée par le **bot** (`merge`, champ `<record>At` = AAAAMMJJ en nombre, pour que Sheets ne le transforme pas),
+      seulement quand le record perso monte, jamais au premier import d'un serveur. Les anciens records n'ont pas de date.
+      `group` : la date suit le pseudo qui détient le record. Pas écrite dans Scores.lua (la mission l'ignore).
+      `Code.gs` : 6 colonnes de dates en plus. Site : « valeur · depuis le JJ/MM/AAAA ».
+    - Testé hors jeu : annonces (lupa, 3 cas + 2 sans annonce), dates du bot (battu / inchangé / premier import / pseudos
+      regroupés), lecture des dates par `data.js` (node). **Pas déployé.**
+  - **Déploiement commencé le 06/11 vers 0 h 15, arrêté à la demande de Thibaud (Weefe jouait)** :
+    - ✅ script injecté dans les 2 .miz : `Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\…DAY…miz` (celle du MSI)
+      et `mission\…BAD NIGHT…miz` ; anciennes en `bakup\*_2026-11-06_00-12-46.miz.bak` ; `script Caucase.lua` recopié
+      à côté de la .miz du MSI. (`mission\…DAY…miz` du dépôt date du 19/10, pas utilisée.)
+    - ✅ `scores.py` sur R2D2 (sauvegarde `~/backups/scores.py.avant-records-20261106`), moteur local du MSI, et
+      `partage/maj` (2 copies). Le bot R2D2 **a été redémarré** pendant que Weefe jouait (Thibaud a dit de continuer) :
+      BlueSky chargé, 0 erreur, le serveur de Weefe s'est reconnecté seul et ses scores sont relus.
+    - ✅ les 2 .miz dans `partage/fichiers` ; site poussé (même commit que cette ligne).
+    - ❌ reste : **Thibaud** : redéployer `Code.gs` (Déployer → Gérer les déploiements → ✏️ → nouvelle version),
+      sinon les nouveaux records et leurs dates restent vides sur le site ; STOP → GO sur le MSI.
+      **Weefe** : FICHIERS / MAJ + STOP → GO + nouvelle .miz dans ses Missions. Puis test en jeu.
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).

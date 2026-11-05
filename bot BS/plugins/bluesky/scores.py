@@ -1,6 +1,7 @@
 """Lecture de Scores.lua (écrit par mission/script Caucase.lua) et grades Blue Sky."""
 
 import re
+from datetime import date
 
 # Mêmes paliers que la table RANKS de script Caucase.lua et que web/js/data.js (à garder synchronisés).
 RANKS = [
@@ -60,7 +61,16 @@ def find_pilot(scores: dict[str, dict], name: str) -> tuple[str, dict] | None:
     return None
 
 
-MAX_FIELDS = {'maxFlightTime'}  # record, pas un compteur : on garde le plus grand
+MAX_FIELDS = {'maxFlightTime', 'maxKillsFlight', 'maxKillDistance', 'maxAltitude', 'maxSpeed'}  # record, pas un compteur : on garde le plus grand
+MIN_FIELDS = {'minKillDistance'}  # record où l'on garde le plus petit ; 0 = pas encore de record
+RECORD_FIELDS = MAX_FIELDS | MIN_FIELDS
+
+
+def best(k: str, a: float, b: float) -> float:
+    """Meilleure des deux valeurs d'un record."""
+    if k in MIN_FIELDS:
+        return min(a or b, b or a)  # 0 ignoré : min(0, 50) = 50, min(0, 0) = 0
+    return max(a, b)
 
 
 def merge(total: dict[str, dict], base: dict[str, dict], new: dict[str, dict], first_read: bool) -> dict[str, dict]:
@@ -82,7 +92,12 @@ def merge(total: dict[str, dict], base: dict[str, dict], new: dict[str, dict], f
             if not isinstance(v, (int, float)):
                 if b is None or b.get(k) != v or k not in t:
                     t[k] = v  # niveau choisi en F10 : la dernière modification gagne
-            elif first_read or k in MAX_FIELDS:
+            elif k in RECORD_FIELDS:
+                old = t.get(k, 0)
+                t[k] = best(k, old, v)
+                if t[k] != old and not first_read:  # record battu : date du jour (AAAAMMJJ, un nombre passe tel quel dans Sheets)
+                    t[k + 'At'] = int(date.today().strftime('%Y%m%d'))
+            elif first_read:
                 t[k] = max(t.get(k, 0), v)
             else:  # gain depuis la dernière lecture (pilote nouveau sur ce serveur : tout est gagné)
                 t[k] = t.get(k, 0) + max(0, v - (b.get(k, 0) if b else 0))
@@ -117,10 +132,17 @@ def group(total: dict[str, dict], alias: dict[str, str]) -> dict[str, dict]:
     for name, p in total.items():
         t = out.setdefault(alias.get(name, name), {})
         for k, v in p.items():
-            if k == 'rang':
-                continue
-            if isinstance(v, (int, float)):
-                t[k] = max(t.get(k, 0), v) if k in MAX_FIELDS else t.get(k, 0) + v
+            if k == 'rang' or k.endswith('At'):
+                continue  # date d'un record : suit le record ci-dessous
+            if k in RECORD_FIELDS:
+                if k not in t or best(k, t[k], v) != t[k]:
+                    t[k] = v
+                    if p.get(k + 'At'):
+                        t[k + 'At'] = p[k + 'At']
+                    else:
+                        t.pop(k + 'At', None)
+            elif isinstance(v, (int, float)):
+                t[k] = t.get(k, 0) + v
             else:
                 t.setdefault(k, v)
     for t in out.values():
