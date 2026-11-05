@@ -574,7 +574,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     de l'Apache alors que Dex était parti. Causes : DCS garde parfois l'ancien pilote dans `getPlayerName()` des multi-places,
     et la trace était rangée par pseudo (suivait le pilote dans un autre avion). Corrigé : `BSCrew` contient maintenant
     **tous** les occupants vus par le serveur (pilote en premier) et la carte n'affiche que ça (avion sans occupant réel = caché) ;
-    la trace repart de zéro au changement de type d'avion (`commands.py`). Pas testé en jeu. À déployer comme le 04/11.
+    la trace repart de zéro au changement de type d'avion (`commands.py`), zoom carte max 18. Site : commit 6e0d96e.
+    Déployé le 05/11 : R2D2 (bot redémarré, BlueSky chargé, 0 erreur ; sauvegardes `~/backups/*.avant-fantome-20261105`),
+    `partage/maj` (2 copies). Reste : STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO. Pas testé en jeu.
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).
