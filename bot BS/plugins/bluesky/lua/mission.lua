@@ -29,11 +29,19 @@ local function playerUnit(unit)
     if not unit or not unit:isExist() then return nil end
     local name = unit:getPlayerName()
     if not name then return nil end
-    -- occupants réels vus par le serveur (lua/commands.lua) : avion fantôme ou pilote parti → on suit le serveur
-    local seats = BSCrew and BSCrew[unit:getName()]
-    if BSCrew then
-        if not seats or not seats[1] then return nil end
+    -- occupants réels vus par le serveur (lua/commands.lua). Prudent : sans info sur cet avion, on garde le nom DCS
+    -- (le 05/11, cacher par défaut a fait disparaître tous les joueurs du serveur de Weefe)
+    local uname = unit:getName()
+    local seats = BSCrew and BSCrew[uname]
+    if seats and seats[1] then
         name = seats[1]
+    else
+        -- pilote fantôme (DCS garde un pilote parti des multi-places) : caché seulement s'il est vu assis ailleurs
+        for u, names in pairs(BSCrew or {}) do
+            for _, n in ipairs(names) do
+                if n == name and u ~= uname then return nil end
+            end
+        end
     end
     local p = unit:getPoint()
     local lat, lon = coord.LOtoLL(p)

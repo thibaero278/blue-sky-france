@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 03/11/2026 (scores fusionnés sur R2D2, stats de Weefe importées, .md remis en cohérence)_
+_Dernière mise à jour : 05/11/2026 (plan de la page Blue Sky Ops annoncé, rien codé)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
@@ -577,6 +577,10 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     la trace repart de zéro au changement de type d'avion (`commands.py`), zoom carte max 18. Site : commit 6e0d96e.
     Déployé le 05/11 : R2D2 (bot redémarré, BlueSky chargé, 0 erreur ; sauvegardes `~/backups/*.avant-fantome-20261105`),
     `partage/maj` (2 copies). Reste : STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO. Pas testé en jeu.
+  - 05/11 soir : session de 2 h sur « Weefe le GOAT » : IA visibles mais **0 joueur** dans presque tous les relevés (log R2D2).
+    Cause probable : le filtre strict ci-dessus (avion absent de `BSCrew` = caché). Remplacé par un filtre prudent : nom DCS
+    gardé par défaut, avion caché seulement si son pilote est vu assis dans un autre avion. Déployé R2D2 + `partage/maj`
+    (sauvegarde `~/backups/lua_mission.lua.avant-prudent-20261105`). Reste : Weefe FICHIERS / MAJ + STOP → GO, MSI STOP → GO.
 
 - 05/11/2026 : **Section « Les records » sur la page Classements** (site seul, phase 1).
   - 11 records tirés des scores existants (points, heures, vol le plus long, heures Blue Sky, kills air/sol/mer, appontages,
@@ -633,3 +637,21 @@ Abandonné : notes d'appontage LSO (le LSO les affiche déjà, menu encombré po
 Fait avant : annonce des promotions (« PROMOTION » à tous + fil Discord du bot).
 Pas retenu pour l'instant : nouveaux modules air-air / air-sol, nettoyage automatique, kill feed.
 Après modif : remettre le script dans la .miz (nom interne `l10n/DEFAULT/script Caucase.lua` depuis le 03/11).
+
+## Chantier annoncé le 05/11/2026 : page « Blue Sky Ops » (plan seulement, rien codé)
+Idée de Thibaud : un onglet qui fait changer d'univers. On quitte les couleurs Blue Sky pour du noir et du bleu nuit,
+avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un côté CIA, aéronautique).
+- **Nom validé : Blue Sky Ops.**
+- **Intro animée** (~3 s) au chargement de `web/ops.html` (pas au clic, pour marcher aussi depuis un lien direct) :
+  terminal, « AUTHENTIFICATION… OK », tampon « ACCÈS RESTREINT », dossier qui s'ouvre. Bouton « Passer »,
+  jouée une fois par visite, version courte si l'appareil demande moins d'animations.
+- **Pas de son** (décision de Thibaud : les sons sur les sites, c'est pénible).
+- **Contenu** : en-tête « DOSSIER BSO-001 », présentation et doctrine, livrets PDF, types de missions (CAP, SEAD, CAS, appontage…),
+  archives des missions avec vidéos YouTube, prochaine opération (tirée de `data/evenements.js`, type « Opération »),
+  comment nous rejoindre (Discord → rôle → SRS → sondage du bot). Contenu d'exemple accepté en attendant le vrai.
+- **« Dernière mission effectuée »** : à trancher plus tard (on la met ou pas ; à la main ou depuis R2D2).
+- **Fichiers prévus** : `ops.html`, `js/pages/ops.js`, `css/ops.css`, `data/ops.js` (édité à la main), onglet dans
+  `js/layout.js`, encart sur l'accueil (comme Aerobatics), `sw.js`, `sitemap.xml`, puis les .md (CLAUDE.md maître + copies, README, CONFORMITE).
+- **Points de vigilance** : vidéos YouTube en miniature, chargées en `youtube-nocookie` seulement au clic (RGPD) ;
+  aucun vrai insigne militaire ni vraie mention « Confidentiel Défense », l'univers reste fictif.
+- **Prochaine étape** : maquette visuelle (intro + page) à faire valider par Thibaud avant le vrai code.
