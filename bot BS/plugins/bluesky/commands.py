@@ -382,13 +382,15 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             if not key or u.get('lat') is None:
                 continue
             seen.add(key)
+            if key in trails and trails[key].get('type') != u.get('aircraft'):
+                del trails[key]  # changé d'avion : l'ancien vol ne le suit pas
             if not u.get('air'):
                 if key in trails:
                     trails[key]['landed'] = True  # posé : trajectoire gardée, le prochain décollage repart de zéro
                 continue
             t = trails.get(key)
             if not t or t.get('landed'):
-                t = trails[key] = {'at': None, 'pts': []}
+                t = trails[key] = {'at': None, 'pts': [], 'type': u.get('aircraft')}
             if t['at'] and (now - t['at']).total_seconds() < self.TRAIL_STEP_S:
                 continue
             t['at'] = now

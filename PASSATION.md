@@ -546,6 +546,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     `web/assets/f18-bluesky.svg` = original (PNG dans un SVG), `f18-bluesky.webp` 160 px = ce qu'affiche la carte), « Mode Blue Sky »
     dans la fiche ; colonne et tri « Heures Blue Sky » + ligne dans la fiche pilote (Classements). Testé en local (faux live).
   - `Code.gs` : colonne `bsFlightTime`. **À redéployer** (sinon le site affiche 0).
+    04/11 : constaté que le relais en ligne ne renvoie toujours pas `bsFlightTime` → « H. Blue Sky » = 0 pour tous.
+    Thibaud doit faire Déployer → Gérer les déploiements → ✏️ → nouvelle version. Site : `fmt.h1` affiche « < 0,1 »
+    au lieu de « 0 » pour un temps non nul sous 3 min (le vol test de Weefe, 1 min 40, aurait sinon affiché 0).
   - Déployé le 03/11 au soir : site (commit 04ea838), plugin sur R2D2 (bot redémarré, 0 erreur ; sauvegardes
     `~/backups/*.avant-mode-bluesky-20261103`), `partage/maj` (2 copies du plugin) et les 2 .miz dans `partage/fichiers`.
     Reste : Thibaud STOP → GO sur le MSI, Weefe FICHIERS / MAJ + STOP → GO + .miz dans ses Missions, test en jeu.
@@ -567,6 +570,11 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
   - Déployé le 04/11 (2 h) : R2D2 (bot redémarré, 0 erreur ; sauvegardes `~/backups/*.avant-equipage-20261104`),
     `partage/maj` (2 copies) et les 2 .miz dans `partage/fichiers`. Site : commit 2029f62.
     Reste : STOP → GO (MSI et Weefe), Weefe FICHIERS / MAJ + .miz, **test à deux dans un Apache**.
+  - 05/11 : bug vu sur la carte après le vol Apache Dex + Weefe : un F-14 au sol affichait « DEX … + Weefe » avec la trace
+    de l'Apache alors que Dex était parti. Causes : DCS garde parfois l'ancien pilote dans `getPlayerName()` des multi-places,
+    et la trace était rangée par pseudo (suivait le pilote dans un autre avion). Corrigé : `BSCrew` contient maintenant
+    **tous** les occupants vus par le serveur (pilote en premier) et la carte n'affiche que ça (avion sans occupant réel = caché) ;
+    la trace repart de zéro au changement de type d'avion (`commands.py`). Pas testé en jeu. À déployer comme le 04/11.
 
 ## Prochaines étapes (état au 03/11/2026)
 1. ✅ `Code.gs` redéployé le 03/11 : les atterrissages arrivent sur le site (vérifié : 3 pour « [ BS ]Thibaud | Breakdown »).

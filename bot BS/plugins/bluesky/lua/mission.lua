@@ -29,6 +29,12 @@ local function playerUnit(unit)
     if not unit or not unit:isExist() then return nil end
     local name = unit:getPlayerName()
     if not name then return nil end
+    -- occupants réels vus par le serveur (lua/commands.lua) : avion fantôme ou pilote parti → on suit le serveur
+    local seats = BSCrew and BSCrew[unit:getName()]
+    if BSCrew then
+        if not seats or not seats[1] then return nil end
+        name = seats[1]
+    end
     local p = unit:getPoint()
     local lat, lon = coord.LOtoLL(p)
     local pos = unit:getPosition()
@@ -60,7 +66,7 @@ local function playerUnit(unit)
         base     = base_name,
         flight   = currentFlight(name),
         bs       = (BSMode and BSMode[name]) and true or nil,  -- mode Blue Sky (script Caucase.lua) : icône spéciale sur le site
-        crew     = BSCrew and BSCrew[unit:getName()] or nil,   -- autres places (multi-équipage)
+        crew     = seats and #seats > 1 and { unpack(seats, 2) } or nil,  -- autres places (multi-équipage)
     }
 end
 

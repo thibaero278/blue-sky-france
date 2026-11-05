@@ -13,16 +13,17 @@ function dcsbot.bsGetLive(json)
     if ok and ucid and ucid ~= '' then
         utils.sendBotTable({ command = 'bsHost', ucid = ucid, name = net.get_player_info(1, 'name') })
     end
-    -- Multi-équipage : le script de mission ne voit que le pilote ; on lui donne les autres places (unité -> pseudos)
+    -- Qui est vraiment dans chaque avion (unité -> pseudos, pilote en premier) : le script de mission
+    -- ne voit que le pilote, et DCS y garde parfois un pilote parti des multi-places
     local crew = {}
     local okCrew, err = pcall(function()
         for _, id in ipairs(net.get_player_list() or {}) do
             local _, slot, sub = utils.getMulticrewAllParameters(id)
-            if slot and sub and sub > 0 then
+            if slot and sub then
                 local unit = Sim.getUnitProperty(slot, Sim.UNIT_NAME)
                 if unit then
                     crew[unit] = crew[unit] or {}
-                    table.insert(crew[unit], net.get_player_info(id, 'name'))
+                    table.insert(crew[unit], sub == 0 and 1 or #crew[unit] + 1, net.get_player_info(id, 'name'))
                 end
             end
         end

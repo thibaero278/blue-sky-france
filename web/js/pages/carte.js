@@ -4,7 +4,7 @@
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
   let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0;
 
-  const map = L.map('map', { minZoom: 6, maxZoom: 12, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
+  const map = L.map('map', { minZoom: 6, maxZoom: 18, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
   map.setMaxBounds([[39.5, 34.5], [47.5, 48.5]]);
