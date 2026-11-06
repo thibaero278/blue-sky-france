@@ -735,6 +735,10 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   À signaler à Thibaud (pas modifié dans la mission) : Truman et Stennis tous les deux en ICLS 20 ; Shell 2-1 et Arco 2-1 tous les deux
   sur 246.00 ; AWACS et drone tous les deux sur 251.00.
   Copie des PNG aussi dans `serveur BS\kneeboard\` (à refaire après chaque régénération).
+  **Mise à jour 06/11 16 h** : la vraie mission DAY est `Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\` (8 Mo) ;
+  celle de `site\mission\` date du 19/10 et est **périmée** (c'est elle qui donnait Essex ICLS 1 et KC-135 TKR). Page 01 alignée :
+  Essex ICLS 2, KC-135 indicatif KC1, MQ-9 Colt 1-1 sur 244.00 (changé par Thibaud), Stennis **ICLS 19** (vérifié dans la .miz
+  de 16 h 20). IL-78 Arco 2-1 passé sur 249.00. B-52 Buff 1-1 passé sur 111.00 (plus de doublon avec l'AWACS), pas mis sur le kneeboard.
 - **Pas encore injecté dans la .miz** : Thibaud veut d'abord faire les kneeboards de pistes (il va montrer un modèle), puis tout injecter
   dans la mission (`ajouter_kneeboard.bat`).
 - **06/11 (fin) : variante unique, épurée selon les retours de Thibaud. PAS poussée.** `ops-tuiles.html` supprimée.
@@ -766,6 +770,8 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
 - Bon dossier d'installation : `Saved Games\DCS\Liveries\FA-18C_hornet\` (à créer, n'existe pas par défaut).
   Pas `Program Files\...\CoreMods` (écrasé aux MAJ), pas `Saved Games\DCS\Mods` (DCS n'y lit pas les livrées).
 - Mettre à jour le zip : `gh release upload livrees-voltige <zip> --clobber -R thibaero278/blue-sky-france` (même nom de fichier = même lien).
-- Reste : même chose pour la livrée Blue Sky Ops (2 versions) dans `web/ops.html` (texte « arrivent bientôt » à remplacer).
+- **Blue Sky Ops fait aussi (06/11)** : `Blue-Sky-Ops-Livrees.zip` (168 Mo, 7 livrées : hight vis, low vis, Weefe, Thibaud, Dex,
+  Xerion, Joshua + notice/prompt adaptés). Source : `serveur BS\livrée\livrée terminier\` (aide dans `aide-ops\`).
+  Release `livrees-ops`, bouton « Télécharger les livrées » + TikTok en contour dans `web/ops.html`.
 - **06/11 :** photos de la livrée ajoutées : **High Visibility** (blanc et rouge) et **Low Visibility** (gris), dans
   `web/assets/ops/livree-*.jpg`. Seules photos de jour de la page (ce sont les livrées, sans filtre).
