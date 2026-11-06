@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue Sky Ops · Blue Sky France</title>
+<meta name="description" content="Blue Sky Ops, l'unité d'opérations de Blue Sky France sur DCS World : opérations de nuit, débriefings, vidéos et livrets.">
+<link rel="canonical" href="https://thibaero278.github.io/blue-sky-france/ops.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Blue Sky France">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Blue Sky Ops · Blue Sky France">
+<meta property="og:description" content="L'unité d'opérations de Blue Sky France sur DCS World.">
+<meta property="og:url" content="https://thibaero278.github.io/blue-sky-france/ops.html">
+<meta property="og:image" content="https://thibaero278.github.io/blue-sky-france/assets/ops/hornet-lune.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#050706">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css?v=9">
+<link rel="stylesheet" href="css/ops.css?v=12">
+<!-- À chaque arrivée : intro, puis page bloquée sur l'anneau jusqu'à « Ouvrir le dossier ». ?intro=0 dans l'adresse saute les deux (tests). -->
+<script>document.documentElement.classList.add(/[?&]intro=0/.test(location.search)?'bso-seen':'bso-locked')</script>
+</head>
+<body data-page="ops" class="va">
+
+<div class="bso-intro" id="bsoIntro" role="dialog" aria-label="Ouverture du dossier Blue Sky Ops">
+  <div class="bso-leaf l"></div><div class="bso-leaf r"></div>
+  <div class="bso-scan"></div>
+  <div class="bso-intro-body">
+    <pre class="bso-term" id="bsoTerm"></pre>
+  </div>
+  <button class="bso-skip" id="bsoSkip">Passer l'intro</button>
+</div>
+
+<div class="bso-wipe" aria-hidden="true"><span>Dossier BSO-001</span></div>
+
+<main>
+  <header class="ring-hero">
+    <div class="ring" id="bsoRing" aria-hidden="true"></div>
+    <div class="core">
+      <h1 class="mask"><span><span>Blue Sky</span></span><span><span>Ops</span></span></h1>
+      <p>L'unité d'opérations de Blue Sky France : des missions de nuit briefées, volées et débriefées en équipe sur DCS.</p>
+      <a class="act" id="openFile" href="#unite">Ouvrir le dossier</a>
+    </div>
+  </header>
+
+  <section class="sec unit" id="unite">
+    <div data-r>
+      <h2>L'unité</h2>
+      <p class="lead">Blue Sky Ops, c'est la partie sérieuse de Blue Sky France : une soirée, un briefing, un package d'avions et des objectifs à tenir. On y vient pour voler ensemble, pas pour le score.</p>
+    </div>
+    <div class="cols" data-r>
+      <p><b>Qui vole.</b> Les membres du Discord qui veulent aller plus loin que le vol libre. Débutants bienvenus tant qu'ils écoutent le briefing et respectent la radio : on forme sur place, en patrouille.</p>
+      <p><b>Ce qu'on fait.</b> Des opérations en plusieurs phases sur le serveur Blue Sky : suppression des défenses, frappes, appui au sol et interceptions de nuit, chacune avec son débriefing.</p>
+      <p><b>Où et quand.</b> Sur nos serveurs DCS, en soirée, annoncé sur le Discord une semaine à l'avance avec un sondage pour réserver sa place. La radio passe par SRS, obligatoire pendant l'opération.</p>
+      <p><b>Nous joindre.</b> Sur le Discord Blue Sky France, en demandant le rôle Blue Sky Ops. Les vidéos des soirées sortent ensuite sur TikTok et sur YouTube.</p>
+    </div>
+    <div class="livery" data-r>
+      <div class="liv-pics" id="bsoLiveries"></div>
+      <div>
+        <h3>La livrée Blue Sky Ops</h3>
+        <p>Deux versions pour le Hornet, faites pour l'unité : Visibility et Low Visibility. Elles arrivent bientôt en téléchargement direct ici, avec leur notice d'installation.</p>
+        <a class="act" id="bsoLivery" href="#" target="_blank" rel="noopener">Voir la présentation sur TikTok</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec missions">
+    <div class="m-list" data-r>
+      <h2>Ce qu'on fait</h2>
+      <ul id="bsoMissions"></ul>
+    </div>
+    <figure class="m-pic"><img id="missionPic" src="assets/ops/hornet-lune.jpg" alt="" width="1920" height="1080" loading="lazy"></figure>
+  </section>
+
+  <section class="sec last">
+    <div class="mosaic" id="bsoMosaic" role="img"></div>
+    <div class="debrief" data-r>
+      <h2>Dernière opération</h2>
+      <p class="op" id="lastName"></p>
+      <p id="lastText"></p>
+      <dl id="lastFacts"></dl>
+      <a class="act" id="lastVideo" href="#" target="_blank" rel="noopener" hidden>Voir la vidéo</a>
+      <p class="demo-note" id="lastDemo" hidden>Opération d'exemple, en attendant la vraie.</p>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="three">
+      <img src="assets/ops/ville-nuit.jpg" alt="Survol de nuit au-dessus des lumières de la ville" width="1920" height="1080" loading="lazy">
+      <img src="assets/ops/flir-plateformes.jpg" alt="Plateformes en mer vues à la caméra infrarouge du pod de ciblage" width="1920" height="1080" loading="lazy">
+      <img src="assets/ops/pilote-verriere.jpg" alt="Pilote sous la verrière, au crépuscule" width="1920" height="1080" loading="lazy">
+    </div>
+    <div class="band" data-r>
+      <h2>Prêt pour le briefing ?</h2>
+      <p class="close">Les opérations sont ouvertes à tous les membres. <a data-discord href="https://discord.gg/zVEsRbm8h2" target="_blank" rel="noopener">Présente-toi sur le Discord</a> et demande le rôle Blue Sky Ops.</p>
+      <p class="next" id="bsoNext">Liaison avec le planning…</p>
+      <figure class="portrait"><img src="assets/ops/cockpit-c130-nvg.jpg" alt="Cockpit de C-130 en éclairage de nuit" width="1920" height="1080" loading="lazy"></figure>
+    </div>
+  </section>
+</main>
+
+<script src="js/config.js?v=6"></script>
+<script src="js/data.js?v=9"></script>
+<script src="data/evenements.js"></script>
+<script src="data/ops.js?v=4"></script>
+<script src="js/layout.js?v=8"></script>
+<script src="js/pages/ops.js?v=8"></script>
+</body>
+</html>

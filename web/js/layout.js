@@ -4,6 +4,7 @@
   const PAGES = [
     ['accueil', 'Accueil', 'index.html'],
     ['aerobatics', 'Aerobatics', 'aerobatics.html'],
+    ['ops', 'Blue Sky Ops', 'ops.html'],
     ['carte', 'Carte live', 'carte.html'],
     ['classements', 'Classements', 'classements.html'],
     ['evenements', 'Événements', 'evenements.html'],

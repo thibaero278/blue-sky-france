@@ -30,3 +30,6 @@ mission/Scores.lua.tmp
 # PDF internes (adresses, architecture) : jamais publiés
 /Circuit-Blue-Sky.pdf
 /Serveur-Bot-Blue-Sky.pdf
+
+# outil de design (captures de contrôle)
+.taste-skill/

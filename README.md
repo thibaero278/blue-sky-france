@@ -10,7 +10,7 @@ web/ (site statique) ◄── Apps Script ?format=json      (classements, pilot
 
 | Dossier | Contenu |
 |---|---|
-| `web/` | Le site : Accueil, Aerobatics, Carte live, Classements, Discord. HTML/CSS/JS sans build. |
+| `web/` | Le site : Accueil, Aerobatics, Blue Sky Ops, Carte live, Classements, Discord. HTML/CSS/JS sans build. Contenu de Blue Sky Ops dans `web/data/ops.js`. |
 | `circuit_site/` | Apps Script (relais), ancien hook serveur DCS, publication du changelog. Voir `INSTALLATION.md`. |
 | `bot BS/` | Bot Discord (DCSServerBot + plugin `bluesky`), sans config ni secrets. Voir `bot BS/README.md`. |
 | `mission/` | Script de mission MOOSE (`script Caucase.lua`) et outils kneeboard. |

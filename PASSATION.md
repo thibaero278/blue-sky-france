@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 05/11/2026 (plan de la page Blue Sky Ops annoncé, rien codé)_
+_Dernière mise à jour : 06/11/2026 (Blue Sky Ops : page fusionnée et épurée, rien de poussé)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
@@ -696,4 +696,53 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   `js/layout.js`, encart sur l'accueil (comme Aerobatics), `sw.js`, `sitemap.xml`, puis les .md (CLAUDE.md maître + copies, README, CONFORMITE).
 - **Points de vigilance** : vidéos YouTube en miniature, chargées en `youtube-nocookie` seulement au clic (RGPD) ;
   aucun vrai insigne militaire ni vraie mention « Confidentiel Défense », l'univers reste fictif.
-- **Prochaine étape** : maquette visuelle (intro + page) à faire valider par Thibaud avant le vrai code.
+- **06/11 : maquette faite en local, PAS poussée.** Fichiers créés : `web/ops.html`, `web/css/ops.css`, `web/js/pages/ops.js`,
+  `web/data/ops.js` (contenu d'exemple, `demo: true`). Onglet ajouté dans `js/layout.js`. Le menu burger bascule désormais
+  sous 1120 px (au lieu de 900) : avec 7 onglets la nav débordait. Versions alignées sur toutes les pages : `style.css?v=9`, `layout.js?v=8`.
+  Testé dans le navigateur (intro, page, mobile 375 px). « Prochaine opération » lit le planning Discord (vide pour l'instant).
+- **Reste à faire** : retours de Thibaud sur la maquette, vrais textes et vidéos dans `data/ops.js`, encart sur l'accueil,
+  `sitemap.xml`, CLAUDE.md maître + copies, README, CONFORMITE (vidéos YouTube chargées seulement au clic), puis push.
+- **06/11 (suite) : refonte « anti-IA » en deux variantes à comparer, PAS poussées.** Thibaud trouvait la 1re maquette trop « IA »
+  (cadres fins, étiquettes mono, numérotation). Thème passé au **noir et vert vision nocturne** (plus de bleu).
+  - `web/ops.html` = **planche contact** (anneau de photos autour du titre, une bande de photos par opération, liste des missions).
+  - `web/ops-tuiles.html` = **tableau de tuiles** (blocs bord à bord, onglets des types de missions). En `noindex`.
+  - Communs : `css/ops.css`, `js/pages/ops.js`, `data/ops.js` (photos déclarées en tête, opérations d'exemple).
+    Bouton « Vision nocturne » : passe les photos de jour en vert (choix retenu dans le navigateur). `?intro=0` dans l'adresse saute l'intro.
+  - Photos de Thibaud dans `web/assets/ops/` (Hornet devant la lune, pilote sous la verrière, cockpit C-130, vision nocturne, cockpit Hornet de nuit).
+  - Vidéos : Thibaud a surtout des **TikTok** (champ `tiktok` des opérations, lien sortant, pas de lecteur intégré pour éviter les traceurs).
+    Présentation de la livrée : https://www.tiktok.com/@_thibaero_/video/7672770407853739296 (photos de la livrée à venir).
+  - Contrôlé avec l'outil design-taste-frontend (dossier `.taste-skill/`, à ne pas committer) : il reste l'icône ☰ du menu commun du site.
+  - **À faire** : Thibaud choisit une variante → supprimer l'autre, puis vraies opérations/photos, encart accueil, sitemap, .md, push.
+
+## 06/11/2026 : kneeboard « Mémo radio » (phraséologie ATC humain)
+- Source : `formation/Blue_Sky_Phraseologie_ATC_Humain_Memo_Radio_Complet.pdf` (PDF de Thibaud, 21 p., guide v1.8),
+  mis de côté pour la future rubrique **Formation** du site (pas encore publié, pas dans `web/`).
+- **21 pages kneeboard ajoutées** (04 à 24), **une par page du PDF**, texte complet, dans `mission/kneeboard_source/kneeboard.html`,
+  même style DimOn que les pages 01-03 : 04 décollage piste, 05-07 catapultage CASE I / II / III, 08 atterrissage piste,
+  09-11 appontage CASE I / II / III, 12 AWACS, 13-16 JTAC (contact, 9-Line à remplir, attaque Type 2, après la passe),
+  17-23 lexiques (radio-nav, AWACS, air-air, PA départ, appontage, JTAC, tir JTAC), 24 alphabet + acronymes.
+  Calls écrits en `<pre class="calls">` (`ROLE|texte`), lexiques en `<pre class="gloss">` (`terme|définition`) :
+  le script de la page fabrique les tableaux, bandeau et pied. Pages chargées : classe `dense` (11 à 14).
+- Couleurs demandées par Thibaud : `[valeur]` et types d'avions / armes (F/A-18, Hornet, Su-27, GBU-12, AGM-65, Shilka) en **bleu** = à adapter ;
+  indicatif **Weefe 1-1 / Weefe flight en vert** ; pastille contrôleur (TWR, MAR, APP, DEP, LSO, AWX, JTAC) en **bleu Blue Sky #2a5ca8** ; pilote en noir.
+  Le bandeau jaune « BLUE SKY » en haut est resté jaune (comme pages 01-03).
+- `generer_kneeboard.ps1` génère les 24 `BS_*.png`. Vérifié : aucune page ne déborde, bandeaux sur une ligne.
+- Sauvegarde avant modif : `mission/bakup/kneeboard_2026-11-06_avant-phraseo.html`.
+- **Pas encore injecté dans la .miz** : Thibaud veut d'abord faire les kneeboards de pistes (il va montrer un modèle), puis tout injecter
+  dans la mission (`ajouter_kneeboard.bat`).
+- **06/11 (fin) : variante unique, épurée selon les retours de Thibaud. PAS poussée.** `ops-tuiles.html` supprimée.
+  `web/ops.html` = anneau de photos autour du titre (gardé) → L'unité (texte + **la livrée** : photo, TikTok, téléchargement à venir)
+  → Ce qu'on vole (CAP, CAS, SEAD, Strike, Interception ; survoler une ligne change la photo ; pas de niveaux, pas de Case I)
+  → Dernière opération (photo en tuiles, plus petite, à côté du débrief) → Prêt pour le briefing (+ prochaine opération du planning).
+  Supprimé à sa demande : bandes de photos par opération, bouton vision nocturne, livrets, galerie, soirée type, onglets, « réserver ».
+  **Plus aucune photo de jour passée au filtre vert** (il trouve ça moche) : uniquement ses captures de nuit dans `assets/ops/` (9 photos).
+  Thibaud va envoyer d'autres captures. Reste : vraie dernière opération, photos de la livrée, encart accueil, sitemap, .md, push.
+- **06/11 (retouches) :** la page reste **bloquée sur l'anneau** tant qu'on n'a pas cliqué « Ouvrir le dossier » (une fois par visite,
+  `sessionStorage` `bso-open`). Au clic : on traverse l'anneau (photos qui s'écartent, titre qui grossit), l'écran se ferme sur
+  « Dossier BSO-001 » puis s'ouvre sur l'unité. `?intro=0` saute l'intro ET le blocage (pour les tests).
+  Livrée en **deux versions** (Blue Sky Ops Visibility / Low Visibility), photos à mettre dans `data/ops.js` → `livery.versions[].photo`.
+  « Ce qu'on vole » renommé « Ce qu'on fait ».
+- **06/11 (suite) :** l'intro et le blocage se rejouent maintenant **à chaque arrivée sur la page** (plus de `sessionStorage` :
+  le navigateur de Claude gardait la session même après fermeture de l'onglet). Intro ralentie, environ 7 s, bouton « Passer l'intro » et Échap.
+- **06/11 (fin) :** tampon rouge « Accès autorisé » supprimé de l'intro (elle s'ouvre 1,4 s après la dernière ligne, ~6 s au total).
+  L'écran « Dossier BSO-001 » à l'ouverture reste affiché ~1,2 s (au lieu de ~0,3 s). Thibaud valide la page ; reste les vraies données et le push.

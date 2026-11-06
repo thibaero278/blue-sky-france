@@ -31,6 +31,8 @@ atterrissages, vol en cours et trajectoire sur la carte, stockage chez le fondat
   30 demandes/heure max, protection contre les formules dans Sheets) → onglet **Demandes** + e-mail au propriétaire du script.
   Testé : page (envoi simulé) et `Code.gs` (services Google simulés). **Pas encore actif en ligne** (voir § 4).
 - Outil `tools/supprimer_pilote.py` (testé sur une copie : 22 → 21 pilotes, Lua valide).
+- 06/11 : page **Blue Sky Ops** (`web/ops.html`). Aucun nouveau tiers ni traceur : photos hébergées sur le site, vidéos TikTok/YouTube
+  en **simples liens sortants** (aucun lecteur intégré, rien n'est chargé chez TikTok avant le clic), aucun stockage navigateur.
 
 ## 4. Reste à faire par Thibaud
 1. ✅ **Fait le 21/10** (formulaire + mails testés par Thibaud). **Redéployer l'Apps Script** : coller le nouveau `circuit_site/Code.gs`, puis Déployer > Gérer les déploiements > modifier > **Nouvelle version**
