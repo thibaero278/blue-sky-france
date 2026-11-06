@@ -748,3 +748,15 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   L'écran « Dossier BSO-001 » à l'ouverture reste affiché ~1,2 s (au lieu de ~0,3 s). Thibaud valide la page ; reste les vraies données et le push.
 - **06/11 : EN LIGNE** (commit db8905e) : https://thibaero278.github.io/blue-sky-france/ops.html — ajoutée au sitemap, README, CONFORMITE,
   CLAUDE.md maître + copies à jour. Reste : vraie dernière opération, photos de la livrée (2 versions), éventuel encart sur l'accueil.
+
+## 06/11/2026 : livrées voltige téléchargeables sur le site
+- Zip `Blue-Sky-Aerobatics-Livrees.zip` (437 Mo) : 9 dossiers de livrées F/A-18C à la racine + `LISEZ-MOI.txt`, `LISEZ-MOI.pdf`,
+  `PROMPT POUR TON IA.txt`. Source locale : `serveur BS\livrée\New\` ; notice éditable dans `livrée\New\aide\notice.html`
+  (PDF imprimé avec Edge headless, style mémo radio). Pas d'exécutable (choix de Thibaud).
+- Hébergé en **Release GitHub** `livrees-voltige` du dépôt public (GitHub Pages refuse les fichiers > 100 Mo).
+  Lien direct : https://github.com/thibaero278/blue-sky-france/releases/download/livrees-voltige/Blue-Sky-Aerobatics-Livrees.zip
+- Bouton « Télécharger les 9 livrées » dans `web/aerobatics.html` (carte « La livrée Blue Sky »).
+- Bon dossier d'installation : `Saved Games\DCS\Liveries\FA-18C_hornet\` (à créer, n'existe pas par défaut).
+  Pas `Program Files\...\CoreMods` (écrasé aux MAJ), pas `Saved Games\DCS\Mods` (DCS n'y lit pas les livrées).
+- Mettre à jour le zip : `gh release upload livrees-voltige <zip> --clobber -R thibaero278/blue-sky-france` (même nom de fichier = même lien).
+- Reste : même chose pour la livrée Blue Sky Ops (2 versions) dans `web/ops.html` (texte « arrivent bientôt » à remplacer).
