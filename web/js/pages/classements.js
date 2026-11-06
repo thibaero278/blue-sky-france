@@ -80,7 +80,7 @@
       ['traps', "Le plus d'appontages", p => fmt.n(p.traps)],
       ['landings', "Le plus d'atterrissages", p => fmt.n(p.landings)],
       ['flights', 'Le plus de vols', p => fmt.n(p.flights)],
-      ['refuel', 'Le plus de temps au ravitaillement', p => fmt.dur(p.refuel)],
+      ['maxRefuel', 'Le ravitaillement le plus long', p => fmt.dur(p.maxRefuel)],
       ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
       ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
       ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],

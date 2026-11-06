@@ -77,10 +77,10 @@
       traps: n('traps'), landings: n('landings'), deaths: n('deaths'), teamkills: n('teamkills'), refuel: n('refuelTime'),
       // records ajoutés au script de mission plus tard : absents des anciens scores (distances en m, altitude en m, vitesse en m/s)
       bestFlightKills: n('maxKillsFlight'), farKill: n('maxKillDistance'), nearKill: n('minKillDistance') || null,  // 0 = pas encore de kill mesuré
-      maxAlt: n('maxAltitude'), maxSpeed: n('maxSpeed'),
+      maxAlt: n('maxAltitude'), maxSpeed: n('maxSpeed'), maxRefuel: n('maxRefuel'),
       // date de chaque record perso (AAAAMMJJ, posée par le bot quand le record est battu ; 0 = inconnue)
       at: { longest: n('maxFlightTimeAt'), bestFlightKills: n('maxKillsFlightAt'), farKill: n('maxKillDistanceAt'),
-            nearKill: n('minKillDistanceAt'), maxAlt: n('maxAltitudeAt'), maxSpeed: n('maxSpeedAt') },
+            nearKill: n('minKillDistanceAt'), maxAlt: n('maxAltitudeAt'), maxSpeed: n('maxSpeedAt'), maxRefuel: n('maxRefuelAt') },
       level: r.grade || '', grade: gradeFor(points)
     };
   }
@@ -128,7 +128,7 @@
         // shortcut: la date d'un record suit le premier pseudo, pas forcément celui qui détient le record
         cur[k] = k.endsWith('At') ? (cur[k] || v)
           : k === 'minKillDistance' ? Math.min(cur[k] || v, v || cur[k])  // 0 = pas de record
-          : ['maxFlightTime', 'maxKillsFlight', 'maxKillDistance', 'maxAltitude', 'maxSpeed'].includes(k) ? Math.max(cur[k] || 0, v)
+          : ['maxFlightTime', 'maxRefuel', 'maxKillsFlight', 'maxKillDistance', 'maxAltitude', 'maxSpeed'].includes(k) ? Math.max(cur[k] || 0, v)
           : (cur[k] || 0) + v;
       });
     });

@@ -22,11 +22,12 @@ function token_() {
 const COLS = ['name', 'grade', 'points', 'totalFlightTime', 'completedFlightTime', 'maxFlightTime',
   'flights', 'airair', 'airsol', 'airmer', 'traps', 'deaths', 'teamkills', 'refuelTime', 'rang', 'landings', 'bsFlightTime',
   'maxKillsFlight', 'maxKillDistance', 'minKillDistance', 'maxAltitude', 'maxSpeed',  // records (0 = pas encore de record)
-  'maxFlightTimeAt', 'maxKillsFlightAt', 'maxKillDistanceAt', 'minKillDistanceAt', 'maxAltitudeAt', 'maxSpeedAt'];  // dates AAAAMMJJ
+  'maxFlightTimeAt', 'maxKillsFlightAt', 'maxKillDistanceAt', 'minKillDistanceAt', 'maxAltitudeAt', 'maxSpeedAt',
+  'maxRefuel', 'maxRefuelAt'];  // ravitaillement le plus long (s) et sa date, ajoutés en fin pour ne pas décaler les colonnes  // dates AAAAMMJJ
 const HEADERS = ['Pilote', 'Niveau', 'Points', 'Heures totales (s)', 'Heures completes (s)', 'Vol le plus long (s)',
   'Vols', 'Kills A/A', 'Kills A/S', 'Kills A/M', 'Appontages', 'Morts', 'Teamkills', 'Ravitaillement (s)', 'Grade', 'Atterrissages',
   'Heures Blue Sky (s)', 'Max kills en un vol', 'Kill le plus loin (m)', 'Kill le plus proche (m)', 'Altitude max (m)', 'Vitesse max (m/s)',
-  'Date vol le plus long', 'Date max kills', 'Date kill le plus loin', 'Date kill le plus proche', 'Date altitude max', 'Date vitesse max'];
+  'Date vol le plus long', 'Date max kills', 'Date kill le plus loin', 'Date kill le plus proche', 'Date altitude max', 'Date vitesse max', 'Ravitaillement le plus long (s)', 'Date ravitaillement le plus long'];
 
 function sheet_(name, headers) {
   const ss = SpreadsheetApp.getActive();

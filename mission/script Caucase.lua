@@ -57,11 +57,12 @@ local SCORE_FIELDS = {
     "traps", "landings", "airair", "airsol", "airmer", "points",
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
-    "bsFlightTime", "maxKillsFlight", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
+    "bsFlightTime", "maxRefuel", "maxKillsFlight", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
 }
 
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
 
+local TIME_PTS_S = 300 -- 1 point de score par tranche de 5 min de vol
 local TRACK_INTERVAL = 0.05
 local IP_DISTANCE = 50
 
@@ -223,6 +224,7 @@ end
 
 local RECORDS = {
     maxFlightTime   = { "Vol le plus long", FormatFlightTime },
+    maxRefuel       = { "Ravitaillement le plus long", FormatFlightTime },
     maxKillsFlight  = { "Plus de kills en un vol", function(v) return v .. " kills" end },
     maxKillDistance = { "Kill le plus loin", FormatDistance },
     minKillDistance = { "Kill le plus proche", FormatDistance, true },
@@ -297,6 +299,7 @@ local function StopRefuel(playerName)
     s.refuelTime = s.refuelTime + duration
     local f = Flights[playerName]
     if f then f.refuelTime = f.refuelTime + duration end
+    SetRecord(playerName, s, "maxRefuel", duration) -- record : le contact le plus long, pas le cumul
     return duration
 end
 
@@ -364,6 +367,8 @@ local function CommitFlightKills(playerName, f, elapsed)
     s.airair = s.airair + f.airair
     s.airsol = s.airsol + f.airsol
     s.airmer = s.airmer + f.airmer
+    -- temps de vol : 1 pt / 5 min, seulement a l'atterrissage (elapsed absent = kill valide hors atterrissage)
+    if elapsed then f.timePts = math.floor(elapsed / TIME_PTS_S); f.points = f.points + f.timePts end
     s.points = s.points + f.points
     -- record : le plus de kills valides sur un seul vol (A/A + A/S + A/M)
     SetRecord(playerName, s, "maxKillsFlight", f.airair + f.airsol + f.airmer)
@@ -383,7 +388,7 @@ local function FlightSummary(f, elapsed)
     return "\nKills A/A ce vol : " .. f.airair ..
            "\nKills A/S ce vol : " .. f.airsol ..
            "\nKills A/M ce vol : " .. f.airmer ..
-           "\nScore de ce vol : " .. f.points ..
+           "\nScore de ce vol : " .. f.points .. ((f.timePts or 0) > 0 and (" (dont " .. f.timePts .. " pour le temps de vol)") or "") ..
            "\nTemps de vol : " .. FormatFlightTime(elapsed) ..
            (f.refuelTime > 0 and ("\nRavitaillement : " .. FormatFlightTime(f.refuelTime)) or "") ..
            (f.bsTime and ("\nMode Blue Sky : +" .. FormatFlightTime(f.bsTime) .. " (termine, a reactiver au sol)") or "")
