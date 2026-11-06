@@ -746,3 +746,5 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   le navigateur de Claude gardait la session même après fermeture de l'onglet). Intro ralentie, environ 7 s, bouton « Passer l'intro » et Échap.
 - **06/11 (fin) :** tampon rouge « Accès autorisé » supprimé de l'intro (elle s'ouvre 1,4 s après la dernière ligne, ~6 s au total).
   L'écran « Dossier BSO-001 » à l'ouverture reste affiché ~1,2 s (au lieu de ~0,3 s). Thibaud valide la page ; reste les vraies données et le push.
+- **06/11 : EN LIGNE** (commit db8905e) : https://thibaero278.github.io/blue-sky-france/ops.html — ajoutée au sitemap, README, CONFORMITE,
+  CLAUDE.md maître + copies à jour. Reste : vraie dernière opération, photos de la livrée (2 versions), éventuel encart sur l'accueil.
