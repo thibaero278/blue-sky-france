@@ -4,9 +4,10 @@
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
   let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0;
 
-  const map = L.map('map', { minZoom: 6, maxZoom: 18, zoomSnap: 0.5 }).setView([42.95, 42.2], 7);
+  const map = L.map('map', { minZoom: 6, maxZoom: 18, zoomSnap: 0.5, preferCanvas: true }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+  // CARTO testé le 06/11 : tuiles raster désormais sous clé API (filigrane « API KEY REQUIRED »), donc on reste sur OSM
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19, keepBuffer: 4, updateWhenZooming: false }).addTo(map);
   map.setMaxBounds([[39.5, 34.5], [47.5, 48.5]]);
   const grid = { color: '#2a5ca8', weight: 1, opacity: 0.18, dashArray: '4 6', interactive: false };
   for (let lat = 41; lat <= 46; lat++) L.polyline([[lat, 35], [lat, 48]], grid).addTo(map);
@@ -150,7 +151,9 @@
       if (p && pts && pts.length) { p.trail = pts.slice(); drawTrail(); }
     });
   }
-  // Lissage de Chaikin (3 passes) : un point toutes les 15 s fait des angles, un avion vire en courbe
+  // Lissage de Chaikin (3 passes) : un point toutes les 15 s fait des angles, un avion vire en courbe.
+  // Seule la fin du tracé est lissée : sur les points anciens (espacés), le lissage écartait la trace de plusieurs nautiques.
+  const TAIL = 24;
   function smooth(pts) {
     for (let n = 0; n < 3 && pts.length > 2; n++) {
       const out = [pts[0]];
@@ -164,20 +167,30 @@
     }
     return pts;
   }
-  function drawTrail() {
-    const p = units.find(x => x.key === selected);
-    trailLayer.clearLayers();
-    if (!p || !p.trail.length) return;
-    // un tracé par suite de segments de même couleur
-    const pts = smooth(p.trail.concat([[p.lat, p.lon, p.alt]]));
+  // un tracé par suite de segments de même couleur
+  function paint(pts, layer) {
     let run = [pts[0]], color = altColor(pts[0][2]);
-    const flush = () => run.length > 1 && L.polyline(run, { color, weight: 3, opacity: 0.9, interactive: false }).addTo(trailLayer);
+    const flush = () => run.length > 1 && L.polyline(run, { color, weight: 3, opacity: 0.9, interactive: false }).addTo(layer);
     for (let i = 1; i < pts.length; i++) {
       const c = altColor(pts[i][2]);
       run.push(pts[i]);
       if (c !== color) { flush(); run = [pts[i]]; color = c; }
     }
     flush();
+  }
+  // Partie ancienne (brute) redessinée seulement quand la trace change ; fin lissée redessinée chaque seconde
+  const oldLayer = L.layerGroup().addTo(map);
+  let oldKey = '';
+  function drawTrail() {
+    const p = units.find(x => x.key === selected);
+    trailLayer.clearLayers();
+    if (!p || !p.trail.length) { oldLayer.clearLayers(); oldKey = ''; return; }
+    const cut = Math.max(0, p.trail.length - TAIL), k = p.key + ':' + cut + ':' + p.trail.length + ':' + p.trail[0];
+    if (k !== oldKey) {
+      oldKey = k; oldLayer.clearLayers();
+      if (cut > 0) paint(p.trail.slice(0, cut + 1), oldLayer);
+    }
+    paint(smooth(p.trail.slice(cut).concat([[p.lat, p.lon, p.alt]])), trailLayer);
   }
 
   function renderList() {

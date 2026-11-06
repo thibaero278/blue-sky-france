@@ -369,7 +369,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             })
 
     TRAIL_STEP_S = 15   # un point de trajectoire toutes les 15 s
-    TRAIL_MAX = 150     # au-delà, on garde un point sur deux : tout le vol reste visible, en moins détaillé
+    TRAIL_MAX = 400     # au-delà, la moitié ancienne perd un point sur deux : tout le vol reste visible (~1 h 40 au pas de 15 s avant éclaircissement)
 
     async def update_trails(self, server: Server, units: list[dict]) -> None:
         """Trajectoire de chaque avion depuis son décollage, gardée après l'atterrissage jusqu'au décollage suivant,
@@ -396,7 +396,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             t['at'] = now
             t['pts'].append([round(u['lat'], 3), round(u['lon'], 3), round(u.get('alt') or 0)])  # altitude en ft : couleur du tracé
             if len(t['pts']) > self.TRAIL_MAX:
-                t['pts'] = t['pts'][::2]
+                h = len(t['pts']) // 2  # seule la moitié ancienne est éclaircie : le récent reste détaillé, et les virages anciens ne se déforment plus
+                t['pts'] = t['pts'][:h:2] + t['pts'][h:]
         for key in set(trails) - seen:
             del trails[key]
         last = self._trails_sent.get(server.name, 'jamais')
