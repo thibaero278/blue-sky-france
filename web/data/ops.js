@@ -36,8 +36,8 @@
     livery: {
       tiktok: 'https://www.tiktok.com/@_thibaero_/video/7672770407853739296',
       versions: [
-        { name: 'Blue Sky Ops Visibility', photo: '' },
-        { name: 'Blue Sky Ops Low Visibility', photo: '' }
+        { name: 'Blue Sky Ops High Visibility', photo: 'assets/ops/livree-high-visibility.jpg' },
+        { name: 'Blue Sky Ops Low Visibility', photo: 'assets/ops/livree-low-visibility.jpg' }
       ]
     }
   };

@@ -728,6 +728,13 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   Le bandeau jaune « BLUE SKY » en haut est resté jaune (comme pages 01-03).
 - `generer_kneeboard.ps1` génère les 24 `BS_*.png`. Vérifié : aucune page ne déborde, bandeaux sur une ligne.
 - Sauvegarde avant modif : `mission/bakup/kneeboard_2026-11-06_avant-phraseo.html`.
+- **Page 01 « Comms & Nav » refaite** à partir des deux .miz (DAY et BAD NIGHT), lues directement (tâches ActivateBeacon / ICLS / Link4,
+  fréquences des unités) : le script Lua ne contient aucune fréquence. Ajoutés : Essex (TACAN 2X, ICLS 1 en DAY / 2 en NIGHT),
+  Kuznetsov « Ruskov » (130.00), AWACS Overlord 1-1 (251.00), drone MQ-9 Colt 1-1 FAC (251.00), indicatifs TACAN.
+  **Erreurs corrigées** : ICLS Truman 22 → 20 ; Texaco 244 → 255 et Shell 255 → 246.
+  À signaler à Thibaud (pas modifié dans la mission) : Truman et Stennis tous les deux en ICLS 20 ; Shell 2-1 et Arco 2-1 tous les deux
+  sur 246.00 ; AWACS et drone tous les deux sur 251.00.
+  Copie des PNG aussi dans `serveur BS\kneeboard\` (à refaire après chaque régénération).
 - **Pas encore injecté dans la .miz** : Thibaud veut d'abord faire les kneeboards de pistes (il va montrer un modèle), puis tout injecter
   dans la mission (`ajouter_kneeboard.bat`).
 - **06/11 (fin) : variante unique, épurée selon les retours de Thibaud. PAS poussée.** `ops-tuiles.html` supprimée.
@@ -760,3 +767,5 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   Pas `Program Files\...\CoreMods` (écrasé aux MAJ), pas `Saved Games\DCS\Mods` (DCS n'y lit pas les livrées).
 - Mettre à jour le zip : `gh release upload livrees-voltige <zip> --clobber -R thibaero278/blue-sky-france` (même nom de fichier = même lien).
 - Reste : même chose pour la livrée Blue Sky Ops (2 versions) dans `web/ops.html` (texte « arrivent bientôt » à remplacer).
+- **06/11 :** photos de la livrée ajoutées : **High Visibility** (blanc et rouge) et **Low Visibility** (gris), dans
+  `web/assets/ops/livree-*.jpg`. Seules photos de jour de la page (ce sont les livrées, sans filtre).
