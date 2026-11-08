@@ -846,4 +846,45 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   (il volait à ~200 kt indiqués) ; panne de nav = il demande un cap, l'appel suivant lui donne le cap vers sa frontière (calculé),
   puis il rentre et continue se poser à **Maykop-Khanskaya** ; les fins réussies ne le font plus disparaître (Beslan compris).
 - Injecté le 08/11 à 2 h 08, éditeur fermé (sauvegarde `bakup\…_2026-11-08_02-08-09.miz.bak`), kneeboard 24 pages intact.
-- **À faire** : retester (vitesse suffisante ? Beslan ? fuite hostile à 600 m sol).
+- **Menu F10 MISSIONS** (08/11) : contient INTERCEPTION (Lancer / Appel radio) et **HOST Naval AERA**, qui active une fois
+  le groupe `Admiral` (porte-avions et escorte, beaucoup de bateaux : passé en activation retardée par Thibaud pour ne pas charger
+  le serveur). Autres groupes à ajouter dans `NAVAL_HOST`. Pas encore injecté.
+- **Tu-95** (08/11, pas encore injecté) : interception réorganisée, chaque avion a ses fonctions `call` / `tick` dans `INTERCEPTS`,
+  « Lancer » tire Yak-40 ou Tu-95 au hasard. Groupes de l'éditeur : `TU95 inter` (6 Kh-555, FL300, 230 m/s) et
+  `Escorte tu95 inter` (Su-27), en activation retardée. Route : nord des montagnes (-170000 / 820000) puis plein sud sur Tbilissi.
+  1er appel : il ment (erreur de nav) et garde son cap. 2e appel (« demi-tour, cap X ») : 30 % il rentre (point de départ puis
+  Maykop, 10 pts par appelant), 70 % il refuse et appelle le Su-27, qui part de sa position de l'éditeur, escorte le Tu-95 en
+  tir interdit et passe en tir libre une fois à 2 km : TIR AUTORISÉ sur les deux (escorte abattue avant = 0 pt, puis tir autorisé
+  sur le Tu-95). Tu-95 abattu après autorisation = kill + 10. À **60 NM de Tbilissi** sans demi-tour : tâche Bombing
+  (arme Auto, tout) sur l'aéroport, interception ratée (environ 14 min de vol jusque-là).
+- Menu MISSIONS + Tu-95 **injectés** le 08/11 à 2 h 47, éditeur fermé (sauvegarde `bakup\…_2026-11-08_02-47-27.miz.bak`),
+  kneeboard 24 pages intact.
+- **Retours du test Tu-95** (08/11, injectés à 12 h 09, éditeur fermé, sauvegarde `bakup\…_2026-11-08_12-09-29.miz.bak`) : plus aucune indication dans les réponses (il ment : « petit problème
+  d'autopilote, nous allons changer de cap », le Su-27 reste secret jusqu'au tir autorisé) ; à 15 km de son virage vers Tbilissi,
+  si l'escorte n'est pas arrivée : « l'autopilote est réglé, nous tournons ». Tu-95 à 255 m/s (quasi son maxi réel). Su-27 déplacé par
+  Thibaud (x -135076 / y 746077) : il fonce sur le Tu-95 à 600 m/s (route recalculée toutes les 15 s), passe en Escort à 10 km,
+  ouvre le feu à **500 m** du Tu-95 (au lieu de 2 km). Appels sur **121.5** (Guard VHF, 243.0 en UHF). Impossible de conditionner
+  l'appel à la radio du joueur : un script de mission ne lit pas la fréquence d'un avion joueur.
+- 08/11 à 12 h 22 (injecté éditeur fermé, sauvegarde `bakup\…_2026-11-08_12-22-10.miz.bak`) : Su-27 à pleine vitesse jusqu'à 15 km, puis vitesse du Tu-95 + 100 m/s (route recalculée à chaque
+  tick), formation à 2 km au lieu de 10. Appels sur **243.0** ; `Yak 40`, `TU95 inter` et `Escorte tu95 inter` passés sur 243 AM dans la .miz.
+- 08/11, retours du 2e test Tu-95 (injectés à 12 h 56, DCS fermé, sauvegarde `bakup\…_2026-11-08_12-56-52.miz.bak`) : tirage **sans répétition** (`IcptBag`, chaque avion une fois puis on repart de zéro) ;
+  Su-27 créé par `SpawnFromVec3` **15 km derrière le Tu-95, dans son axe** (sa position dans l'éditeur ne sert plus), plein gaz jusqu'à 4 km ;
+  plus de message à son arrivée (seule la surprise de son tir l'annonce) ; annonce du virage à 8 km (au lieu de 15).
+  **Kh-555 non tirés au test** : la tâche envoyée n'avait que `point`, DCS attend `x` / `y` (comme l'éditeur) ; passé par `TaskBombing` de MOOSE,
+  type d'arme missile de croisière (2097152), porté par un waypoint 3 km devant lui ; ensuite retour à son point de départ et atterrissage à Maykop (plus Beslan). Aucun avion d'interception n'est plus effacé (abattu il tombe, posé il reste).
+- 08/11 à 14 h 02 (injecté DCS fermé, sauvegarde `bakup\…_2026-11-08_14-02-53.miz.bak`) : appel radio à **1000 ft** (305 m, 3D) au lieu de 500 ; Su-27 ouvre le feu à **800 m** du Tu-95 au lieu de 500 (à 500 m il plongeait dans le relief, effet à confirmer en jeu) ;
+  messages radio réécrits en phraséologie (« Parlez », indicatifs `RA-87412` pour le Yak et `Strela 21` pour le Tu-95, contrôleur `BLUE SKY CONTROL`, Guard 243.0, MAYDAY).
+- 08/11 à 14 h 22 (injecté DCS fermé, sauvegarde `bakup\…_2026-11-08_14-22-36.miz.bak`) : Kh-555 **tir et retour Maykop validés en jeu** ; impact visé sur le parking du terminal de Tbilissi (`aim`, X -314935, Z +896939) ; Su-27 ouvre le feu à **1500 m** (à 800 m il plongeait encore, à tester).
+- 08/11, dernier retour (injecté, DCS fermé) : indicatifs **I-JAKE** (Yak) et **RF-59** (Tu-95), appels sans type ni niveau ; Kh-555 et combat du Su-27 **validés en jeu**.
+  Bug : Tu-95 abattu en retraite compté en kill normal. Le tick voyait l'avion mourant (vie < 1) et fermait l'interception avant l'événement Kill ; il attend maintenant jusqu'à 120 s (`ICPT_LOST_S`), et le tir non autorisé annonce « Interception ratee ».
+  Tu-95 perdu : `IcptEnd` renvoie le Su-27 se poser à Maykop (sauf s'il est au combat quand le Tu-95 tire ses Kh-555).
+  Su-27 parti vers Mozdok **après avoir abattu le joueur, Tu-95 intact** : à 1500 m il sautait souvent la tâche Escort (ouverture du feu dès le tick où il passe sous 1500 m), donc plus rien à suivre après son kill. Dès qu'aucun joueur bleu n'est à moins de 20 km de lui (`TU_REJOIN_M`), il reçoit une fois la tâche Escort du Tu-95 ; rien pendant le combat, qui marche bien sans. Cause probable, à tester en jeu comme les corrections ci-dessus.
+- 08/11 soir (injecté, DCS fermé) : **3e interception Su-34**, groupe `Su34 inter` (2 avions, n° 034 et 035, 243 MHz, FL270, 231 m/s), indicatif **VVS 34/35**. Alerte au lancement ; appel possible seulement hors frontière.
+  Trajet rouge (franchissement puis Mineralnye). 1re interception : détour jaune par le nord et 2e sortie annoncée par le contrôleur. 2e interception : flèche verte, retour Maykop, **+15 pts** aux appelants quand ils repassent la frontière.
+  Non interceptés : largage à 25 km de la cible (centre de l'aéroport), **tir autorisé après largage** (kill normal, sans bonus), fuite vers le nord puis Maykop. Tir avant largage sur l'un des deux = 0 pt et mission ratée.
+  Coordonnées relevées sur une capture peinte (dessin absent de la .miz), calées sur la boîte BVR, précision environ 2 km. Non testé en jeu : largage réel de l'IA (KAB-1500Kr et charge de l'ailier), points du trajet, détection du largage par baisse de munitions (sinon délai de 180 s).
+- 08/11 soir (injecté, DCS fermé) : Su-34, **vengeance** : dès que l'un des deux est abattu (autorisé ou non), le survivant passe en tir libre et attaque le joueur bleu le plus proche dans 100 km (tâche `AttackUnit`), tir autorisé sur lui ; plus de joueur à portée = retour Maykop. Le kill avant largage reste à 0 pt et « Interception ratee ». `GroupUnit` prend désormais le premier avion vivant du groupe. Non testé en jeu.
+- 08/11 à 22 h 20 : **.miz envoyée à Weefe** dans `partage/fichiers/` sur R2D2 (somme de contrôle identique, version du soir avec les 3 interceptions). Fichiers du bot dans `partage/maj` déjà à jour, rien d'autre à envoyer. Reste : Weefe FICHIERS / MAJ puis .miz de `Recus de Thibaud\` dans ses Missions.
+- Traînées (réglé par Thibaud à 15 °C, condensation OK en jeu) : mission à 23,2 °C au sol, soit environ -36 °C au FL300, sans doute trop chaud ; à essayer vers 10 °C (non vérifié).
+- **À faire** : retester (vitesse suffisante ? Beslan ? fuite hostile à 600 m sol) ; Tu-95 : vérifier que l'IA tire vraiment ses
+  Kh-555 avec la tâche Bombing (sinon essayer le type d'arme « missile de croisière ») et que le Su-27 attaque bien en tir libre.
