@@ -834,10 +834,28 @@ local function IsAirDefence(typeName)
     return false
 end
 
+-- Cibles strike (08/11) : valent plus que le decor (1 pt). Cercle repris d'un dessin F10 de la mission
+-- (le script ne voit pas les dessins) : a mettre a jour si le dessin bouge. x = nord, z = est (y editeur).
+local STRIKE_TYPES = { ["Oil rig"] = 5, ["Gas platform"] = 5 } -- derricks et plateforme de Petrol Strike
+local STRIKE_ZONES = {
+    { x = -33689, z = 587156, r = 969, pts = 2 }, -- cercle a 27 objets (depot de munitions, PC, pompes...)
+}
+
+local function StaticPoints(EventData)
+    local pts = STRIKE_TYPES[EventData.TgtTypeName or ""]
+    if pts then return pts end
+    local p = GetTargetPoint(EventData)
+    for _, z in ipairs(STRIKE_ZONES) do
+        local d = Distance2D(p, z)
+        if d and d <= z.r then return z.pts end
+    end
+    return POINTS.STATIC
+end
+
 -- Renvoie : categorie de kill, points, titre, type affiche
 local function ClassifyKill(EventData)
     if EventData.TgtObjectCategory == Object.Category.STATIC then
-        return "airsol", POINTS.STATIC, "GROUND KILL CONFIRMED", nil
+        return "airsol", StaticPoints(EventData), "GROUND KILL CONFIRMED", nil
     end
     if EventData.TgtObjectCategory ~= Object.Category.UNIT or not EventData.TgtCategory then return nil end
 
@@ -882,6 +900,10 @@ function KillHandler:OnEventKill(EventData)
 
     local kind, points, title, typeLabel = ClassifyKill(EventData)
     if not kind then return end
+    -- avion a intercepter : bonus si le tir etait autorise, 0 pt sinon (IcptKillBonus plus bas)
+    local bonus = IcptKillBonus(EventData, playerName)
+    if not bonus then return end
+    points = points + bonus
 
     local targetPoint = GetTargetPoint(EventData)
     local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
@@ -1119,12 +1141,13 @@ end
 ------------------------------------------------------------
 local Spawners = {}
 
-local function GetSpawner(template, randomZones)
+-- zone : ZONE MOOSE ou le groupe apparait au hasard (nil = position de l'editeur)
+local function GetSpawner(template, zone)
     local sp = Spawners[template]
     if not sp then
         sp = SPAWN:New(template)
-        if randomZones then
-            sp:InitRandomizeZones({ ZONE:New("Spawn Air") })
+        if zone then
+            sp:InitRandomizeZones({ zone })
         end
         Spawners[template] = sp
     end
@@ -1146,7 +1169,8 @@ local HOSTILES = {
 HostileGroups = {}
 
 local function SpawnHostile(template)
-    local group = GetSpawner(template, true):Spawn()
+    -- ZONE:New sur une zone quad = cercle de 3 km au centre (comportement d'origine, garde tel quel)
+    local group = GetSpawner(template, ZONE:New("Spawn Air")):Spawn()
     if group then HostileGroups[#HostileGroups + 1] = group end
 end
 
@@ -1200,6 +1224,369 @@ function Convoi()
 end
 
 ------------------------------------------------------------
+-- FRONT RUSSE : RENFORTS AU PREMIER KILL
+-- Premier vehicule / batiment / bateau detruit a moins de BASE_RADIUS du centre d'une base :
+-- ses groupes (en activation retardee dans l'editeur) sont actives, une seule fois par mission.
+-- Pour un nouveau convoi : ajouter son nom dans "groups" (ou une nouvelle base, x = nord, y = est de l'editeur).
+------------------------------------------------------------
+local BASE_RADIUS = 8000 -- m
+
+local BASES = {
+    { name = "Gudauta",   x = -196500, y = 516500, groups = { "Gudauta convoie", "KA 50 gudauta" } },
+    { name = "Sochi",     x = -164000, y = 462000, groups = { "sochi convoie", "hélico sochi convoie", "helico sochi" } },
+    { name = "Anapa",     x = -5000,   y = 243500, groups = { "hélico anapa" } },
+    -- base bleue : premier kill a Soukhoumi = contre-attaque russe partie de Gudauta
+    { name = "Soukhoumi", x = -220000, y = 564000, groups = { "sukumi convoie" } },
+}
+
+local function IsGroundTarget(obj)
+    local cat = Object.getCategory(obj)
+    if cat == Object.Category.STATIC then return true end
+    if cat ~= Object.Category.UNIT then return false end
+    local unitCat = obj:getDesc().category
+    return unitCat == Unit.Category.GROUND_UNIT or unitCat == Unit.Category.SHIP
+end
+
+function OnGroundTargetKilled(obj)
+    if not IsGroundTarget(obj) then return end
+    local p = obj:getPoint()
+    for _, base in ipairs(BASES) do
+        local dx, dz = p.x - base.x, p.z - base.y
+        if not base.done and dx * dx + dz * dz < BASE_RADIUS * BASE_RADIUS then
+            base.done = true
+            for _, name in ipairs(base.groups) do
+                local g = Group.getByName(name)
+                if g then g:activate() else env.warning("BLUESKY : renfort introuvable : " .. name) end
+            end
+            env.info("BLUESKY : premier kill a " .. base.name .. ", renforts actives")
+        end
+    end
+end
+
+BaseHandler = {}
+
+function BaseHandler:onEvent(event)
+    local obj
+    if event.id == world.event.S_EVENT_KILL then obj = event.target
+    elseif event.id == world.event.S_EVENT_DEAD or event.id == world.event.S_EVENT_UNIT_LOST then obj = event.initiator end
+    if not obj then return end
+    local ok, err = pcall(OnGroundTargetKilled, obj)
+    if not ok then env.warning("BLUESKY : renforts : " .. tostring(err)) end
+end
+
+world.addEventHandler(BaseHandler)
+
+------------------------------------------------------------
+-- FRONT RUSSE : SPAWN ENI (menu F10 AIR-AIR > Spawn ENI)
+-- Active : un groupe tire au sort apparait n'importe ou dans la zone "Spawn ENI", puis suit sa route de l'editeur.
+-- Vague suivante seulement quand chaque avion de la vague est detruit, pose, a court de carburant ou sans armement
+-- (canon seul = sans armement). Bombardiers : toujours avec leur escorte.
+-- Les avions spawnes sont aussi effaces par "Clear hostile".
+------------------------------------------------------------
+local ENI_WAVES = {
+    { "mig29s" }, { "mig21" }, { "su33" }, { "jf17" }, { "su27" },
+    { "su34" }, { "su25" }, { "l39" },
+    { "tu95", "escorte 95" }, { "tu160", "escorte 160" },
+}
+local ENI_FUEL_MIN = 0.15  -- part de carburant sous laquelle l'avion compte comme "a court"
+local ENI_MAX_WAVE_S = 3600 -- shortcut: vague consideree finie apres 1 h (avion IA coince en l'air), a revoir si des vagues sont coupees trop tot
+local ENI_ENGAGE_M = 60000  -- distance max entre la route de l'avion et une cible qu'il peut aller chercher
+
+-- La tache CAP auto de l'editeur (EngageTargets) n'a pas de limite : l'IA part sur n'importe quel bleu vu par l'A-50
+-- (constate le 07/11 : MiG-29 partis droit vers la zone BVR). On borne le modele MOOSE, copie a chaque spawn.
+local function LimitEngage(name)
+    local t = _DATABASE.Templates.Groups[name]
+    for _, wp in ipairs(t and t.Template.route.points or {}) do
+        for _, task in ipairs(wp.task and wp.task.params and wp.task.params.tasks or {}) do
+            if task.id == "EngageTargets" then
+                task.params.maxDist = ENI_ENGAGE_M
+                task.params.maxDistEnabled = true
+            end
+        end
+    end
+end
+
+EniActive = false
+EniWave = nil -- { groups = { GROUP... }, t0 = temps du spawn }
+
+local function UnitSpent(u)
+    if not u:isExist() or u:getLife() < 1 or not u:inAir() or u:getFuel() < ENI_FUEL_MIN then return true end
+    for _, a in ipairs(u:getAmmo() or {}) do
+        if a.count > 0 and a.desc.category ~= Weapon.Category.SHELL then return false end
+    end
+    return true
+end
+
+function EniWaveOver(wave)
+    if timer.getTime() - wave.t0 > ENI_MAX_WAVE_S then return true end
+    for _, g in ipairs(wave.groups) do
+        for _, u in ipairs(GroupDCSUnits(g)) do
+            if not UnitSpent(u) then return false end
+        end
+    end
+    return true
+end
+
+local function SpawnEniWave()
+    local wave = ENI_WAVES[math.random(#ENI_WAVES)]
+    local lead = GetSpawner(wave[1], ZONE:FindByName("Spawn ENI")):Spawn()
+    if not lead then return end
+    local groups = { lead }
+    local p = lead:GetVec3() or {}
+    for i = 2, p.x and #wave or 1 do -- position inconnue : pas d'escorte plutot qu'une erreur
+        -- escorte : a cote du bombardier ; sa tache "suivre" de l'editeur visait le modele, on la refait sur le groupe spawne
+        local esc = GetSpawner(wave[i]):SpawnFromVec3({ x = p.x - 300, y = p.y, z = p.z + 300 * (i - 1) })
+        if esc then
+            esc:SetTask(esc:TaskEscort(lead, { x = -150, y = 0, z = 150 * (i - 1) }, nil, 40000, { "Air" }), 1)
+            groups[#groups + 1] = esc
+        end
+    end
+    for _, g in ipairs(groups) do HostileGroups[#HostileGroups + 1] = g end
+    EniWave = { groups = groups, t0 = timer.getTime() }
+    env.info("BLUESKY : Spawn ENI : " .. table.concat(wave, " + "))
+end
+
+local function EniTick()
+    if EniWave and not EniWaveOver(EniWave) then return end
+    EniWave = nil
+    if EniActive then SpawnEniWave() end
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(EniTick)
+    if not ok then env.warning("BLUESKY : Spawn ENI : " .. tostring(err)) end
+    return timer.getTime() + 30
+end, nil, timer.getTime() + 30)
+
+function SetEniSpawn(on)
+    EniActive = on
+    MESSAGE:New(on and "SPAWN ENI ACTIVE" or "SPAWN ENI DESACTIVE", 10):ToCoalition(coalition.side.BLUE)
+end
+
+-- Noms de l'editeur a verifier dans dcs.log si un renfort ou une vague ne part pas
+for _, base in ipairs(BASES) do
+    for _, name in ipairs(base.groups) do
+        if not Group.getByName(name) then env.warning("BLUESKY : groupe absent de la mission : " .. name) end
+    end
+end
+for _, wave in ipairs(ENI_WAVES) do
+    for _, name in ipairs(wave) do
+        if not Group.getByName(name) then env.warning("BLUESKY : groupe absent de la mission : " .. name) end
+        LimitEngage(name)
+    end
+end
+
+------------------------------------------------------------
+-- INTERCEPTION (08/11) : F10 > INTERCEPTION > Lancer tire un avion de INTERCEPTS.
+-- 3 appels radio a moins de 500 ft ; il repond (deroutement) ou reste muet (tir autorise apres le 3e).
+-- Autre avion plus tard = une entree de plus dans INTERCEPTS, avec sa propre histoire.
+------------------------------------------------------------
+local ICPT_CALL_M = 152      -- 500 ft, distance 3D joueur-avion pour que l'appel passe
+local ICPT_GAP_S = 20        -- delai mini entre deux appels
+local ICPT_HOSTILE = 0.4     -- chance qu'il ne reponde jamais
+local ICPT_BONUS = 5         -- hostile abattu apres autorisation (en plus du kill) / deroute arrive (par appelant)
+
+local INTERCEPTS = {
+    {
+        template = "Yak 40", label = "Yak-40",
+        -- 190 m/s (~370 kt vrais, ~260 kt indiques au FL200) : a 150 il tombait a 200 kt, trop lent pour rester a cote (08/11)
+        speed = 190, alt = 6096, -- m/s, m (FL200)
+        mid = { x = -250000, z = 680000 }, -- passage des montagnes, puis Tbilissi
+        target = "Tbilisi-Lochini",
+        home = "Maykop-Khanskaya", -- apres le retour a la frontiere, il continue s'y poser
+        alert = "ALERTE : appareil non identifie au nord du Caucase, FL200, cap au sud.\n" ..
+                "Interceptez-le : F10 > INTERCEPTION > Appel radio (a moins de 500 ft).",
+        calls = {
+            "Appareil non identifie au FL200, ici chasse Blue Sky sur 243.0. Identifiez-vous et indiquez vos intentions.",
+            "Appareil non identifie, vous etes dans un espace aerien controle. Repondez immediatement ou des mesures seront prises.",
+            "Dernier avertissement. Virez immediatement au nord ou vous serez abattu.",
+        },
+        silence = "... Aucune reponse. Le Yak-40 garde son cap.",
+        hostile = "Aucune reponse au dernier avertissement. Le Yak-40 plonge vers les vallees !\nTIR AUTORISE.",
+        replies = {
+            beslan = "Yak-40 : Mayday, nous avons perdu un moteur, nous ne tenons plus l'altitude. " ..
+                     "Demandons deroutement sur Beslan.\nEscortez-le jusqu'a Beslan.",
+            border = "Yak-40 : Desole, panne de navigation, nous ne savons plus ou nous sommes. " ..
+                     "Pouvez-vous nous donner un cap ?\n(Appel radio pour lui donner son cap)",
+        },
+        -- %d = cap vers sa frontiere
+        heading = "Yak-40, prenez le cap %03d, maintenez FL200, je vous raccompagne jusqu'a votre frontiere.\n\n" ..
+                  "Yak-40 : Cap %03d, merci, nous suivons.\nEscortez-le jusqu'a sa frontiere.",
+        success = { beslan = "Le Yak-40 s'est pose a Beslan.",
+                    border = "Le Yak-40 a repasse sa frontiere, il continue vers Maykop." },
+        failed = "Le Yak-40 a atteint Tbilissi sans etre intercepte. Interception ratee.",
+    },
+}
+
+Icpt = nil -- interception en cours
+
+local function IcptMsg(text, t) MESSAGE:New(text, t or 15):ToCoalition(coalition.side.BLUE) end
+
+local function Wp(x, z, alt, speed, altType)
+    return { x = x, y = z, alt = alt, alt_type = altType or "BARO", speed = speed,
+             type = "Turning Point", action = "Turning Point" }
+end
+
+local function IcptFly(points)
+    Icpt.group:SetTask({ id = "Mission", params = { route = { points = points } } }, 1)
+end
+
+local function IcptUnit()
+    local g = Icpt and Icpt.group:GetDCSObject()
+    local u = g and g:isExist() and g:getUnit(1)
+    return u and u:isExist() and u:getLife() >= 1 and u or nil
+end
+
+-- keep : on le laisse voler / pose (fin reussie), sinon il disparait
+local function IcptEnd(text, keep)
+    if text then IcptMsg(text, 20) end
+    if not keep and Icpt.group:IsAlive() then Icpt.group:Destroy() end
+    Icpt = nil
+end
+
+-- Points hors kill : en attente si le joueur vole (comme un kill), sinon valides tout de suite
+local function AwardPoints(name, pts)
+    local f = Flights[name]
+    if f and f.active then f.points = f.points + pts return end
+    f = NewFlight()
+    f.points = pts
+    CommitFlightKills(name, f)
+end
+
+function IcptLaunch()
+    if Icpt then IcptMsg("Interception deja en cours.", 10) return end
+    local def = INTERCEPTS[math.random(#INTERCEPTS)]
+    local group = GetSpawner(def.template):Spawn()
+    local u = group and group:GetDCSObject() and group:GetDCSObject():getUnit(1)
+    local target = Airbase.getByName(def.target)
+    if not u or not target then env.warning("BLUESKY : interception impossible : " .. def.template) return end
+    local p, t = u:getPoint(), target:getPoint()
+    Icpt = { def = def, group = group, unitName = u:getName(), start = p, target = t,
+             state = "silent", calls = 0, lastCall = -ICPT_GAP_S, callers = {},
+             answerAt = math.random() < ICPT_HOSTILE and 0 or math.random(#def.calls) } -- 0 = ne repond jamais
+    IcptFly({ Wp(p.x, p.z, def.alt, def.speed), Wp(def.mid.x, def.mid.z, def.alt, def.speed),
+              Wp(t.x, t.z, def.alt, def.speed) })
+    IcptMsg(def.alert, 20)
+end
+
+local function LandWp(ab)
+    local b = ab:getPoint()
+    return { x = b.x, y = b.z, alt = b.y, alt_type = "BARO", speed = 80,
+             type = "Land", action = "Landing", airdromeId = ab:getID() }
+end
+
+local function Divert(def, u)
+    local p = u:getPoint()
+    if math.random(2) == 1 then
+        Icpt.dest = "beslan"
+        -- panne moteur : il ralentit et descend
+        IcptFly({ Wp(p.x, p.z, p.y, 140), LandWp(Airbase.getByName("Beslan")) })
+        Icpt.state = "divert"
+    else
+        -- panne de nav : il garde son cap tant qu'un bleu ne lui donne pas le sien (appel suivant)
+        Icpt.dest = "border"
+        Icpt.state = "heading"
+    end
+    return def.replies[Icpt.dest]
+end
+
+-- Cap vrai (degres) d'un point vers un autre : x = nord, z = est
+local function Bearing(from, to)
+    return math.floor(math.deg((math.atan2 or math.atan)(to.z - from.z, to.x - from.x)) + 360.5) % 360
+end
+
+local function GiveHeading(def, u)
+    local p, s = u:getPoint(), Icpt.start
+    local hdg = Bearing(p, s)
+    local route = { Wp(p.x, p.z, p.y, def.speed), Wp(s.x, s.z, def.alt, def.speed) }
+    local home = Airbase.getByName(def.home)
+    if home then route[3] = LandWp(home) end
+    IcptFly(route)
+    Icpt.state = "divert"
+    return string.format(def.heading, hdg, hdg)
+end
+
+function IcptCall()
+    if not Icpt then IcptMsg("Aucune interception en cours (F10 > INTERCEPTION > Lancer).", 10) return end
+    local def, u = Icpt.def, IcptUnit()
+    if not u or (Icpt.state ~= "silent" and Icpt.state ~= "heading") then IcptMsg("Plus d'appel a faire.", 10) return end
+    local now = timer.getTime()
+    if now - Icpt.lastCall < ICPT_GAP_S then IcptMsg("Attendez la reponse (20 s entre deux appels).", 5) return end
+
+    -- DCS ne dit pas qui a clique : l'appel vient des bleus a moins de 500 ft
+    local p, names = u:getPoint(), {}
+    for _, pu in ipairs(coalition.getPlayers(coalition.side.BLUE)) do
+        local q = pu:isExist() and pu:getPoint()
+        if q and math.sqrt((q.x - p.x) ^ 2 + (q.y - p.y) ^ 2 + (q.z - p.z) ^ 2) <= ICPT_CALL_M then
+            for _, name in ipairs(Crew(pu:getName(), pu:getPlayerName())) do
+                Icpt.callers[name] = true
+                names[#names + 1] = name
+            end
+        end
+    end
+    if #names == 0 then IcptMsg("Appel impossible : aucun bleu a moins de 500 ft du " .. def.label .. ".", 8) return end
+
+    Icpt.lastCall = now
+    if Icpt.state == "heading" then IcptMsg(names[1] .. " : " .. GiveHeading(def, u), 20) return end
+    Icpt.calls = Icpt.calls + 1
+    local text = names[1] .. " : " .. def.calls[Icpt.calls] .. "\n\n"
+    if Icpt.calls == Icpt.answerAt then
+        text = text .. Divert(def, u)
+    elseif Icpt.calls < #def.calls then
+        text = text .. def.silence
+    else
+        Icpt.state = "hostile"
+        -- il fuit bas vers sa cible (non arme, il ne peut pas attaquer)
+        IcptFly({ Wp(p.x, p.z, 600, 165, "RADIO"), Wp(Icpt.target.x, Icpt.target.z, 600, 165, "RADIO") })
+        text = text .. def.hostile
+    end
+    IcptMsg(text, 20)
+end
+
+-- Appele par le KillHandler : bonus (nombre), 0 si ce n'est pas l'avion intercepte, nil = tir non autorise (0 pt)
+function IcptKillBonus(EventData, playerName)
+    if not Icpt or EventData.TgtUnitName ~= Icpt.unitName then return 0 end
+    local ok = Icpt.state == "hostile"
+    IcptEnd(ok and (Icpt.def.label .. " hostile abattu par " .. playerName .. " : +" .. ICPT_BONUS .. " pts de bonus.")
+               or ("TIR NON AUTORISE : " .. playerName .. " a abattu un appareil civil. Aucun point."))
+    return ok and ICPT_BONUS or nil
+end
+
+local function IcptTick()
+    if not Icpt then return end
+    local u = IcptUnit()
+    if not u then IcptEnd(Icpt.def.label .. " detruit, interception terminee.") return end
+    local p = u:getPoint()
+    local arrived
+    if Icpt.state == "divert" then
+        arrived = Icpt.dest == "beslan" and not u:inAir() or
+                  Icpt.dest == "border" and Distance2D(p, Icpt.start) < 10000
+    elseif Distance2D(p, Icpt.target) < 5000 then
+        IcptEnd(Icpt.def.failed)
+        return
+    end
+    if not arrived then return end
+    local names = {}
+    for name in pairs(Icpt.callers) do
+        AwardPoints(name, ICPT_BONUS)
+        names[#names + 1] = name
+    end
+    SaveScores()
+    IcptEnd(Icpt.def.success[Icpt.dest] .. " Interception reussie !\n+" .. ICPT_BONUS .. " pts pour " ..
+            table.concat(names, ", ") .. " (valides a l'atterrissage).", true)
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(IcptTick)
+    if not ok then env.warning("BLUESKY : interception : " .. tostring(err)) end
+    return timer.getTime() + 5
+end, nil, timer.getTime() + 5)
+
+for _, def in ipairs(INTERCEPTS) do
+    if not Group.getByName(def.template) then env.warning("BLUESKY : groupe absent de la mission : " .. def.template) end
+end
+
+------------------------------------------------------------
 -- MENUS F10 COALITION BLEUE
 ------------------------------------------------------------
 local BLUE = coalition.side.BLUE
@@ -1212,6 +1599,13 @@ for _, h in ipairs(HOSTILES) do
     end
 end
 MENU_COALITION_COMMAND:New(BLUE, "Clear hostile", MenuAirAir, Clear)
+local MenuEni = MENU_COALITION:New(BLUE, "Spawn ENI", MenuAirAir)
+MENU_COALITION_COMMAND:New(BLUE, "Activer", MenuEni, SetEniSpawn, true)
+MENU_COALITION_COMMAND:New(BLUE, "Desactiver", MenuEni, SetEniSpawn, false)
+
+local MenuIcpt = MENU_COALITION:New(BLUE, "INTERCEPTION")
+MENU_COALITION_COMMAND:New(BLUE, "Lancer", MenuIcpt, IcptLaunch)
+MENU_COALITION_COMMAND:New(BLUE, "Appel radio", MenuIcpt, IcptCall)
 
 local MenuTankers = MENU_COALITION:New(BLUE, "TANKERS")
 for _, t in ipairs(TANKERS) do

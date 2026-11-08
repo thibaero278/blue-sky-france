@@ -1,6 +1,6 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 06/11/2026 (Blue Sky Ops : page fusionnée et épurée, rien de poussé)_
+_Dernière mise à jour : 08/11/2026 (points strike + interception Yak-40 codés, pas encore injectés ni testés en jeu)_
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
@@ -739,7 +739,14 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   celle de `site\mission\` date du 19/10 et est **périmée** (c'est elle qui donnait Essex ICLS 1 et KC-135 TKR). Page 01 alignée :
   Essex ICLS 2, KC-135 indicatif KC1, MQ-9 Colt 1-1 sur 244.00 (changé par Thibaud), Stennis **ICLS 19** (vérifié dans la .miz
   de 16 h 20). IL-78 Arco 2-1 passé sur 249.00. B-52 Buff 1-1 passé sur 111.00 (plus de doublon avec l'AWACS), pas mis sur le kneeboard.
-- **Pas encore injecté dans la .miz** : Thibaud veut d'abord faire les kneeboards de pistes (il va montrer un modèle), puis tout injecter
+- **06/11 16 h 27 : 24 pages injectées** dans la vraie mission `Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\Blue Sky Multi-joueur DAY_Caucasus.miz`
+  (`KNEEBOARD/IMAGES/`, pour tous les avions). Archive vérifiée. Sauvegarde : `bakup\` à côté de la .miz (16-27-23).
+  **La NIGHT n'existe plus** (dixit Thibaud) : rangée dans `mission\bakup\..._ancienne-version.miz`. La DAY de `site\mission\` (19/10) est périmée.
+  Rappel : après une sauvegarde dans l'éditeur, relancer l'injection.
+- **06/11 16 h 42 : mission DAY (avec kneeboard) envoyée à Weefe** dans `partage/fichiers/` sur R2D2 (somme de contrôle identique),
+  ancienne NIGHT retirée du partage. **16 h 55 : Thibaud a resauvegardé dans l'éditeur → kneeboard effacé** ; réinjecté et renvoyé
+  (somme 284e4651…). À chaque sauvegarde dans l'éditeur, il faut réinjecter. MAJ du bot : rien de neuf (mission.lua et scores.py déjà identiques sur le partage).
+- (ancien) Thibaud voulait d'abord faire les kneeboards de pistes (il va montrer un modèle), puis tout injecter
   dans la mission (`ajouter_kneeboard.bat`).
 - **06/11 (fin) : variante unique, épurée selon les retours de Thibaud. PAS poussée.** `ops-tuiles.html` supprimée.
   `web/ops.html` = anneau de photos autour du titre (gardé) → L'unité (texte + **la livrée** : photo, TikTok, téléchargement à venir)
@@ -775,3 +782,68 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
   Release `livrees-ops`, bouton « Télécharger les livrées » + TikTok en contour dans `web/ops.html`.
 - **06/11 :** photos de la livrée ajoutées : **High Visibility** (blanc et rouge) et **Low Visibility** (gris), dans
   `web/assets/ops/livree-*.jpg`. Seules photos de jour de la page (ce sont les livrées, sans filtre).
+
+## 07/11/2026 : nouvelle carte F10 + front russe dynamique
+- **Nouvelle carte** faite par Thibaud dans l'éditeur (`Saved Games\...\Blue sky multi\…DAY…miz`, 07/11 15 h 59) : est = entraînement
+  et camp bleu (tankers au menu, convois / bateaux / Mi-8 d'entraînement, PA, croix) ; zones **Dogfight** (bleus de Tbilissi-Lochini,
+  rouges de Soganlug), **BVR** (rouges de Beslan, bleus de Minvody, ~45 NM avant le croisement ; Minvody sert aussi pour la HOST A/A AERA),
+  Mozdok = base Blue Sky. **Frontière** Soukhoumi → Minvody → nord : difficulté croissante vers l'ouest (Gudauta strike léger, Sochi,
+  SAM au centre (« SAM GG »), bateaux côtiers, Maykop SA-3, Krasnodar-Pashkovsky SAM moderne, Krasnodar-Centre AA d'époque, Top Gun Zone
+  Anapa SA-10, Krymsk / Novorossiysk / Gelendzhik SA-8 / SA-22 / SA-9). HOST Naval AERA (groupe « Admiral » autour d'un Kuznetsov),
+  Naval AERA non offensive, convois d'entraînement non retardés au nord des montagnes (« sochi convoie-1 » à « -6 »), zone industrielle
+  (GCI-2) défendue aux manpads, pads hélico près des bases russes. Les zones dessinées (Dogfight, BVR…) sont des dessins, pas des zones
+  de trigger : seules `Spawn Air`, `Spawn ENI`, `fumi red`, `fumi white` existent. `Spawn Air` a été déplacée au nord (HOST A/A AERA).
+- **Codé (script Caucase.lua)**, sauvegarde `bakup\script Caucase_2026-11-07_avant-front-russe.lua` :
+  - **Renforts au premier kill** (table `BASES`, rayon 8 km, une fois par mission) : premier véhicule / statique / bateau détruit
+    → activation des groupes retardés. Gudauta → `Gudauta convoie` + `KA 50 gudauta` ; Sochi → `sochi convoie` +
+    `hélico sochi convoie` (son escorte) + `helico sochi` ; Anapa → `hélico anapa` ; **Soukhoumi** (base bleue) → `sukumi convoie`
+    (contre-attaque partie de Gudauta). Avions abattus ignorés. Nouveau convoi = une ligne dans `BASES`.
+  - **Spawn ENI** (F10 AIR-AIR > Spawn ENI > Activer / Desactiver, **désactivé au lancement**) : un groupe tiré au sort apparaît
+    n'importe où dans la zone quad `Spawn ENI` (Anapa–Pashkovsky–Gelendzhik) et suit sa route de l'éditeur. Une vague à la fois :
+    la suivante quand chaque avion est détruit, posé, sous 15 % de carburant ou sans armement (canon seul = sans), ou après 1 h.
+    10 tirages (`ENI_WAVES`) : mig29s, mig21, su33, jf17, Aérien_g-1, su34, su25, l39, tu95 + escorte 95, tu160 + escorte 160
+    (bombardiers vers le SAM de Soukhoumi ; escorte respawnée à côté et retaskée en Escort, sa tâche « Follow » de l'éditeur visait le modèle).
+    Les avions ENI sont aussi effacés par « Clear hostile ». Aucun message aux bleus à chaque vague (surprise), seulement à l'activation.
+  - Au chargement, tout nom de groupe absent de la mission est signalé dans `dcs.log` (`BLUESKY : groupe absent de la mission`).
+  - `GetSpawner(template, zone)` prend maintenant une zone MOOSE ; les hostiles gardent `ZONE:New("Spawn Air")` (cercle de 3 km au centre).
+- Testé hors jeu (lupa, DCS/MOOSE simulés : renforts par base, une seule fois, avion ignoré ; vagues ENI, escorte, fin de vague, désactivation,
+  limite 1 h ; 19 noms vérifiés dans la .miz du 07/11). **Pas testé en jeu.**
+- **Injecté** dans `Saved Games\...\Blue sky multi\…DAY…miz` à 16 h 22 (sauvegarde `bakup\…_2026-11-07_16-22-46.miz.bak` à côté, kneeboard
+  24 pages toujours présent) + copie du script à côté. ⚠️ Si Thibaud resauvegarde dans l'éditeur, réinjecter le script.
+- **07/11 16 h 39** : Thibaud a resauvegardé dans l'éditeur ouvert avant l'injection → ancien script remis ; réinjecté.
+  Leçon : l'éditeur réécrit le script qu'il a chargé à l'ouverture. Fermer l'éditeur avant d'injecter, puis rouvrir.
+- **07/11 17 h 30, premier test en jeu** : les MiG-29 ENI sont partis droit vers la zone BVR au lieu de suivre leur route.
+  Cause : la tâche CAP auto `EngageTargets` de l'éditeur n'a pas de distance max, l'IA va chercher tout bleu vu par l'A-50.
+  Corrigé : `LimitEngage` borne `EngageTargets` à 60 km de la route (`ENI_ENGAGE_M`) dans les modèles MOOSE des groupes ENI
+  (les hostiles du menu AIR-AIR ne sont pas touchés). Message réduit à « SPAWN ENI ACTIVE / DESACTIVE ».
+  `Aérien_g-1` renommé `su27` par Thibaud ; zone `Spawn ENI` redessinée (Anapa – Krasnodar – Maykop).
+  Injecté éditeur fermé (sauvegarde de la .miz de 17 h 27 dans `bakup\` à côté), kneeboard 24 pages intact.
+- **À faire** : test en jeu ; convois / hélicos de renfort pour les autres bases (Maykop, Krasnodar, Pashkovsky, Gelendzhik, Novorossiysk,
+  Krymsk, SAM GG) quand Thibaud les aura posés en activation retardée ; envoyer la .miz à Weefe (partage R2D2) après validation.
+
+## 08/11/2026 : templates de slots dynamiques, points strike, interception
+- **Slots dynamiques** (fait par Thibaud, validé en jeu) : waypoints pré-rentrés via un groupe Client « Template de spawn dynamique »
+  + activation retardée par type et par base, relié dans l'entrepôt de la base (colonne « Modèle de groupe »). Route de base, pas la DTC.
+- ⚠️ La .miz sauvegardée le 08/11 à 1 h 09 contenait de nouveau **l'ancien script** (avant `LimitEngage`) : l'éditeur était ouvert
+  pendant l'injection du 07/11. À réinjecter éditeur fermé.
+- **Codé (script Caucase.lua)**, sauvegarde `bakup\script Caucase_2026-11-08_avant-interception.lua` :
+  - **Points strike** (`StaticPoints`) : derricks et plateforme gaz (`Oil rig`, `Gas platform`, cercle Petrol Strike) **5 pts** ;
+    statiques du cercle à 27 objets (dépôt de munitions, PC, pompes… centre x -33689 / y 587156, r 969 m, repris du dessin F10)
+    **2 pts** ; tous les autres statiques 1 pt (inchangé). Si le dessin bouge, mettre à jour `STRIKE_ZONES`.
+  - **Interception** (F10 > INTERCEPTION > Lancer / Appel radio) : tirage dans `INTERCEPTS` (pour l'instant `Yak 40`). Alerte aux
+    bleus, route au sud par les montagnes (-250000 / 680000) vers Tbilissi-Lochini, FL200, 150 m/s (~35 min). Appel radio seulement
+    à 500 ft (3D) du Yak, 20 s entre deux appels, par n'importe quel bleu (DCS ne dit pas qui clique : les bleus à 500 ft sont
+    les appelants). 40 % muet : 3 appels (générique, avertissement, dernier avertissement) puis TIR AUTORISÉ, il fuit bas (600 m sol)
+    vers Tbilissi. 60 % répond à un appel au hasard, puis 50/50 : panne moteur → atterrissage à **Beslan** (base rouge), ou erreur de
+    navigation → retour à son point de départ (10 km). Points : hostile abattu après autorisation = kill + 5 ; dérouté arrivé =
+    5 pts par appelant ; tir non autorisé = 0 pt + message à tous ; Tbilissi atteint = interception ratée. Une à la fois.
+- Testé hors jeu (lupa) : points strike, hostile, tir non autorisé, Beslan, frontière, ratée, détruit ; tests du front russe toujours OK.
+- **Mis de côté** : onglet Missions (interception / strike / anti-navire avec points), voix IA, Tu-95 / chasseurs avec leur histoire.
+- **Injecté** le 08/11 à 1 h 40, éditeur fermé (sauvegarde `bakup\…_2026-11-08_01-40-12.miz.bak` à côté de la .miz) : interception,
+  points strike et `LimitEngage` présents, kneeboard 24 pages intact.
+- **08/11, premier test en jeu** : marche. Thibaud a mis le Yak en « réaction aux menaces : aucune » dans l'éditeur (sinon il fuyait
+  en rase-mottes dans les montagnes). Tirage panne de nav obtenu. Retours corrigés (pas encore injectés) : vitesse 150 → 190 m/s
+  (il volait à ~200 kt indiqués) ; panne de nav = il demande un cap, l'appel suivant lui donne le cap vers sa frontière (calculé),
+  puis il rentre et continue se poser à **Maykop-Khanskaya** ; les fins réussies ne le font plus disparaître (Beslan compris).
+- Injecté le 08/11 à 2 h 08, éditeur fermé (sauvegarde `bakup\…_2026-11-08_02-08-09.miz.bak`), kneeboard 24 pages intact.
+- **À faire** : retester (vitesse suffisante ? Beslan ? fuite hostile à 600 m sol).
