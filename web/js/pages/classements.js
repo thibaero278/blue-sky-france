@@ -17,6 +17,35 @@
   const val = (p, m) => HOURS.includes(m) ? fmt.h1(p[m]) + ' h' : fmt.n(p[m]);
   const num = (p, m) => HOURS.includes(m) ? fmt.h1(p[m]) : fmt.n(p[m]);
 
+  const dec1 = v => v.toFixed(1).replace('.', ',');
+  const dist = m => m >= 1852 ? dec1(m / 1852) + ' NM' : Math.round(m) + ' m';
+  // 20261106 → « 06/11/2026 » ; pas de date (ancien record ou record cumulé) → vide
+  const dateFr = d => d ? `${String(d).slice(6, 8)}/${String(d).slice(4, 6)}/${String(d).slice(0, 4)}` : '';
+  const since = d => d ? ' · depuis le ' + dateFr(d) : '';
+  const RECORDS = [
+    ['points', 'Le plus de points', p => fmt.n(p.points) + ' pts'],
+    ['hours', "Le plus d'heures de vol", p => fmt.h1(p.hours) + ' h'],
+    ['longest', 'Vol le plus long', p => fmt.dur(p.longest)],
+    ['bsHours', "Le plus d'heures Blue Sky", p => fmt.h1(p.bsHours) + ' h'],
+    ['airKills', 'Le plus de kills air', p => fmt.n(p.airKills)],
+    ['groundKills', 'Le plus de kills sol', p => fmt.n(p.groundKills)],
+    ['navalKills', 'Le plus de kills mer', p => fmt.n(p.navalKills)],
+    ['traps', "Le plus d'appontages", p => fmt.n(p.traps)],
+    ['landings', "Le plus d'atterrissages", p => fmt.n(p.landings)],
+    ['flights', 'Le plus de vols', p => fmt.n(p.flights)],
+    ['maxRefuel', 'Ravitaillement le plus long', p => fmt.dur(p.maxRefuel)],
+    ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
+    ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
+    ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],
+    ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft · ' + dec1(p.maxAlt / 1000) + ' km'],
+    // shortcut: Mach calculé avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
+    ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h · Mach ' + dec1(p.maxSpeed / 295)]
+  ];
+  const PERSONAL = ['longest', 'maxRefuel', 'bestFlightKills', 'farKill', 'nearKill', 'maxAlt', 'maxSpeed'];
+  const hasRecord = (p, k, lowest) => lowest ? p[k] != null : p[k] > 0;
+  // à égalité, le premier pilote trouvé garde le record
+  const bestOf = (k, lowest) => S.pilots.filter(p => hasRecord(p, k, lowest)).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
+
   const params = new URLSearchParams(location.search);
   let S = null, metric = METRICS.some(m => m.id === params.get('tri')) ? params.get('tri') : 'points', q = '';
 
@@ -69,33 +98,9 @@
     ];
     $('totals').innerHTML = totals.map(([l, v]) => `<div class="card kpi"><span class="label">${l}</span><b data-count="${String(v).replace(/\D/g, '')}">${v}</b></div>`).join('');
 
-    const RECORDS = [
-      ['points', 'Le plus de points', p => fmt.n(p.points) + ' pts'],
-      ['hours', "Le plus d'heures de vol", p => fmt.h1(p.hours) + ' h'],
-      ['longest', 'Vol le plus long', p => fmt.dur(p.longest)],
-      ['bsHours', "Le plus d'heures Blue Sky", p => fmt.h1(p.bsHours) + ' h'],
-      ['airKills', 'Le plus de kills air', p => fmt.n(p.airKills)],
-      ['groundKills', 'Le plus de kills sol', p => fmt.n(p.groundKills)],
-      ['navalKills', 'Le plus de kills mer', p => fmt.n(p.navalKills)],
-      ['traps', "Le plus d'appontages", p => fmt.n(p.traps)],
-      ['landings', "Le plus d'atterrissages", p => fmt.n(p.landings)],
-      ['flights', 'Le plus de vols', p => fmt.n(p.flights)],
-      ['maxRefuel', 'Le ravitaillement le plus long', p => fmt.dur(p.maxRefuel)],
-      ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
-      ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
-      ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],
-      ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft · ' + dec1(p.maxAlt / 1000) + ' km'],
-      // shortcut: Mach calculé avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
-      ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h · Mach ' + dec1(p.maxSpeed / 295)]
-    ];
-    // 20261106 → " · depuis le 06/11/2026" ; pas de date (ancien record ou record cumulé) → rien
-    const since = d => d ? ` · depuis le ${String(d).slice(6, 8)}/${String(d).slice(4, 6)}/${String(d).slice(0, 4)}` : '';
-    const dec1 = v => v.toFixed(1).replace('.', ',');
-    const dist = m => m >= 1852 ? dec1(m / 1852) + ' NM' : Math.round(m) + ' m';
-    // à égalité, le premier pilote trouvé garde le record ; sans valeur, la case reste vide
+    // sans valeur, la case reste vide
     $('records').innerHTML = RECORDS.map(([k, label, show, lowest]) => {
-      const has = p => lowest ? p[k] != null : p[k] > 0;
-      const best = S.pilots.filter(has).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
+      const best = bestOf(k, lowest);
       return best
         ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}${since(best.at[k])}</span></button>`
         : `<div class="card kpi" style="opacity:.55"><span class="label">${label}</span><b style="font-size:26px">—</b><span class="mono" style="font-size:13px; color:#8a91a3">Pas encore de record</span></div>`;
@@ -137,10 +142,14 @@
     const details = [
       ['Heures complètes (atterri)', fmt.h1(p.completedHours) + ' h'],
       ['Heures Blue Sky (mode F10)', fmt.h1(p.bsHours) + ' h'],
-      ['Vol le plus long', fmt.dur(p.longest)],
-      ['Temps au ravitaillement', fmt.dur(p.refuel)],
-      ['Niveau des bots (F10)', p.level || '—']
+      ['Temps au ravitaillement', fmt.dur(p.refuel)]
     ];
+    const personal = RECORDS.filter(([k]) => PERSONAL.includes(k)).map(([k, label, show, lowest]) => {
+      if (!hasRecord(p, k, lowest)) return `<div><span style="color:#4a556b">${label}</span><span class="mono" style="color:#8a91a3">—</span></div>`;
+      const star = bestOf(k, lowest) === p ? '<span title="Record du serveur" aria-label="Record du serveur" style="color:#c9962e">★ </span>' : '';
+      const date = p.at[k] ? `<small style="display:block; font-size:11px; font-weight:400; color:#8a91a3">depuis le ${dateFr(p.at[k])}</small>` : '';
+      return `<div><span style="color:#4a556b">${label}</span><span class="mono" style="font-weight:600; text-align:right">${star}${esc(show(p))}${date}</span></div>`;
+    });
     $('drawerRoot').innerHTML = `
       <div class="overlay" data-close></div>
       <aside class="drawer" role="dialog" aria-label="Fiche pilote ${esc(p.callsign)}">
@@ -166,6 +175,10 @@
         <div style="padding:24px 28px 40px; display:flex; flex-direction:column; gap:28px">
           <div class="stat-grid">${stats.map(([l, v]) => `<div><span class="label">${l}</span><b>${v}</b></div>`).join('')}</div>
           <div class="rows">${details.map(([l, v]) => `<div><span style="color:#4a556b">${l}</span><span class="mono" style="font-weight:600">${esc(v)}</span></div>`).join('')}</div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <span class="label">Records personnels</span>
+            <div class="rows">${personal.join('')}</div>
+          </div>
         </div>
       </aside>`;
     document.body.style.overflow = 'hidden';
