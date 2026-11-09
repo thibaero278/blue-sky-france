@@ -122,7 +122,8 @@
   function sync(list) {
     const seen = new Set();
     list.forEach(n => {
-      n = { ...n, aircraft: acName(n.aircraft), key: n.id || n.callsign, ai: !!n.id, side: n.side ?? 2 };
+      // bs : absent du JSON quand le mode est coupé, sans ce !! Object.assign garderait l'ancien true
+      n = { ...n, aircraft: acName(n.aircraft), key: n.id || n.callsign, ai: !!n.id, side: n.side ?? 2, bs: !!n.bs };
       seen.add(n.key);
       let p = units.find(x => x.key === n.key);
       if (!p) { p = { ...n, trail: [] }; units.push(p); }

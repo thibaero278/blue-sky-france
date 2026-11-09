@@ -1,6 +1,14 @@
 # PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 08/11/2026 (points strike + interception Yak-40 codés, pas encore injectés ni testés en jeu)_
+_Dernière mise à jour : 09/11/2026 (panne du site réparée côté R2D2 ; 08/11 : points strike + interception Yak-40 codés, pas encore injectés ni testés en jeu)_
+
+> **09/11, panne « plus rien ne se rafraîchit » :** depuis le 06/11 23 h 33, 5 lignes de `commands.py` sur R2D2 avaient perdu leur « r » final
+> (`BlueSkyEventListene`), plugin `bluesky` non chargé. Probable `sed 's/\r$//'` au backslash mangé par PowerShell : déployer avec `scp` seul.
+> Fichier recopié (ancien : `~/bluesky-bot/commands.py.casse-2026-11-06`), bot relancé à 01 h 53, plugin chargé, classement envoyé au site.
+> ⚠️ Relancer le maître ou un agent **pendant une mission** : la mission continue, mais l'agent marque le serveur « Shutdown » dès que son test du port
+> webgui échoue (`register_local_servers`, service.py) et le statut reste bloqué jusqu'au prochain chargement de mission ; le plugin n'envoie la carte live
+> qu'en Running/Paused. Donc : lancer le bot **avant** la mission, ou recharger la mission après. Pourquoi l'agent de Weefe s'est arrêté à 01 h 53:55 : inconnu.
+> Carte live à revérifier après le prochain chargement de mission sur le serveur de Weefe.
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
@@ -888,3 +896,11 @@ avec l'ambiance d'une salle de briefing ou d'archives militaires classées (un c
 - Traînées (réglé par Thibaud à 15 °C, condensation OK en jeu) : mission à 23,2 °C au sol, soit environ -36 °C au FL300, sans doute trop chaud ; à essayer vers 10 °C (non vérifié).
 - **À faire** : retester (vitesse suffisante ? Beslan ? fuite hostile à 600 m sol) ; Tu-95 : vérifier que l'IA tire vraiment ses
   Kh-555 avec la tâche Bombing (sinon essayer le type d'arme « missile de croisière ») et que le Su-27 attaque bien en tir libre.
+
+## 09/11/2026 : corrections de bugs (après le grill-me de la liste de 37 tâches)
+- `Code.gs` : déjà à jour en ligne (les 30 colonnes sortent de `?format=json`), pas de redéploiement à faire.
+- **Carte, mode Blue Sky** : `sync` (`carte.js`) force `bs: !!n.bs`. Le champ est absent du JSON quand le mode est coupé et `Object.assign` gardait l'ancien `true`. Vérifié dans le navigateur (faux live : icône retirée).
+- **Barre de navigation** : `serverLabel` court (« Hors ligne », « N en ligne », « Serveur vide ») et pastille masquée sous 1280 px. Vérifié à 1120, 1200, 1279, 1280, 1440 px. `?v=` montés dans les pages HTML (`style.css`, `data.js`, `carte.js`).
+- **Kill loin / proche** (0 pilote renseigné sur le relais) : `GetTargetPoint` renvoyait nil quand la cible avait déjà disparu au moment du kill. Le script garde maintenant la position de la cible au dernier coup au but du tireur (`LastHit`, 30 s), ce qui sert aussi aux points des zones strike. Choix de Thibaud : distance **au tir** pour les armes suivies (`Shots`, par `id_` de l'arme : distance de la cible verrouillée, sinon position du tireur au tir → cible) ; canon : distance au moment du kill. Test hors jeu : `python tools/test_kill_distance.py`. Sauvegarde `bakup\script Caucase_2026-11-09_avant-records-distance.lua`.
+- **Altitude / vitesse comptées seulement après crash ou éjection (selon Thibaud)** : cause **non trouvée**. Le message d'atterrissage s'affiche et le code passe par `CloseFlight` dans les deux cas. Ajout d'une ligne dans `dcs.log` à chaque fin de vol (`BlueSky records : fin de vol …`), à retirer une fois résolu. À faire : un vol, atterrissage, puis lire cette ligne et comparer à `Scores.lua`.
+- Injecté le 09/11 à 14 h 12, DCS fermé (sauvegarde `bakup\…_2026-11-09_14-12-53.miz.bak`), kneeboard 24 pages intact. **Non testé en jeu.** La .miz envoyée à Weefe le 08/11 n'a pas ces corrections.

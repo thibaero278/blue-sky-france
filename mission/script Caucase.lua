@@ -331,6 +331,9 @@ local function CloseFlight(playerName)
     -- records relevés pendant le vol (SampleFlights), gardés comme le vol le plus long, même si le vol finit mal
     SetRecord(playerName, s, "maxAltitude", f.maxAlt)
     SetRecord(playerName, s, "maxSpeed", f.maxSpeed)
+    -- diagnostic du bug « records comptes seulement apres un crash » : a retirer une fois resolu
+    env.info(string.format("BlueSky records : fin de vol %s, alt %d m (record %d), vitesse %d m/s (record %d)",
+        playerName, f.maxAlt or 0, s.maxAltitude or 0, f.maxSpeed or 0, s.maxSpeed or 0))
     return elapsed, f
 end
 
@@ -771,8 +774,21 @@ end
 ------------------------------------------------------------
 TrackedWeapons = {}
 LastImpact = {} -- pilote -> point d'impact estime de sa derniere arme
+Shots = {}      -- id_ de l'arme -> { point = tireur au tir, dist = distance de la cible verrouillee au tir, t }
+LastHit = {}    -- pilote -> { point = cible au dernier coup au but, t }
+local SHOT_KEEP_S = 300 -- un missile tue bien avant
+HIT_KEEP_S = 30         -- une cible touchee peut mettre quelques secondes a mourir
+
+local function Distance2D(p1, p2)
+    if not p1 or not p2 then return nil end
+    local dx, dz = p1.x - p2.x, p1.z - p2.z
+    return math.sqrt(dx * dx + dz * dz)
+end
 
 local function TrackWeapons(_, now)
+    for id, shot in pairs(Shots) do
+        if now - shot.t > SHOT_KEEP_S then Shots[id] = nil end
+    end
     for id, data in pairs(TrackedWeapons) do
         local weapon = data.weapon
         if weapon:isExist() then
@@ -793,11 +809,25 @@ timer.scheduleFunction(TrackWeapons, nil, timer.getTime() + TRACK_INTERVAL)
 WeaponTrackerHandler = {}
 
 function WeaponTrackerHandler:onEvent(event)
-    if event.id ~= world.event.S_EVENT_SHOT or not event.weapon or not event.initiator then return end
-    if not event.initiator.getPlayerName then return end
+    if event.id ~= world.event.S_EVENT_SHOT and event.id ~= world.event.S_EVENT_HIT then return end
+    if not event.initiator or not event.initiator.getPlayerName or not event.initiator:isExist() then return end
 
     local shooterName = event.initiator:getPlayerName()
     if not shooterName then return end -- les tirs IA ne sont plus suivis
+
+    if event.id == world.event.S_EVENT_HIT then
+        local target = event.target
+        if target and target.getPoint and target:isExist() then
+            LastHit[shooterName] = { point = target:getPoint(), t = timer.getTime() }
+        end
+        return
+    end
+    if not event.weapon then return end
+
+    local launch = event.initiator:getPoint()
+    local locked = event.weapon.getTarget and event.weapon:getTarget()
+    Shots[event.weapon.id_] = { point = launch, t = timer.getTime(),
+        dist = locked and locked:isExist() and Distance2D(launch, locked:getPoint()) or nil }
 
     TrackedWeapons[tostring(event.weapon)] = {
         weapon = event.weapon,
@@ -810,12 +840,6 @@ world.addEventHandler(WeaponTrackerHandler)
 ------------------------------------------------------------
 -- KILLS
 ------------------------------------------------------------
-local function Distance2D(p1, p2)
-    if not p1 or not p2 then return nil end
-    local dx, dz = p1.x - p2.x, p1.z - p2.z
-    return math.sqrt(dx * dx + dz * dz)
-end
-
 local function GetTargetPoint(EventData)
     for _, obj in ipairs({ EventData.TgtDCSUnit, EventData.TgtDCSObject }) do
         if obj and obj.isExist and obj:isExist() then return obj:getPoint() end
@@ -824,6 +848,9 @@ local function GetTargetPoint(EventData)
         local p = EventData.TgtObject:GetPointVec3()
         if p then return { x = p.x, y = p.y, z = p.z } end
     end
+    -- cible deja disparue au moment du kill : sa position au dernier coup au but du tireur
+    local hit = EventData.IniPlayerName and LastHit[EventData.IniPlayerName]
+    if hit and timer.getTime() - hit.t <= HIT_KEEP_S then return hit.point end
     return nil
 end
 
@@ -907,8 +934,9 @@ function KillHandler:OnEventKill(EventData)
 
     local targetPoint = GetTargetPoint(EventData)
     local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
-    -- distance avion-cible pour les records (meme calcul que le message), au moins 1 m (0 = pas de record)
-    local killDist = Distance2D(shooterPoint, targetPoint)
+    -- distance pour les records : au moment du tir pour une arme suivie, sinon (canon) au moment du kill ; au moins 1 m (0 = pas de record)
+    local shot = type(EventData.weapon) == "table" and Shots[EventData.weapon.id_]
+    local killDist = shot and (shot.dist or Distance2D(shot.point, targetPoint)) or Distance2D(shooterPoint, targetPoint)
     killDist = killDist and math.max(1, math.floor(killDist))
 
     -- En vol : en attente jusqu'a l'atterrissage. Au sol : valide direct. Chaque membre d'equipage a le kill entier.

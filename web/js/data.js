@@ -325,7 +325,7 @@
       return { demo: !!l.demo, up: true, online, mission: l.mission || '', clock };
     }));
   }
-  const serverLabel = srv => !srv.up ? 'Serveur · hors ligne' : srv.online.length ? 'Serveur · ' + srv.online.length + ' en ligne' : 'Serveur · personne en ligne';
+  const serverLabel = srv => !srv.up ? 'Hors ligne' : srv.online.length ? srv.online.length + ' en ligne' : 'Serveur vide';  // court : doit tenir dans la barre de navigation
 
   // Rafraîchissement sans F5 : on oublie les données déjà lues, les pages écoutent « bs:refresh » et relisent
   function refresh() {
