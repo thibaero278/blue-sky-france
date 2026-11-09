@@ -61,8 +61,8 @@ def find_pilot(scores: dict[str, dict], name: str) -> tuple[str, dict] | None:
     return None
 
 
-MAX_FIELDS = {'maxFlightTime', 'maxRefuel', 'maxKillsFlight', 'maxKillDistance', 'maxAltitude', 'maxSpeed'}  # record, pas un compteur : on garde le plus grand
-MIN_FIELDS = {'minKillDistance'}  # record où l'on garde le plus petit ; 0 = pas encore de record
+MAX_FIELDS = {'maxFlightTime', 'maxRefuel', 'maxKillsFlight', 'maxKillDistance', 'maxKillDistanceAS', 'maxAltitude', 'maxSpeed'}  # record, pas un compteur : on garde le plus grand
+MIN_FIELDS = {'minKillDistance', 'minKillDistanceAS'}  # record où l'on garde le plus petit ; 0 = pas encore de record
 RECORD_FIELDS = MAX_FIELDS | MIN_FIELDS
 
 

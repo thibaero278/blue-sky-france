@@ -58,6 +58,7 @@ local SCORE_FIELDS = {
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
     "bsFlightTime", "maxRefuel", "maxKillsFlight", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
+    "maxKillDistanceAS", "minKillDistanceAS", -- kills air-sol (bateaux compris) ; maxKillDistance / minKillDistance = air-air
 }
 
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
@@ -100,7 +101,7 @@ end
 local function NewFlight()
     -- killFar / killNear : distances avion-cible du vol en m (0 = aucune)
     return { active = false, startTime = nil, airair = 0, airsol = 0, airmer = 0, points = 0, refuelTime = 0,
-             killFar = 0, killNear = 0 }
+             killFar = 0, killNear = 0, killFarAS = 0, killNearAS = 0 }
 end
 
 local function GetFlight(playerName)
@@ -226,8 +227,10 @@ local RECORDS = {
     maxFlightTime   = { "Vol le plus long", FormatFlightTime },
     maxRefuel       = { "Ravitaillement le plus long", FormatFlightTime },
     maxKillsFlight  = { "Plus de kills en un vol", function(v) return v .. " kills" end },
-    maxKillDistance = { "Kill le plus loin", FormatDistance },
-    minKillDistance = { "Kill le plus proche", FormatDistance, true },
+    maxKillDistance = { "Kill air-air le plus loin", FormatDistance },
+    minKillDistance = { "Kill air-air le plus proche", FormatDistance, true },
+    maxKillDistanceAS = { "Kill air-sol le plus loin", FormatDistance },
+    minKillDistanceAS = { "Kill air-sol le plus proche", FormatDistance, true },
     maxAltitude     = { "Altitude max", function(v) return math.floor(v * 3.28084) .. " ft / " .. string.format("%.1f km", v / 1000) end },
     -- shortcut: Mach calcule avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
     maxSpeed        = { "Vitesse max", function(v) return math.floor(v * 3.6) .. " km/h / Mach " .. string.format("%.1f", v / 295) end },
@@ -378,6 +381,8 @@ local function CommitFlightKills(playerName, f, elapsed)
     SetRecord(playerName, s, "maxKillsFlight", f.airair + f.airsol + f.airmer)
     SetRecord(playerName, s, "maxKillDistance", f.killFar)
     SetRecord(playerName, s, "minKillDistance", f.killNear)
+    SetRecord(playerName, s, "maxKillDistanceAS", f.killFarAS)
+    SetRecord(playerName, s, "minKillDistanceAS", f.killNearAS)
     if elapsed then s.completedFlightTime = s.completedFlightTime + elapsed end
 
     local newIndex, rank = GetRank(s.points)
@@ -949,8 +954,10 @@ function KillHandler:OnEventKill(EventData)
         fc[kind] = fc[kind] + 1
         fc.points = fc.points + points
         if killDist then
-            fc.killFar = math.max(fc.killFar or 0, killDist)
-            if (fc.killNear or 0) == 0 or killDist < fc.killNear then fc.killNear = killDist end
+            local far, near = "killFar", "killNear"
+            if kind ~= "airair" then far, near = "killFarAS", "killNearAS" end
+            fc[far] = math.max(fc[far] or 0, killDist)
+            if (fc[near] or 0) == 0 or killDist < fc[near] then fc[near] = killDist end
         end
         if not pend then
             CommitFlightKills(name, fc)

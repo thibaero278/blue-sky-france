@@ -35,13 +35,15 @@
     ['flights', 'Le plus de vols', p => fmt.n(p.flights)],
     ['maxRefuel', 'Ravitaillement le plus long', p => fmt.dur(p.maxRefuel)],
     ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
-    ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
-    ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],
+    ['farKill', 'Kill air-air le plus loin', p => dist(p.farKill)],
+    ['nearKill', 'Kill air-air le plus proche', p => dist(p.nearKill), true],
+    ['farKillAS', 'Kill air-sol le plus loin', p => dist(p.farKillAS)],
+    ['nearKillAS', 'Kill air-sol le plus proche', p => dist(p.nearKillAS), true],
     ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft · ' + dec1(p.maxAlt / 1000) + ' km'],
     // shortcut: Mach calculé avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
     ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h · Mach ' + dec1(p.maxSpeed / 295)]
   ];
-  const PERSONAL = ['longest', 'maxRefuel', 'bestFlightKills', 'farKill', 'nearKill', 'maxAlt', 'maxSpeed'];
+  const PERSONAL = ['longest', 'maxRefuel', 'bestFlightKills', 'farKill', 'nearKill', 'farKillAS', 'nearKillAS', 'maxAlt', 'maxSpeed'];
   const hasRecord = (p, k, lowest) => lowest ? p[k] != null : p[k] > 0;
   // à égalité, le premier pilote trouvé garde le record
   const bestOf = (k, lowest) => S.pilots.filter(p => hasRecord(p, k, lowest)).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
