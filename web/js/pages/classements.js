@@ -84,12 +84,14 @@
       ['bestFlightKills', 'Le plus de kills en un vol', p => fmt.n(p.bestFlightKills) + ' kills'],
       ['farKill', 'Le kill le plus loin', p => dist(p.farKill)],
       ['nearKill', 'Le kill le plus proche', p => dist(p.nearKill), true],
-      ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft'],
-      ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h']
+      ['maxAlt', 'Altitude maximale', p => fmt.n(Math.round(p.maxAlt * 3.28084)) + ' ft · ' + dec1(p.maxAlt / 1000) + ' km'],
+      // shortcut: Mach calculé avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
+      ['maxSpeed', 'Vitesse maximale', p => fmt.n(Math.round(p.maxSpeed * 3.6)) + ' km/h · Mach ' + dec1(p.maxSpeed / 295)]
     ];
     // 20261106 → " · depuis le 06/11/2026" ; pas de date (ancien record ou record cumulé) → rien
     const since = d => d ? ` · depuis le ${String(d).slice(6, 8)}/${String(d).slice(4, 6)}/${String(d).slice(0, 4)}` : '';
-    const dist = m => m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m) + ' m';
+    const dec1 = v => v.toFixed(1).replace('.', ',');
+    const dist = m => m >= 1852 ? dec1(m / 1852) + ' NM' : Math.round(m) + ' m';
     // à égalité, le premier pilote trouvé garde le record ; sans valeur, la case reste vide
     $('records').innerHTML = RECORDS.map(([k, label, show, lowest]) => {
       const has = p => lowest ? p[k] != null : p[k] > 0;

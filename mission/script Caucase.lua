@@ -219,7 +219,7 @@ end
 -- 0 = pas encore de record (pas d'annonce pour un tout premier record, sinon spam au deploiement).
 ------------------------------------------------------------
 local function FormatDistance(m)
-    return m >= 1000 and string.format("%.1f km", m / 1000) or (math.floor(m) .. " m")
+    return m >= 1852 and string.format("%.1f NM", m / 1852) or (math.floor(m) .. " m")
 end
 
 local RECORDS = {
@@ -228,8 +228,9 @@ local RECORDS = {
     maxKillsFlight  = { "Plus de kills en un vol", function(v) return v .. " kills" end },
     maxKillDistance = { "Kill le plus loin", FormatDistance },
     minKillDistance = { "Kill le plus proche", FormatDistance, true },
-    maxAltitude     = { "Altitude max", function(v) return math.floor(v * 3.28084) .. " ft" end },
-    maxSpeed        = { "Vitesse max", function(v) return math.floor(v * 3.6) .. " km/h" end },
+    maxAltitude     = { "Altitude max", function(v) return math.floor(v * 3.28084) .. " ft / " .. string.format("%.1f km", v / 1000) end },
+    -- shortcut: Mach calcule avec le son en haute altitude (295 m/s), stocker le Mach du vol pour la valeur exacte
+    maxSpeed        = { "Vitesse max", function(v) return math.floor(v * 3.6) .. " km/h / Mach " .. string.format("%.1f", v / 295) end },
 }
 
 local function Better(field, a, b) -- a bat b ?
@@ -975,8 +976,8 @@ function KillHandler:OnEventKill(EventData)
             "\nPoints ce vol : " .. f.points ..
             "\nPoints valides : " .. s.points ..
             (pending and "\n(valides a l'atterrissage)" or "") ..
-            (impactDist and ("\nDistance impact-cible : " .. math.floor(impactDist) .. " m") or "") ..
-            (shooterDist and ("\nDistance avion-cible : " .. math.floor(shooterDist) .. " m") or ""),
+            (impactDist and ("\nDistance impact-cible : " .. FormatDistance(impactDist)) or "") ..
+            (shooterDist and ("\nDistance avion-cible : " .. FormatDistance(shooterDist)) or ""),
             8)
         return nil
     end, nil, timer.getTime() + 0.3)
