@@ -24,9 +24,9 @@ local CARRIERS = {
 local POINTS = {
     AIRPLANE    = 3,
     HELICOPTER  = 2,
-    SHIP        = 5,
-    GROUND      = 1,
-    AIR_DEFENCE = 3,
+    SHIP        = 8,
+    GROUND      = 2,
+    AIR_DEFENCE = 5,
     STATIC      = 1,
 }
 
@@ -57,7 +57,7 @@ local SCORE_FIELDS = {
     "traps", "landings", "airair", "airsol", "airmer", "points",
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
-    "bsFlightTime", "maxRefuel", "maxKillsFlight", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
+    "bsFlightTime", "maxRefuel", "maxKillsFlightAA", "maxKillsFlightAS", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
     "maxKillDistanceAS", "minKillDistanceAS", -- kills air-sol (bateaux compris) ; maxKillDistance / minKillDistance = air-air
 }
 
@@ -226,7 +226,8 @@ end
 local RECORDS = {
     maxFlightTime   = { "Vol le plus long", FormatFlightTime },
     maxRefuel       = { "Ravitaillement le plus long", FormatFlightTime },
-    maxKillsFlight  = { "Plus de kills en un vol", function(v) return v .. " kills" end },
+    maxKillsFlightAA = { "Plus de kills air-air en un vol", function(v) return v .. " kills" end },
+    maxKillsFlightAS = { "Plus de kills air-sol en un vol", function(v) return v .. " kills" end },
     maxKillDistance = { "Kill air-air le plus loin", FormatDistance },
     minKillDistance = { "Kill air-air le plus proche", FormatDistance, true },
     maxKillDistanceAS = { "Kill air-sol le plus loin", FormatDistance },
@@ -315,13 +316,14 @@ local function CloseFlight(playerName)
     StopRefuel(playerName)
     FlightClosedAt[playerName] = timer.getTime()
     CrewUnit[playerName] = nil
-    -- Fin du vol (atterrissage, mort, ejection, changement de slot) : le mode Blue Sky s'arrete aussi
-    local bs = BSMode[playerName]
-    BSMode[playerName] = nil
-
     local f = Flights[playerName]
     Flights[playerName] = nil
     if not f or not f.active then return nil, f end
+
+    -- Fin du vol (atterrissage, mort, ejection, changement de slot) : le mode Blue Sky s'arrete aussi.
+    -- Apres le test du vol actif : un faux Land au sol (pont du PA) coupait le mode avant le decollage.
+    local bs = BSMode[playerName]
+    BSMode[playerName] = nil
 
     local elapsed = timer.getTime() - f.startTime
     local s = InitPlayer(playerName)
@@ -336,8 +338,8 @@ local function CloseFlight(playerName)
     SetRecord(playerName, s, "maxAltitude", f.maxAlt)
     SetRecord(playerName, s, "maxSpeed", f.maxSpeed)
     -- diagnostic du bug « records comptes seulement apres un crash » : a retirer une fois resolu
-    env.info(string.format("BlueSky records : fin de vol %s, alt %d m (record %d), vitesse %d m/s (record %d)",
-        playerName, f.maxAlt or 0, s.maxAltitude or 0, f.maxSpeed or 0, s.maxSpeed or 0))
+    env.info(string.format("BlueSky records : fin de vol %s, alt %d m (record %d), vitesse %d m/s (record %d), mode BS %s",
+        playerName, f.maxAlt or 0, s.maxAltitude or 0, f.maxSpeed or 0, s.maxSpeed or 0, bs and "oui" or "non"))
     return elapsed, f
 end
 
@@ -377,8 +379,9 @@ local function CommitFlightKills(playerName, f, elapsed)
     -- temps de vol : 1 pt / 5 min, seulement a l'atterrissage (elapsed absent = kill valide hors atterrissage)
     if elapsed then f.timePts = math.floor(elapsed / TIME_PTS_S); f.points = f.points + f.timePts end
     s.points = s.points + f.points
-    -- record : le plus de kills valides sur un seul vol (A/A + A/S + A/M)
-    SetRecord(playerName, s, "maxKillsFlight", f.airair + f.airsol + f.airmer)
+    -- records : le plus de kills valides sur un seul vol, air-air d'un cote, air-sol (bateaux compris) de l'autre
+    SetRecord(playerName, s, "maxKillsFlightAA", f.airair)
+    SetRecord(playerName, s, "maxKillsFlightAS", f.airsol + f.airmer)
     SetRecord(playerName, s, "maxKillDistance", f.killFar)
     SetRecord(playerName, s, "minKillDistance", f.killNear)
     SetRecord(playerName, s, "maxKillDistanceAS", f.killFarAS)
@@ -779,10 +782,10 @@ end
 -- TRACKING DES ARMES (joueurs uniquement) + IMPACT ESTIME
 ------------------------------------------------------------
 TrackedWeapons = {}
-LastImpact = {} -- pilote -> point d'impact estime de sa derniere arme
+LastImpact = {} -- pilote -> { point = impact estime de sa derniere arme, t }
 Shots = {}      -- id_ de l'arme -> { point = tireur au tir, dist = distance de la cible verrouillee au tir, t }
 LastHit = {}    -- pilote -> { point = cible au dernier coup au but, t }
-local SHOT_KEEP_S = 300 -- un missile tue bien avant
+local SHOT_KEEP_S = 3600 -- un SLAM-ER tire a 350 km vole plus de 20 min
 HIT_KEEP_S = 30         -- une cible touchee peut mettre quelques secondes a mourir
 
 local function Distance2D(p1, p2)
@@ -800,9 +803,10 @@ local function TrackWeapons(_, now)
         if weapon:isExist() then
             local pos = weapon:getPosition()
             data.lastIP = land.getIP(pos.p, pos.x, IP_DISTANCE) or data.lastIP
+            if Shots[weapon.id_] then Shots[weapon.id_].last = pos.p end -- remplace la cible si elle a disparu d'un seul coup
         else
             if data.lastIP then
-                LastImpact[data.shooterName] = data.lastIP
+                LastImpact[data.shooterName] = { point = data.lastIP, t = now }
             end
             TrackedWeapons[id] = nil
         end
@@ -869,7 +873,12 @@ end
 
 -- Cibles strike (08/11) : valent plus que le decor (1 pt). Cercle repris d'un dessin F10 de la mission
 -- (le script ne voit pas les dessins) : a mettre a jour si le dessin bouge. x = nord, z = est (y editeur).
-local STRIKE_TYPES = { ["Oil rig"] = 5, ["Gas platform"] = 5 } -- derricks et plateforme de Petrol Strike
+local STRIKE_TYPES = { ["Oil rig"] = 5, ["Gas platform"] = 5, -- derricks et plateforme de Petrol Strike
+    [".Ammunition depot"] = 5, [".Command Center"] = 5, ["Tank 2"] = 5 }
+for _, parked in ipairs({ "IL-78M", "Tu-22M3", "Su-34", "Su-33", "MiG-29A", "Tu-160", "Tu-95MS", "Su-24M", "Su-24MR", "Su-25T", "Su-25",
+    "A-20G", "Tu-142", "Yak-52", "La-7", "An-30M", "Mi-8MT" }) do
+    STRIKE_TYPES[parked] = 2 -- avions parques de la mission (statiques)
+end
 local STRIKE_ZONES = {
     { x = -33689, z = 587156, r = 969, pts = 2 }, -- cercle a 27 objets (depot de munitions, PC, pompes...)
 }
@@ -942,8 +951,10 @@ function KillHandler:OnEventKill(EventData)
     local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
     -- distance pour les records : au moment du tir pour une arme suivie, sinon (canon) au moment du kill ; au moins 1 m (0 = pas de record)
     local shot = type(EventData.weapon) == "table" and Shots[EventData.weapon.id_]
-    local killDist = shot and (shot.dist or Distance2D(shot.point, targetPoint)) or Distance2D(shooterPoint, targetPoint)
+    local killDist = shot and (shot.dist or Distance2D(shot.point, targetPoint or shot.last)) or Distance2D(shooterPoint, targetPoint)
     killDist = killDist and math.max(1, math.floor(killDist))
+    env.info(string.format("BlueSky kill : %s, %s, arme %s, distance %s, cible localisee %s, tir suivi %s", playerName, kind,
+        tostring(EventData.WeaponName), tostring(killDist), tostring(targetPoint ~= nil), tostring(shot and true or false)))
 
     -- En vol : en attente jusqu'a l'atterrissage. Au sol : valide direct. Chaque membre d'equipage a le kill entier.
     local f, pending
@@ -968,10 +979,10 @@ function KillHandler:OnEventKill(EventData)
 
     -- Petit delai pour laisser le tracker enregistrer l'impact
     timer.scheduleFunction(function()
-        local impact = LastImpact[playerName]
-        local target = targetPoint or impact
-        local impactDist = Distance2D(impact, target)
-        local shooterDist = Distance2D(shooterPoint, target)
+        -- Impact recent uniquement, et jamais a la place de la cible : un impact d'une autre passe donnait
+        -- "impact-cible 0 m" et une distance avion-cible de plusieurs centaines de km
+        local last = LastImpact[playerName]
+        local impactDist = last and timer.getTime() - last.t <= HIT_KEEP_S and Distance2D(last.point, targetPoint) or nil
         local label = KIND_LABEL[kind]
 
         MessageToPlayer(unitID,
@@ -984,7 +995,7 @@ function KillHandler:OnEventKill(EventData)
             "\nPoints valides : " .. s.points ..
             (pending and "\n(valides a l'atterrissage)" or "") ..
             (impactDist and ("\nDistance impact-cible : " .. FormatDistance(impactDist)) or "") ..
-            (shooterDist and ("\nDistance avion-cible : " .. FormatDistance(shooterDist)) or ""),
+            (killDist and ("\nDistance de tir : " .. FormatDistance(killDist)) or ""), -- la valeur des records
             8)
         return nil
     end, nil, timer.getTime() + 0.3)
@@ -1118,6 +1129,7 @@ local function SetBlueSkyMode(GroupObject, on)
             MessageToPlayer(id, "MODE BLUE SKY\nA activer au sol, avant le decollage.", 8)
         elseif on and not BSMode[name] then
             BSMode[name] = true
+            env.info("BlueSky : mode Blue Sky active par " .. name)
             MessageToPlayer(id, "MODE BLUE SKY ACTIF (" .. name .. ")\nTon prochain vol compte dans tes heures Blue Sky.\n" ..
                 "Il s'arrete a l'atterrissage, si tu meurs, t'ejectes ou changes de slot.", 10)
         elseif not on and BSMode[name] then

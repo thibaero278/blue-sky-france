@@ -24,12 +24,14 @@ const COLS = ['name', 'grade', 'points', 'totalFlightTime', 'completedFlightTime
   'maxKillsFlight', 'maxKillDistance', 'minKillDistance', 'maxAltitude', 'maxSpeed',  // records (0 = pas encore de record)
   'maxFlightTimeAt', 'maxKillsFlightAt', 'maxKillDistanceAt', 'minKillDistanceAt', 'maxAltitudeAt', 'maxSpeedAt',
   'maxRefuel', 'maxRefuelAt',  // ravitaillement le plus long (s) et sa date, ajoutés en fin pour ne pas décaler les colonnes  // dates AAAAMMJJ
-  'maxKillDistanceAS', 'minKillDistanceAS', 'maxKillDistanceASAt', 'minKillDistanceASAt'];  // kills air-sol, en fin pour la même raison ; maxKillDistance / minKillDistance = air-air
+  'maxKillDistanceAS', 'minKillDistanceAS', 'maxKillDistanceASAt', 'minKillDistanceASAt',  // kills air-sol, en fin pour la même raison ; maxKillDistance / minKillDistance = air-air
+  'maxKillsFlightAA', 'maxKillsFlightAS', 'maxKillsFlightAAAt', 'maxKillsFlightASAt'];  // kills en un vol séparés ; maxKillsFlight (ancien cumul) n'est plus affiché
 const HEADERS = ['Pilote', 'Niveau', 'Points', 'Heures totales (s)', 'Heures completes (s)', 'Vol le plus long (s)',
   'Vols', 'Kills A/A', 'Kills A/S', 'Kills A/M', 'Appontages', 'Morts', 'Teamkills', 'Ravitaillement (s)', 'Grade', 'Atterrissages',
   'Heures Blue Sky (s)', 'Max kills en un vol', 'Kill air-air le plus loin (m)', 'Kill air-air le plus proche (m)', 'Altitude max (m)', 'Vitesse max (m/s)',
   'Date vol le plus long', 'Date max kills', 'Date kill le plus loin', 'Date kill le plus proche', 'Date altitude max', 'Date vitesse max', 'Ravitaillement le plus long (s)', 'Date ravitaillement le plus long',
-  'Kill air-sol le plus loin (m)', 'Kill air-sol le plus proche (m)', 'Date kill air-sol le plus loin', 'Date kill air-sol le plus proche'];
+  'Kill air-sol le plus loin (m)', 'Kill air-sol le plus proche (m)', 'Date kill air-sol le plus loin', 'Date kill air-sol le plus proche',
+  'Max kills air-air en un vol', 'Max kills air-sol en un vol', 'Date max kills air-air', 'Date max kills air-sol'];
 
 function sheet_(name, headers) {
   const ss = SpreadsheetApp.getActive();

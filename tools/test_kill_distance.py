@@ -23,10 +23,11 @@ end
 function weapon(id, tgt) return { id_ = id, getTarget = function() return tgt end } end
 ''' + tracker + handler + target + '''
 _G.GetTargetPoint = GetTargetPoint
+_G.TrackWeapons = TrackWeapons
 function dist(ev)  -- meme formule que OnEventKill
   local tp = GetTargetPoint(ev)
   local shot = type(ev.weapon) == "table" and Shots[ev.weapon.id_]
-  return shot and (shot.dist or Distance2D(shot.point, tp)) or Distance2D(ev.shooter, tp)
+  return shot and (shot.dist or Distance2D(shot.point, tp or shot.last)) or Distance2D(ev.shooter, tp)
 end
 pilot = unit(0, 0, "P")
 function shot(w) WeaponTrackerHandler:onEvent({ id = 1, initiator = pilot, weapon = w }) end
@@ -54,4 +55,35 @@ assert ev('''(function()
   local t = unit(300, 0); hit(t); t.dead = true; NOW = NOW + HIT_KEEP_S + 1
   return GetTargetPoint({ IniPlayerName = "P", TgtDCSUnit = t })
 end)()''') is None
+# SLAM-ER : 25 min de vol, cible detruite d'un coup (jamais localisee) : distance = tir -> derniere position du missile
+assert ev('''(function()
+  land = { getIP = function() return nil end }
+  local w = weapon(3, nil); w.isExist = function() return true end
+  w.getPosition = function() return { p = { x = 350000, y = 0, z = 0 }, x = {} } end
+  TrackedWeapons = {}
+  shot(w); NOW = NOW + 1500
+  TrackWeapons(nil, NOW)
+  return dist({ IniPlayerName = "P", weapon = w, shooter = { x = 900000, z = 0 } })
+end)()''') == 350000
+
+# mode Blue Sky : un faux Land au sol (pas de vol actif) ne le coupe pas ; la fin d'un vrai vol le compte puis le coupe
+close = src[src.index('local function CloseFlight'):src.index('-- MULTI-EQUIPAGE')].rsplit('---', 1)[0]
+lua.execute('''
+FlightClosedAt, CrewUnit, BSMode, Flights, S = {}, {}, { P = true }, {}, { totalFlightTime = 0, bsFlightTime = 0, flights = 0 }
+function StopRefuel() end
+function InitPlayer() return S end
+function SetRecord() end
+env = { info = function() end }
+''' + close + '''
+_G.CloseFlight = CloseFlight
+''')
+assert ev('(function() CloseFlight("P"); return BSMode.P end)()') is True
+assert ev('''(function()
+  Flights.P = { active = true, startTime = NOW - 600 }
+  CloseFlight("P"); return S.bsFlightTime
+end)()''') == 600
+assert ev('BSMode.P') is None
+
+# le script complet reste compilable
+lua.compile(src)
 print('OK')
