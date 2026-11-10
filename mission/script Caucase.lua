@@ -76,6 +76,7 @@ RefuelStart = {}          -- debut du contact ravitaillement par pilote
 UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite est deja morte)
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
 BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
+WelcomeVoiced = {}        -- pilote -> true : voix d'accueil deja jouee depuis le lancement de la mission
 BSCrew = {}               -- unite -> places 2, 3... occupees (pseudos), envoye toutes les 5 s par le bot (mission.lua)
 CrewUnit = {}             -- membre d'equipage en vol -> unite ou son vol a commence
 
@@ -473,6 +474,12 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             "Tes stats : F10 > STATISTIQUES\n" ..
             "Vol Blue Sky : F10 > MODE BLUE SKY (au sol)\n" ..
             "Discord : discord.gg/zVEsRbm8h2", 15)
+        -- Voix d'accueil (commandement) : seulement a la premiere apparition depuis le lancement de la mission
+        if not WelcomeVoiced[playerName] then
+            WelcomeVoiced[playerName] = true
+            local id = dcsUnit:getID()
+            timer.scheduleFunction(function() trigger.action.outSoundForUnit(id, "c00_accueil.ogg") end, nil, timer.getTime() + 2)
+        end
     end
 
     local dcsGroup = dcsUnit:getGroup()
@@ -2011,12 +2018,12 @@ function IcptLaunch(group)
     if not group or not group:IsAlive() then return end
     if Icpt then GroupMsg(group, "Interception deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
     local def = IcptDraw()
-    local group = GetSpawner(def.template):Spawn()
-    local u = GroupUnit(group)
+    local ai = GetSpawner(def.template):Spawn() -- pas "group" : il masquait le groupe du lanceur (mission sans membre, 10/11)
+    local u = GroupUnit(ai)
     local target = Airbase.getByName(def.target)
     if not u or not target then env.warning("BLUESKY : interception impossible : " .. def.template) return end
     local p, t = u:getPoint(), target:getPoint()
-    Icpt = { def = def, group = group, unitName = u:getName(), start = p, target = t,
+    Icpt = { def = def, group = ai, unitName = u:getName(), start = p, target = t,
              state = "silent", calls = 0, lastCall = -ICPT_GAP_S }
     -- cap du lanceur vers l'avion, repris par def.alert (%03d, puis %s = lanceur)
     local hdg, who = 0, "le lanceur"
@@ -2136,16 +2143,30 @@ end
 local OP_IDLE_S = 600 -- plus aucun membre en slot depuis 10 min : mission fermee, sinon personne ne pourrait la relancer (le code est prive)
 local PETROL = { x = -274341, z = 495476, r = 7606 } -- champ petrolier : sert seulement a trouver ses cibles
 
-local function TargetAlive(o) return o:isExist() and o:getLife() > 0 end
+-- Cibles detruites, notees par l'evenement Dead (menus plus bas)
+StrikeDead = {}
 
+-- life0 = vie au lancement : une vie qui tombe a 0 compte comme detruite, une vie deja a 0 au lancement est ignoree
+local function TargetAlive(o, life0)
+    if not o:isExist() or StrikeDead[o:getName()] then return false end
+    local life = o:getLife()
+    if life0 and life0 > 0 and life and life <= 0 then
+        StrikeDead[o:getName()] = true -- reste detruite pour un prochain lancement
+        return false
+    end
+    return true
+end
+
+-- Derricks et plateforme : statiques de type heliport dans l'editeur, donc des Airbase pour DCS (pas des StaticObject, 10/11)
 local function PetrolTargets()
-    local list = {}
-    for _, o in ipairs(coalition.getStaticObjects(coalition.side.RED) or {}) do
-        local t = o:getTypeName()
-        if (t == "Oil rig" or t == "Gas platform") and TargetAlive(o) and Distance2D(o:getPoint(), PETROL) <= PETROL.r then
-            list[#list + 1] = o
+    local list, near = {}, {}
+    for _, o in ipairs(world.getAirbases() or {}) do
+        if Distance2D(o:getPoint(), PETROL) <= PETROL.r then
+            near[#near + 1] = o:getName() .. " / " .. tostring(o:getTypeName()) .. " / vie " .. tostring(o:getLife())
+            if TargetAlive(o) then list[#list + 1] = o end
         end
     end
+    env.info("BLUESKY : Petrol Strike, cibles du champ : " .. (#near > 0 and table.concat(near, " ; ") or "aucune"))
     return list
 end
 
@@ -2186,7 +2207,8 @@ function StrikeLaunch(group, def)
     if #targets == 0 then GroupMsg(group, def.label .. " : objectif deja detruit.", 10) return end
     local zone = def.zone and def.zone()
     local op = OpStart(def.label, def.brief, group, not zone)
-    op.def, op.targets, op.left, op.zone = def, targets, #targets, zone
+    op.def, op.targets, op.left, op.zone, op.life0 = def, targets, #targets, zone, {}
+    for _, o in ipairs(targets) do op.life0[o:getName()] = o:getLife() end
     OpVoice(op, def.voice.brief)
 end
 
@@ -2203,7 +2225,7 @@ local function StrikeTick(op)
     local left, now = 0, timer.getTime()
     if op.zone then OpMarkPresent(op, function(p) return Distance2D(p, op.zone) <= op.zone.r end) end
     for _, o in ipairs(op.targets) do
-        if TargetAlive(o) then left = left + 1 end
+        if TargetAlive(o, op.life0[o:getName()]) then left = left + 1 end
     end
     if left == 0 then
         OpMsg(op, op.def.success .. "\n" .. OpReward(op, op.def.bonus), 20)
@@ -2364,6 +2386,14 @@ end
 ------------------------------------------------------------
 -- MENUS F10 MISSIONS + CODE : par groupe (et pas par coalition) pour savoir qui lance et qui rejoint
 ------------------------------------------------------------
+-- cibles statiques des missions strike : detruites = evenement Dead (voir TargetAlive)
+StrikeDeadHandler = EVENTHANDLER:New()
+StrikeDeadHandler:HandleEvent(EVENTS.Dead)
+function StrikeDeadHandler:OnEventDead(EventData)
+    local name = EventData.IniDCSUnitName or EventData.IniUnitName
+    if name then StrikeDead[name] = true end
+end
+
 function AddMissionMenusForGroup(group, groupName)
     local g = group:GetDCSObject()
     if not g or g:getCoalition() ~= coalition.side.BLUE then return end

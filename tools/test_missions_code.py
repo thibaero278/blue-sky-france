@@ -15,6 +15,7 @@ NOW = 100
 timer = { getTime = function() return NOW end, scheduleFunction = function(f) SCHED = f end }
 coalition = { side = { BLUE = 2, RED = 1 }, getPlayers = function() return UNITS end,
               getStaticObjects = function() return STATICS end }
+world = { getAirbases = function() return STATICS end }  -- derricks = heliports, donc des Airbase pour DCS
 env = { warning = function(m) error(m) end, info = function() end }
 ADMIRAL = {}
 Group = { getByName = function() return ADMIRAL end }
@@ -44,6 +45,7 @@ function obj(typeName, x, z)
   function o:isExist() return true end
   function o:getLife() return self.life end
   function o:getTypeName() return typeName end
+  function o:getName() return typeName .. x .. "/" .. z end
   function o:getPoint() return { x = x, y = 0, z = z } end
   return o
 end
@@ -69,6 +71,10 @@ ev = lua.eval
 ev('StrikeLaunch(leader, STRIKES[1])')
 assert ev('Ops["Petrol Strike"].left') == 2
 assert ev('members(Ops["Petrol Strike"])') == 'Alpha'
+# une cible dont la vie vaut deja 0 au lancement reste comptee comme intacte
+lua.execute('ZERO = obj("Oil rig", -274500, 495500); ZERO.life = 0; table.insert(STATICS, ZERO)')
+assert ev('#STRIKES[1].targets()') == 3
+lua.execute('table.remove(STATICS)')
 code = ev('Ops["Petrol Strike"].code')
 assert len(code) == 3 and '0' not in code and code in ev('GMSG.L')
 
@@ -86,10 +92,12 @@ assert ev('members(Ops["Petrol Strike"])') == 'Alpha,Bravo'
 assert 'MISSION REJOINTE' in ev('GMSG.W') and code in ev('GMSG.W')
 
 # cibles : progression, puis bonus egal a chaque membre vivant (Bravo est mort : rien), mission fermee
+# un statique compte comme intact meme avec une vie a 0 (cas vu en jeu) ; detruit = evenement Dead
+# detruit = vie qui tombe a 0 depuis le lancement, ou evenement Dead
 lua.execute('STATICS[1].life = 0'); ev('StrikeTick(Ops["Petrol Strike"])')
 assert 'venir au moins une fois' not in ev('GMSG.W')  # Petrol : aucune condition de zone (Alpha n'y est jamais alle)
 assert ev('Ops["Petrol Strike"].left') == 1
-lua.execute('PlayerLife.Bravo = { dead = true }'); lua.execute('STATICS[2].life = 0'); ev('StrikeTick(Ops["Petrol Strike"])')
+lua.execute('PlayerLife.Bravo = { dead = true }'); lua.execute('StrikeDead[STATICS[2]:getName()] = true'); ev('StrikeTick(Ops["Petrol Strike"])')
 assert ev('Ops["Petrol Strike"]') is None and ev('AWARD.Alpha') == 20 and ev('AWARD.Bravo') is None
 lua.execute('PlayerLife.Bravo = nil')
 # objectif detruit : plus relancable tant que la mission serveur tourne
@@ -246,6 +254,7 @@ voix = dict(re.findall(r'(c\d\d) = \{ "([^"]+)"', src))
 assert codes and codes <= set(voix), codes - set(voix)
 valid = pathlib.Path(__file__).parent.parent.parent / 'voix-ia' / 'validees'
 assert all((valid / f).exists() for f in voix.values())
+assert all((valid / f).exists() for f in re.findall(r'"(c\d\d_\w+\.ogg)"', src))  # voix jouees hors VOIX (accueil)
 # une liste se joue a la suite (duree + 0,5 s), aux seuls membres ; pas de voix = rien
 lua.execute('''
 PLAYED, CALLS = {}, {}
