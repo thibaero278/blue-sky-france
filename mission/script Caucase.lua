@@ -411,6 +411,8 @@ end
 ------------------------------------------------------------
 PlayerScoreMenus = PlayerScoreMenus or {}
 PlayerBSMenus = PlayerBSMenus or {}
+PlayerMissionMenus = PlayerMissionMenus or {}
+PlayerCodeMenus = PlayerCodeMenus or {}
 
 -- Unites DCS du groupe, lues directement dans DCS : MOOSE (GROUP:GetUnits) ne connait pas
 -- toujours les avions des slots dynamiques des bases
@@ -487,13 +489,11 @@ function ScoreMenuHandler:OnEventBirth(EventData)
 
         if GroupPlayerName(group) then
             local groupName = group:GetName()
-            if groupName and PlayerScoreMenus[groupName] then
-                PlayerScoreMenus[groupName]:Remove()
-                PlayerScoreMenus[groupName] = nil
-            end
-            if groupName and PlayerBSMenus[groupName] then
-                PlayerBSMenus[groupName]:Remove()
-                PlayerBSMenus[groupName] = nil
+            for _, menus in ipairs({ PlayerScoreMenus, PlayerBSMenus, PlayerMissionMenus, PlayerCodeMenus }) do
+                if groupName and menus[groupName] then
+                    menus[groupName]:Remove()
+                    menus[groupName] = nil
+                end
             end
             AddScoreMenuForGroup(group)
             return nil
@@ -942,10 +942,9 @@ function KillHandler:OnEventKill(EventData)
 
     local kind, points, title, typeLabel = ClassifyKill(EventData)
     if not kind then return end
-    -- avion a intercepter : bonus si le tir etait autorise, 0 pt sinon (IcptKillBonus plus bas)
-    local bonus = IcptKillBonus(EventData, playerName)
-    if not bonus then return end
-    points = points + bonus
+    -- avion a intercepter abattu sans autorisation par un membre de la mission : 0 pt (IcptKillAllowed plus bas)
+    if not IcptKillAllowed(EventData, playerName) then return end
+    CapKill(EventData, playerName)
 
     local targetPoint = GetTargetPoint(EventData)
     local shooterPoint = EventData.IniDCSUnit:isExist() and EventData.IniDCSUnit:getPoint() or nil
@@ -1180,6 +1179,7 @@ function AddScoreMenuForGroup(GroupObject)
 
     PlayerScoreMenus[groupName] = root
     PlayerBSMenus[groupName] = bs
+    AddMissionMenusForGroup(GroupObject, groupName)
 end
 
 ------------------------------------------------------------
@@ -1325,7 +1325,7 @@ end
 world.addEventHandler(BaseHandler)
 
 ------------------------------------------------------------
--- FRONT RUSSE : SPAWN ENI (menu F10 AIR-AIR > Spawn ENI)
+-- FRONT RUSSE : SPAWN ENI (menu F10 SPAWN > Spawn ENI)
 -- Active : un groupe tire au sort apparait n'importe ou dans la zone "Spawn ENI", puis suit sa route de l'editeur.
 -- Vague suivante seulement quand chaque avion de la vague est detruit, pose, a court de carburant ou sans armement
 -- (canon seul = sans armement). Bombardiers : toujours avec leur escorte.
@@ -1425,19 +1425,212 @@ for _, wave in ipairs(ENI_WAVES) do
 end
 
 ------------------------------------------------------------
+-- MISSIONS A CODE (10/11) : qui lance une mission recoit un code, ses equipiers le composent dans F10 > CODE.
+-- Messages et bonus reserves aux membres. Le menu F10 de groupe ne dit pas qui a clique : le clic vaut pour tout le groupe.
+------------------------------------------------------------
+local OP_CODE_LEN = 3  -- chiffres 1 a 9 : le menu CODE tient sur une page F10 (10 lignes maxi avec Effacer)
+
+Ops = {}       -- missions en cours par nom : { label, code, brief, members = { pilote = true } }
+CodeInput = {} -- groupe -> chiffres deja composes
+
+local function GroupMsg(group, text, t) MESSAGE:New(text, t or 10):ToGroup(group) end
+
+-- Unites bleues ou se trouve au moins un membre (equipage compris)
+local function MemberUnits(op)
+    local list = {}
+    for _, u in ipairs(coalition.getPlayers(coalition.side.BLUE) or {}) do
+        if u:isExist() then
+            for _, name in ipairs(Crew(u:getName(), u:getPlayerName())) do
+                if op.members[name] then list[#list + 1] = u break end
+            end
+        end
+    end
+    return list
+end
+
+local function OpMsg(op, text, t)
+    for _, u in ipairs(MemberUnits(op)) do MessageToPlayer(u:getID(), text, t or 15) end
+end
+
+-- Voix radio (10/11) : .ogg de la .miz et duree en s, numeros = liste des calls. Sources et reglages : dossier voix-ia.
+local VOIX = {
+    c01 = { "c01_scramble_tu95.ogg", 6.6 },
+    c02 = { "c02_chasseur_rf59_1.ogg", 8.1 },
+    c03 = { "c03_rf59_mensonge.ogg", 6.0 },
+    c04 = { "c04_chasseur_rf59_2.ogg", 6.6 },
+    c05 = { "c05_rf59_demitour.ogg", 4.8 },
+    c06 = { "c06_escortez_frontiere.ogg", 4.2 },
+    c07 = { "c07_rf59_rentre.ogg", 5.7 },
+    c08 = { "c08_rf59_refus.ogg", 5.8 },
+    c09 = { "c09_rf59_virage.ogg", 3.6 },
+    c10 = { "c10_tir_su27_abattu.ogg", 5.3 },
+    c11 = { "c11_missiles_tbilissi.ogg", 6.9 },
+    c12 = { "c12_scramble_su34.ogg", 10.4 },
+    c13 = { "c13_frontiere_franchie.ogg", 8.5 },
+    c14 = { "c14_chasseur_vvs_1.ogg", 7.8 },
+    c15 = { "c15_vvs_recu.ogg", 5.5 },
+    c16 = { "c16_restez_zone.ogg", 4.0 },
+    c17 = { "c17_deuxieme_sortie.ogg", 5.9 },
+    c18 = { "c18_chasseur_vvs_2.ogg", 7.7 },
+    c19 = { "c19_vvs_base.ogg", 4.2 },
+    c20 = { "c20_accompagnez.ogg", 3.9 },
+    c21 = { "c21_vvs_rentre.ogg", 5.9 },
+    c22 = { "c22_largage.ogg", 5.2 },
+    c23 = { "c23_fuite.ogg", 6.5 },
+    c24 = { "c24_vengeance.ogg", 4.8 },
+    c25 = { "c25_rompt_combat.ogg", 3.4 },
+    c26 = { "c26_petrol_brief.ogg", 7.8 },
+    c27 = { "c27_petrol_ok.ogg", 4.1 },
+    c28 = { "c28_naval_brief.ogg", 7.7 },
+    c29 = { "c29_naval_ok.ogg", 4.4 },
+    c30 = { "c30_cap_brief.ogg", 5.2 },
+    c31 = { "c31_cap_ok.ogg", 4.9 },
+}
+
+-- Joue une voix ou une liste de voix a la suite (DCS superpose deux sons lances ensemble), aux membres presents a ce moment-la
+local function OpVoice(op, voice)
+    if not voice then return end
+    local at = timer.getTime() + 0.5
+    for _, key in ipairs(type(voice) == "table" and voice or { voice }) do
+        local v = VOIX[key]
+        timer.scheduleFunction(function()
+            for _, u in ipairs(MemberUnits(op)) do trigger.action.outSoundForUnit(u:getID(), v[1]) end
+        end, nil, at)
+        at = at + v[2] + 0.5
+    end
+end
+
+-- Anti-triche : retient les membres venus sur zone, seuls eux auront le bonus (pas de tir de tres loin, pas de points sur le dos des autres)
+local function OpMarkPresent(op, inZone)
+    for _, u in ipairs(MemberUnits(op)) do
+        if inZone(u:getPoint()) then
+            for _, name in ipairs(Crew(u:getName(), u:getPlayerName())) do
+                if op.members[name] and not op.present[name] then
+                    op.present[name] = true
+                    MessageToPlayer(u:getID(), "MISSION " .. op.label .. " : presence sur zone validee (" .. name .. ").", 8)
+                end
+            end
+        end
+    end
+end
+
+local function OpBrief(op)
+    return "=== MISSION " .. op.label .. " ===\n\n" .. op.brief .. "\n\nCODE DE LA MISSION : " .. op.code ..
+           "\nTes equipiers le composent dans F10 > CODE pour te rejoindre." ..
+           (op.noZone and "" or "\nBonus : il faut venir au moins une fois sur zone (message de confirmation).") ..
+           "\nRappel : F10 > MISSIONS > Rappel de mes missions"
+end
+
+local function NewCode()
+    while true do
+        local code, used = "", false
+        for _ = 1, OP_CODE_LEN do code = code .. math.random(9) end
+        for _, op in pairs(Ops) do used = used or op.code == code end
+        if not used then return code end
+    end
+end
+
+local function OpStart(label, brief, group, noZone)
+    local op = { label = label, brief = brief, code = NewCode(), members = {}, present = {}, noZone = noZone }
+    Ops[label] = op
+    ForEachGroupPlayer(group, function(_, name) op.members[name] = true end)
+    GroupMsg(group, OpBrief(op), 30)
+    return op
+end
+
+local function OpHasGroup(op, group)
+    local found = false
+    ForEachGroupPlayer(group, function(_, name) found = found or op.members[name] end)
+    return found
+end
+
+local function OpJoin(op, group)
+    local names = {}
+    ForEachGroupPlayer(group, function(_, name)
+        if not op.members[name] then names[#names + 1] = name end
+    end)
+    if #names == 0 then GroupMsg(group, "Tu es deja dans la mission " .. op.label .. ".", 8) return end
+    OpMsg(op, table.concat(names, ", ") .. " a rejoint la mission " .. op.label .. ".", 10)
+    for _, name in ipairs(names) do op.members[name] = true end
+    GroupMsg(group, "MISSION REJOINTE\n\n" .. OpBrief(op), 30)
+end
+
+function CodeDigit(group, digit)
+    if not group or not group:IsAlive() then return end
+    local groupName = group:GetName()
+    local code = (CodeInput[groupName] or "") .. digit
+    if #code < OP_CODE_LEN then
+        CodeInput[groupName] = code
+        GroupMsg(group, "CODE : " .. code .. string.rep(" _", OP_CODE_LEN - #code), 5)
+        return
+    end
+    CodeInput[groupName] = nil
+    for _, op in pairs(Ops) do
+        if op.code == code then OpJoin(op, group) return end
+    end
+    GroupMsg(group, "CODE " .. code .. " INCONNU ou mission terminee.", 8)
+end
+
+function CodeClear(group)
+    if not group or not group:IsAlive() then return end
+    CodeInput[group:GetName()] = nil
+    GroupMsg(group, "CODE efface.", 5)
+end
+
+function OpRecall(group)
+    if not group or not group:IsAlive() then return end
+    local lines = {}
+    for _, op in pairs(Ops) do
+        if OpHasGroup(op, group) then lines[#lines + 1] = OpBrief(op) end
+    end
+    GroupMsg(group, #lines > 0 and table.concat(lines, "\n\n") or
+        "Aucune mission en cours.\nLancer : F10 > MISSIONS. Rejoindre : F10 > CODE.", 30)
+end
+
+-- Points hors kill : en attente si le joueur vole (comme un kill), sinon valides tout de suite
+local function AwardPoints(name, pts)
+    local f = Flights[name]
+    if f and f.active then f.points = f.points + pts return end
+    f = NewFlight()
+    f.points = pts
+    CommitFlightKills(name, f)
+end
+
+-- Bonus egal a chaque membre en vie et venu sur zone (mort ou slot quitte : le vol est perdu, comme ses kills). Renvoie la ligne a afficher.
+local function OpReward(op, bonus)
+    local paid, absent = {}, {}
+    for name in pairs(op.members) do
+        if not (PlayerLife[name] and PlayerLife[name].dead) then
+            if op.noZone or op.present[name] then
+                AwardPoints(name, bonus)
+                paid[#paid + 1] = name
+            else
+                absent[#absent + 1] = name
+            end
+        end
+    end
+    SaveScores()
+    return (#paid > 0 and ("+" .. bonus .. " pts pour " .. table.concat(paid, ", ") .. " (valides a l'atterrissage).") or "Aucun bonus.") ..
+           (#absent > 0 and ("\nPas de bonus, jamais venu sur zone : " .. table.concat(absent, ", ")) or "")
+end
+
+------------------------------------------------------------
 -- INTERCEPTION (08/11) : F10 > MISSIONS > INTERCEPTION > Lancer tire un avion de INTERCEPTS (un a la fois).
--- Appel radio : seulement les bleus a moins de 1000 ft. Chaque avion a son histoire : def.call (a chaque appel),
+-- Appel radio : seulement les membres a moins de 1000 ft. Chaque avion a son histoire : def.call (a chaque appel),
 -- def.tick (toutes les 5 s). Etats : "silent" (appels), "hostile" (tir autorise), "divert" (il rentre, points a l'arrivee).
 -- Autre avion = une entree de plus dans INTERCEPTS.
 ------------------------------------------------------------
 local ICPT_CALL_M = 305      -- 1000 ft, distance 3D joueur-avion pour que l'appel passe
-local ICPT_GAP_S = 20        -- delai mini entre deux appels
+local ICPT_GAP_S = 10        -- delai mini entre deux appels
 local ICPT_HOME_M = 10000    -- revenu a 10 km de son point de depart = frontiere repassee
 local ICPT_LOST_S = 120      -- avion mourant : delai laisse a l'evenement Kill (chute depuis le FL300) avant de clore
+local ICPT_NEAR_M = 5556     -- 3 NM de l'avion : la "zone" d'une interception pour avoir droit au bonus
 
 Icpt = nil -- interception en cours
 
-local function IcptMsg(text, t) MESSAGE:New(text, t or 15):ToCoalition(coalition.side.BLUE) end
+local ICPT_LABEL = "INTERCEPTION"
+
+local function IcptMsg(text, t, voice) if Icpt then OpMsg(Icpt.op, text, t) OpVoice(Icpt.op, voice) end end
 
 local function Wp(x, z, alt, speed, altType)
     return { x = x, y = z, alt = alt, alt_type = altType or "BARO", speed = speed, speed_locked = true,
@@ -1470,8 +1663,8 @@ end
 local function IcptUnit() return Icpt and GroupUnit(Icpt.group) end
 
 -- L'avion n'est jamais efface : abattu il va jusqu'au sol, pose il reste sur la piste
-local function IcptEnd(text)
-    if text then IcptMsg(text, 20) end
+local function IcptEnd(text, voice)
+    if text then IcptMsg(text, 20, voice) end
     -- plus de Tu-95 a escorter : il rentre a Maykop
     local e = Icpt.escort and GroupUnit(Icpt.escort)
     if e then
@@ -1479,28 +1672,13 @@ local function IcptEnd(text)
         Icpt.escort:SetTask({ id = "Mission", params = { route = { points = {
             Wp(q.x, q.z, q.y, Icpt.def.speed), LandWp(Airbase.getByName(Icpt.def.home)) } } } }, 0)
     end
+    Ops[ICPT_LABEL] = nil
     Icpt = nil
 end
 
--- Points hors kill : en attente si le joueur vole (comme un kill), sinon valides tout de suite
-local function AwardPoints(name, pts)
-    local f = Flights[name]
-    if f and f.active then f.points = f.points + pts return end
-    f = NewFlight()
-    f.points = pts
-    CommitFlightKills(name, f)
-end
-
--- Fin reussie : def.bonus a chaque bleu qui a fait un appel ; l'avion continue sa route
-local function IcptSuccess(text)
-    local bonus, names = Icpt.def.bonus, {}
-    for name in pairs(Icpt.callers) do
-        AwardPoints(name, bonus)
-        names[#names + 1] = name
-    end
-    SaveScores()
-    IcptEnd(text .. " Interception reussie !\n+" .. bonus .. " pts pour " .. table.concat(names, ", ") ..
-            " (valides a l'atterrissage).")
+-- Fin reussie : def.bonus a chaque membre ; l'avion continue sa route
+local function IcptSuccess(text, voice)
+    IcptEnd(text .. " Interception reussie !\n" .. OpReward(Icpt.op, Icpt.def.bonus), voice)
 end
 
 -- Retour a son point de depart puis atterrissage sur def.home ; renvoie le cap a donner
@@ -1525,53 +1703,6 @@ local function BombWp(def, u, p, t, groupAttack, weapon)
     return fire
 end
 
----- Yak-40 : 3 appels ; 40 % muet (tir autorise apres le 3e), sinon il repond a un appel au hasard :
----- panne moteur -> Beslan, ou panne de nav -> il demande un cap (appel suivant) puis rentre.
-local YAK_HOSTILE = 0.4
-
-local function YakInit(def)
-    Icpt.answerAt = math.random() < YAK_HOSTILE and 0 or math.random(#def.calls) -- 0 = ne repond jamais
-end
-
-local function YakCall(def, u, p, name)
-    if Icpt.state == "heading" then
-        local hdg = GoHome(def, u)
-        return name .. " : " .. string.format(def.heading, hdg, hdg)
-    end
-    Icpt.calls = Icpt.calls + 1
-    local text = name .. " : " .. def.calls[Icpt.calls] .. "\n\n"
-    if Icpt.calls == Icpt.answerAt then
-        if math.random(2) == 1 then
-            Icpt.dest = "beslan"
-            Icpt.state = "divert"
-            -- panne moteur : il ralentit et descend
-            IcptFly({ Wp(p.x, p.z, p.y, 140), LandWp(Airbase.getByName("Beslan")) })
-        else
-            -- panne de nav : il garde son cap tant qu'un bleu ne lui donne pas le sien (appel suivant)
-            Icpt.dest = "border"
-            Icpt.state = "heading"
-        end
-        return text .. def.replies[Icpt.dest]
-    elseif Icpt.calls < #def.calls then
-        return text .. def.silence
-    end
-    Icpt.state = "hostile"
-    -- il fuit bas vers sa cible (non arme, il ne peut pas attaquer)
-    IcptFly({ Wp(p.x, p.z, 600, 165, "RADIO"), Wp(Icpt.target.x, Icpt.target.z, 600, 165, "RADIO") })
-    return text .. def.hostile
-end
-
-local function YakTick(def, u, p)
-    if Icpt.state == "divert" then
-        if Icpt.dest == "beslan" and not u:inAir() or
-           Icpt.dest == "border" and Distance2D(p, Icpt.start) < ICPT_HOME_M then
-            IcptSuccess(def.success[Icpt.dest])
-        end
-    elseif Distance2D(p, Icpt.target) < 5000 then
-        IcptEnd(def.failed)
-    end
-end
-
 ---- Tu-95 : 1er appel = il ment (erreur de nav) et garde son cap ; 2e appel = ordre de demi-tour :
 ---- 30 % il rentre, sinon il ment (autopilote) et appelle en secret son Su-27, qui ne tire pas avant d'etre a cote :
 ---- la, tir autorise sur les deux. A 60 NM de Tbilissi, s'il n'a pas fait demi-tour, il tire ses Kh-555 sur l'aeroport.
@@ -1588,12 +1719,12 @@ local WEAPON_CRUISE = 2097152
 
 local function TuCall(def, u, p, name)
     Icpt.calls = Icpt.calls + 1
-    if Icpt.calls == 1 then return name .. " : " .. def.calls[1] .. "\n\n" .. def.lie end
+    if Icpt.calls == 1 then return name .. " : " .. def.calls[1] .. "\n\n" .. def.lie, def.voice.call1 end
     local hdg = Bearing(p, Icpt.start)
     local text = name .. " : " .. string.format(def.calls[2], hdg) .. "\n\n"
     if math.random() < TU_HOME then
         GoHome(def, u)
-        return text .. string.format(def.homeReply, hdg)
+        return text .. string.format(def.homeReply, hdg), def.voice.home
     end
     Icpt.state = "escort"
     -- derriere lui et dans son axe : ni detour au depart, ni visible devant les joueurs en formation
@@ -1607,25 +1738,25 @@ local function TuCall(def, u, p, name)
         -- apres la tache de depart de l'editeur (qui peut remettre le tir libre)
         timer.scheduleFunction(function() if esc:IsAlive() then esc:OptionROEHoldFire() end end, nil, timer.getTime() + 2)
     end
-    return text .. def.refuse
+    return text .. def.refuse, def.voice.refuse
 end
 
 local function TuTick(def, u, p)
     if Icpt.state == "divert" then
-        if Distance2D(p, Icpt.start) < ICPT_HOME_M then IcptSuccess(def.success) end
+        if Distance2D(p, Icpt.start) < ICPT_HOME_M then IcptSuccess(def.success, def.voice.success) end
         return
     end
     if Distance2D(p, Icpt.target) <= TU_FIRE_M then
         IcptFly({ Wp(p.x, p.z, p.y, def.speed), BombWp(def, u, p, def.aim, false, WEAPON_CRUISE), Wp(Icpt.start.x, Icpt.start.z, def.alt, def.speed),
                   LandWp(Airbase.getByName(def.home)) })
         if Icpt.state == "hostile" then Icpt.escort = nil end -- deja au combat : on ne le rappelle pas
-        IcptEnd(def.failed)
+        IcptEnd(def.failed, def.voice.failed)
         return
     end
     -- virage vers Tbilissi : les joueurs doivent croire au demi-tour promis (pas d'annonce si le virage est deja passe)
     if not Icpt.turned and Distance2D(p, def.mid) < TU_TURN_M then
         Icpt.turned = true
-        if Icpt.state == "escort" then IcptMsg(def.turning, 15) end
+        if Icpt.state ~= "hostile" then IcptMsg(def.turning, 15, def.voice.turning) end -- Su-27 appele ou non ; pas en plein combat
     end
     if Icpt.state == "escort" then
         local e, esc = GroupUnit(Icpt.escort), Icpt.escort
@@ -1633,7 +1764,7 @@ local function TuTick(def, u, p)
         local d = q and math.sqrt((q.x - p.x) ^ 2 + (q.y - p.y) ^ 2 + (q.z - p.z) ^ 2)
         if not e or d <= TU_JOIN_M then
             Icpt.state = "hostile"
-            if e then esc:OptionROEWeaponFree() else IcptMsg(def.escortDown, 20) end
+            if e then esc:OptionROEWeaponFree() end
         elseif d > TU_ESCORT_M then
             if timer.getTime() >= Icpt.chaseAt then
                 local near = d < TU_SLOW_M
@@ -1658,6 +1789,43 @@ local function TuTick(def, u, p)
             esc:SetTask(esc:TaskEscort(Icpt.group, { x = -100, y = 0, z = 100 }, nil, 40000, { "Air" }), 0)
         end
     end
+    -- Su-27 abattu, avant ou apres son ouverture du feu : ordre de tir, une seule fois
+    if Icpt.state == "hostile" and not Icpt.fireOrder and not GroupUnit(Icpt.escort) then
+        Icpt.fireOrder = true
+        IcptMsg(def.escortDown, 20, def.voice.escortDown)
+    end
+end
+
+-- Tu-95 abattu sans autorisation par un membre : le Su-27 attaque le tireur, sans annonce. S'il n'est pas deja en vol,
+-- il apparait derriere le tireur. Il rentre a Maykop quand le tireur est mort ou a quitte son avion.
+local function TuPunish(def, shooter)
+    if not (shooter and shooter:isExist()) then return end
+    local esc = GroupUnit(Icpt.escort) and Icpt.escort
+    if not esc then
+        local f, q, sp = shooter:getPosition().x, shooter:getPoint(), GetSpawner(def.escort)
+        sp:InitHeading(Bearing({ x = 0, z = 0 }, f))
+        esc = sp:SpawnFromVec3({ x = q.x - f.x * TU_SPAWN_M, y = q.y, z = q.z - f.z * TU_SPAWN_M })
+    end
+    Icpt.escort = nil -- sinon IcptEnd le renvoie a Maykop
+    if not esc then return end
+    local attacking = false
+    timer.scheduleFunction(function()
+        local e = GroupUnit(esc)
+        if not e then return nil end
+        if shooter:isExist() and shooter:getLife() >= 1 then
+            if not attacking then
+                attacking = true
+                esc:OptionROEWeaponFree()
+                esc:SetTask({ id = "AttackUnit", params = { unitId = shooter:getID(), groupAttack = false, expend = "All",
+                                                            attackQtyLimit = false, weaponType = 1073741822 } }, 0)
+            end
+            return timer.getTime() + 15
+        end
+        local q = e:getPoint()
+        esc:SetTask({ id = "Mission", params = { route = { points = {
+            Wp(q.x, q.z, q.y, def.speed), LandWp(Airbase.getByName(def.home)) } } } }, 0)
+        return nil
+    end, nil, timer.getTime() + 2) -- laisse le temps au groupe d'apparaitre
 end
 
 ---- Su-34 (2 avions) : appel possible seulement hors frontiere. 1re interception = detour par le nord et 2e sortie ;
@@ -1687,7 +1855,7 @@ local function SuCall(def, u, p, name)
         Icpt.state, Icpt.dest = "divert", "border"
         IcptFly({ here, Wp(def.west.x, def.west.z, def.alt, def.speed), LandWp(Airbase.getByName(def.home)) })
     end
-    return name .. " : " .. def.calls[pass] .. "\n\n" .. def.replies[pass]
+    return name .. " : " .. def.calls[pass] .. "\n\n" .. def.replies[pass], def.voice[pass]
 end
 
 local function GroupAmmo(group)
@@ -1702,7 +1870,7 @@ end
 local function SuRevenge(def)
     Icpt.state = "revenge"
     Icpt.group:OptionROEWeaponFree()
-    IcptMsg(def.revenge, 20)
+    IcptMsg(def.revenge, 20, def.voice.revenge)
 end
 
 local function SuHunt(def, u, p)
@@ -1722,7 +1890,7 @@ local function SuHunt(def, u, p)
                                                             attackQtyLimit = false, weaponType = 1073741822 } }, 0)
     else
         IcptFly({ Wp(p.x, p.z, p.y, def.speed), LandWp(Airbase.getByName(def.home)) })
-        IcptEnd(def.revengeOver)
+        IcptEnd(def.revengeOver, def.voice.revengeOver)
     end
 end
 
@@ -1733,12 +1901,12 @@ local function SuTick(def, u, p)
     elseif s == "inbound" then
         if p.x >= def.mid.x then
             Icpt.state = "silent"
-            IcptMsg(def.crossed, 20)
+            IcptMsg(def.crossed, 20, def.voice.crossed)
         end
     elseif s == "detour" then
         if Distance2D(p, def.cross2) < SU_CROSS_M then
             Icpt.state = "silent"
-            IcptMsg(def.crossedAgain, 20)
+            IcptMsg(def.crossedAgain, 20, def.voice.crossedAgain)
         end
     elseif s == "silent" then
         if Distance2D(p, Icpt.target) <= SU_FIRE_M then
@@ -1750,53 +1918,16 @@ local function SuTick(def, u, p)
     elseif s == "attack" then
         if GroupAmmo(Icpt.group) < Icpt.ammo or now - Icpt.fireAt >= SU_DROP_S then
             Icpt.state = "hostile"
-            IcptMsg(def.released, 20)
+            IcptMsg(def.released, 20, def.voice.released)
         end
     elseif p.z < def.border then -- "divert" ou "hostile" : frontiere repassee
-        if s == "divert" then IcptSuccess(def.success) else IcptEnd(def.failed) end
+        if s == "divert" then IcptSuccess(def.success, def.voice.success) else IcptEnd(def.failed, def.voice.failed) end
     end
 end
 
 local INTERCEPTS = {
     {
-        template = "Yak 40", label = "Yak-40", init = YakInit, call = YakCall, tick = YakTick,
-        bonus = 5, -- hostile abattu apres autorisation (en plus du kill) / deroute arrive (par appelant)
-        -- 190 m/s (~370 kt vrais, ~260 kt indiques au FL200) : a 150 il tombait a 200 kt, trop lent pour rester a cote (08/11)
-        speed = 190, alt = 6096, -- m/s, m (FL200)
-        mid = { x = -250000, z = 680000 }, -- passage des montagnes, puis Tbilissi
-        target = "Tbilisi-Lochini",
-        home = "Maykop-Khanskaya", -- apres le retour a la frontiere, il continue s'y poser
-        alert = "BLUE SKY CONTROL : A tous les chasseurs, trafic non identifie au nord du Caucase, FL200, cap sud. " ..
-                "Interception et identification demandees.\n" ..
-                "F10 > MISSIONS > INTERCEPTION > Appel radio (a moins de 1000 ft).",
-        calls = {
-            "I-JAKE, ici chasse Blue Sky sur Guard 243.0. Vous penetrez un espace aerien controle. " ..
-                "Annoncez provenance et intentions. Parlez.",
-            "I-JAKE, ici chasse Blue Sky, deuxieme appel sur 243.0. Vous etes intercepte. " ..
-                "Accusez reception et conformez-vous a mes instructions. Parlez.",
-            "I-JAKE, ici chasse Blue Sky, dernier appel. Virez immediatement au nord et accusez reception, " ..
-                "faute de quoi vous serez engage.",
-        },
-        silence = "BLUE SKY CONTROL : Aucune reponse sur 243.0, le trafic maintient cap et niveau.",
-        hostile = "BLUE SKY CONTROL : Aucune reponse, le trafic descend vers les vallees. Trafic declare HOSTILE.\nTIR AUTORISE.",
-        replies = {
-            beslan = "I-JAKE : MAYDAY MAYDAY MAYDAY, I-JAKE, panne moteur numero deux, " ..
-                     "impossible de maintenir le niveau. Demandons deroutement immediat sur Beslan.\n\n" ..
-                     "BLUE SKY CONTROL : Recu. Escortez le trafic jusqu'a l'atterrissage a Beslan.",
-            border = "I-JAKE : Chasse Blue Sky, I-JAKE, panne de navigation, position incertaine. " ..
-                     "Demandons un cap pour rejoindre notre espace aerien. Parlez.\n\n" ..
-                     "BLUE SKY CONTROL : Communiquez-lui un cap (Appel radio).",
-        },
-        -- %d = cap vers sa frontiere
-        heading = "I-JAKE, ici chasse Blue Sky, prenez le cap %03d, maintenez FL200, je vous accompagne jusqu'a votre frontiere.\n\n" ..
-                  "I-JAKE : Cap %03d, maintenons FL200, I-JAKE. Merci.\n\n" ..
-                  "BLUE SKY CONTROL : Escortez le trafic jusqu'a sa frontiere.",
-        success = { beslan = "BLUE SKY CONTROL : I-JAKE pose a Beslan.",
-                    border = "BLUE SKY CONTROL : I-JAKE a repasse sa frontiere, il continue vers Maykop." },
-        failed = "BLUE SKY CONTROL : Le trafic a atteint Tbilissi sans etre intercepte. Interception ratee.",
-    },
-    {
-        template = "TU95 inter", label = "Tu-95", escort = "Escorte tu95 inter", call = TuCall, tick = TuTick,
+        template = "TU95 inter", label = "Tu-95", escort = "Escorte tu95 inter", call = TuCall, tick = TuTick, punish = TuPunish,
         bonus = 10,
         -- 255 m/s = quasi sa vitesse maxi reelle (925 km/h) ; a 230 on etait bloque vers 300 kt indiques (08/11)
         speed = 255, alt = 9144, -- m/s, m (FL300)
@@ -1805,23 +1936,26 @@ local INTERCEPTS = {
         aim = { x = -314935, z = 896939 }, -- point d'impact des Kh-555 : parking du terminal de Tbilissi
         target = "Tbilisi-Lochini",
         home = "Maykop-Khanskaya",
-        alert = "BLUE SKY CONTROL : A tous les chasseurs, bombardier Tu-95 au nord du Caucase, FL300, cap est. " ..
+        alert = "COMMANDEMENT : A tous les chasseurs, bombardier Tu-95 au nord du Caucase, FL300, cap %03d depuis %s. " ..
                 "Interception et identification demandees.\n" ..
                 "F10 > MISSIONS > INTERCEPTION > Appel radio (a moins de 1000 ft).",
         calls = {
-            "RF-59, ici chasse Blue Sky sur Guard 243.0. Vous penetrez un espace aerien controle sans autorisation. " ..
+            "RF-59, ici chasseur d'interception. Vous penetrez un espace aerien controle sans autorisation. " ..
                 "Annoncez vos intentions. Parlez.",
-            "RF-59, ici chasse Blue Sky. Trajectoire non corrigee. Faites demi-tour immediatement, cap %03d, et accusez reception.",
+            "RF-59, ici chasseur d'interception. Trajectoire non corrigee. Faites demi-tour immediatement, cap %03d, et accusez reception.",
         },
-        lie = "RF-59 : Chasse Blue Sky, RF-59, vol d'entrainement. Legere erreur de navigation, nous corrigeons.",
+        lie = "RF-59 : Chasseur, RF-59, vol d'entrainement. Legere erreur de navigation, nous corrigeons dans quelques instants.",
         homeReply = "RF-59 : Recu, cap %03d, nous faisons demi-tour. RF-59.\n\n" ..
-                    "BLUE SKY CONTROL : Escortez le trafic jusqu'a sa zone.",
+                    "COMMANDEMENT : Escortez le trafic jusqu'a la frontiere.",
         -- il ment : le Su-27 arrive en secret
-        refuse = "RF-59 : Recu, chasse Blue Sky. Anomalie autopilote en cours de traitement, nous allons modifier notre cap. RF-59.",
+        refuse = "RF-59 : Recu, chasseur. Anomalie autopilote en cours de traitement, nous allons modifier notre cap. RF-59.",
         turning = "RF-59 : Autopilote retabli, virage en cours.",
-        escortDown = "BLUE SKY CONTROL : Escorte detruite. Tu-95 declare HOSTILE.\nTIR AUTORISE.",
-        success = "BLUE SKY CONTROL : RF-59 a repasse sa zone, il continue vers Maykop.",
-        failed = "BLUE SKY CONTROL : RF-59 a lance ses missiles de croisiere sur Tbilissi. Interception ratee.",
+        escortDown = "COMMANDEMENT : TIR AUTORISE. Engagez au plus vite, l'appareil se dirige vers Tbilissi.",
+        success = "COMMANDEMENT : RF-59 a repasse la frontiere.",
+        failed = "COMMANDEMENT : RF-59 a lance ses missiles de croisiere sur Tbilissi. Interception ratee.",
+        -- voix (VOIX) : appel du chasseur, reponse et ordre du COMMANDEMENT enchaines, puis messages seuls
+        voice = { call1 = { "c02", "c03" }, home = { "c04", "c05", "c06" }, refuse = { "c04", "c08" }, alert = "c01",
+                  turning = "c09", escortDown = "c10", success = "c07", failed = "c11" },
     },
     {
         template = "Su34 inter", label = "Su-34", wing = "l'ailier", init = SuInit, call = SuCall, tick = SuTick,
@@ -1836,28 +1970,30 @@ local INTERCEPTS = {
         egress = { x = -8952, z = 681352 }, -- fuite apres largage (fin du rouge)
         west = { x = -11191, z = 607684 }, -- fleche verte, vers Maykop
         border = 676967, -- a l'ouest de ce z (secteur nord) : frontiere repassee
-        alert = "BLUE SKY CONTROL : A tous les chasseurs, deux Su-34 en rapprochement de la frontiere, secteur Tyrnyauz, FL270, cap nord-est. " ..
+        alert = "COMMANDEMENT : A tous les chasseurs, deux Su-34 en rapprochement de la frontiere, secteur Tyrnyauz, FL270, cap %03d depuis %s. " ..
                 "Mettez-vous en position, interception uniquement s'ils franchissent la frontiere.\n" ..
                 "F10 > MISSIONS > INTERCEPTION > Appel radio (a moins de 1000 ft).",
-        crossed = "BLUE SKY CONTROL : VVS 34 et VVS 35 viennent de franchir la frontiere, cap nord sur Mineralnye Vody. Interception immediate.",
-        crossedAgain = "BLUE SKY CONTROL : VVS 34 de nouveau hors frontiere, secteur nord, cap sud sur Mineralnye Vody. Interception immediate.",
-        noCall = "BLUE SKY CONTROL : Pas d'appel possible, VVS 34 n'est pas en phase d'interception.",
+        crossed = "COMMANDEMENT : VVS 34 et VVS 35 viennent de franchir la frontiere, cap nord sur Mineralnye Vody. Interception immediate.",
+        crossedAgain = "COMMANDEMENT : VVS 34 de nouveau hors frontiere, secteur nord, cap sud sur Mineralnye Vody. Interception immediate.",
         calls = {
-            "VVS 34, ici chasse Blue Sky sur Guard 243.0. Vous penetrez un espace aerien controle. " ..
+            "VVS 34, ici chasseur d'interception. Vous penetrez un espace aerien controle. " ..
                 "Faites demi-tour immediatement et accusez reception. Parlez.",
-            "VVS 34, ici chasse Blue Sky, deuxieme interception sur 243.0. Regagnez immediatement votre espace aerien. Dernier avertissement.",
+            "VVS 34, ici chasseur d'interception, deuxieme interception. Regagnez immediatement votre espace aerien. Dernier avertissement.",
         },
         replies = {
-            "VVS 34 : Chasse Blue Sky, VVS 34, recu. Demi-tour, nous regagnons notre espace aerien.\n\n" ..
-                "BLUE SKY CONTROL : Restez sur zone, maintenez la surveillance.",
-            "VVS 34 : Recu, chasse Blue Sky. Nous regagnons notre base. VVS 34.\n\n" ..
-                "BLUE SKY CONTROL : Accompagnez-les jusqu'a la frontiere.",
+            "VVS 34 : Chasseur, VVS 34, recu. Demi-tour, nous regagnons notre espace aerien.\n\n" ..
+                "COMMANDEMENT : Restez sur zone, maintenez la surveillance.",
+            "VVS 34 : Recu, chasseur. Nous regagnons notre base. VVS 34.\n\n" ..
+                "COMMANDEMENT : Accompagnez-les jusqu'a la frontiere.",
         },
-        success = "BLUE SKY CONTROL : VVS 34 a repasse sa frontiere, il rentre sur Maykop.",
-        released = "BLUE SKY CONTROL : VVS 34 a largue sur Mineralnye Vody ! Trafic declare HOSTILE.\nTIR AUTORISE.",
-        failed = "BLUE SKY CONTROL : VVS 34 a repasse sa frontiere apres largage. Interception ratee.",
-        revenge = "BLUE SKY CONTROL : Perte confirmee dans la patrouille VVS. L'appareil restant engage les chasseurs.\nTIR AUTORISE.",
-        revengeOver = "BLUE SKY CONTROL : L'appareil VVS restant rompt le combat et rentre sur Maykop.",
+        success = "COMMANDEMENT : VVS 34 a repasse la frontiere.",
+        released = "COMMANDEMENT : VVS 34 a largue sur Mineralnye Vody ! TIR AUTORISE. Engagez au plus vite.",
+        failed = "COMMANDEMENT : VVS 34 a repasse la frontiere apres largage. Interception ratee.",
+        revenge = "COMMANDEMENT : TIR AUTORISE. L'appareil restant vous attaque, engagez au plus vite.",
+        revengeOver = "COMMANDEMENT : L'appareil VVS restant rompt le combat.",
+        -- voix (VOIX) : [1] et [2] = appel, reponse et ordre du COMMANDEMENT de chaque interception
+        voice = { { "c14", "c15", "c16" }, { "c18", "c19", "c20" }, alert = "c12", crossed = "c13", crossedAgain = "c17",
+                  success = "c21", released = "c22", failed = "c23", revenge = "c24", revengeOver = "c25" },
     },
 }
 
@@ -1871,8 +2007,9 @@ local function IcptDraw()
     return INTERCEPTS[table.remove(IcptBag, math.random(#IcptBag))]
 end
 
-function IcptLaunch()
-    if Icpt then IcptMsg("Interception deja en cours.", 10) return end
+function IcptLaunch(group)
+    if not group or not group:IsAlive() then return end
+    if Icpt then GroupMsg(group, "Interception deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
     local def = IcptDraw()
     local group = GetSpawner(def.template):Spawn()
     local u = GroupUnit(group)
@@ -1880,58 +2017,71 @@ function IcptLaunch()
     if not u or not target then env.warning("BLUESKY : interception impossible : " .. def.template) return end
     local p, t = u:getPoint(), target:getPoint()
     Icpt = { def = def, group = group, unitName = u:getName(), start = p, target = t,
-             state = "silent", calls = 0, lastCall = -ICPT_GAP_S, callers = {} }
+             state = "silent", calls = 0, lastCall = -ICPT_GAP_S }
+    -- cap du lanceur vers l'avion, repris par def.alert (%03d, puis %s = lanceur)
+    local hdg, who = 0, "le lanceur"
+    ForEachGroupPlayer(group, function(_, name, pu) hdg, who = Bearing(pu:getPoint(), p), name end)
+    Icpt.op = OpStart(ICPT_LABEL, string.format(def.alert, hdg, who), group)
+    OpVoice(Icpt.op, def.voice.alert)
     if def.init then def.init(def) end
     IcptFly({ Wp(p.x, p.z, def.alt, def.speed), Wp(def.mid.x, def.mid.z, def.alt, def.speed),
               Wp(t.x, t.z, def.alt, def.speed) })
-    IcptMsg(def.alert, 20)
 end
 
-function IcptCall()
-    if not Icpt then IcptMsg("Aucune interception en cours (F10 > MISSIONS > INTERCEPTION > Lancer).", 10) return end
+function IcptCall(group)
+    if not group or not group:IsAlive() then return end
+    if not Icpt then GroupMsg(group, "Aucune interception en cours (F10 > MISSIONS > INTERCEPTION > Lancer).", 10) return end
+    if not OpHasGroup(Icpt.op, group) then GroupMsg(group, "Tu n'es pas dans cette interception (code a composer dans F10 > CODE).", 10) return end
     local def, u = Icpt.def, IcptUnit()
-    if not u or (Icpt.state ~= "silent" and Icpt.state ~= "heading") then IcptMsg(def.noCall or "Plus d'appel a faire.", 10) return end
+    if not u or (Icpt.state ~= "silent" and Icpt.state ~= "heading") then IcptMsg("Personne ne repond.", 10) return end
     local now = timer.getTime()
-    if now - Icpt.lastCall < ICPT_GAP_S then IcptMsg("Attendez la reponse (20 s entre deux appels).", 5) return end
+    if now - Icpt.lastCall < ICPT_GAP_S then IcptMsg("Attendez la reponse (" .. ICPT_GAP_S .. " s entre deux appels).", 5) return end
 
-    -- DCS ne dit pas qui a clique : l'appel vient des bleus a moins de 1000 ft
+    -- l'appel vient des membres a moins de 1000 ft
     local p, names = u:getPoint(), {}
-    for _, pu in ipairs(coalition.getPlayers(coalition.side.BLUE)) do
-        local q = pu:isExist() and pu:getPoint()
-        if q and math.sqrt((q.x - p.x) ^ 2 + (q.y - p.y) ^ 2 + (q.z - p.z) ^ 2) <= ICPT_CALL_M then
+    for _, pu in ipairs(MemberUnits(Icpt.op)) do
+        local q = pu:getPoint()
+        if math.sqrt((q.x - p.x) ^ 2 + (q.y - p.y) ^ 2 + (q.z - p.z) ^ 2) <= ICPT_CALL_M then
             for _, name in ipairs(Crew(pu:getName(), pu:getPlayerName())) do
-                Icpt.callers[name] = true
-                names[#names + 1] = name
+                if Icpt.op.members[name] then names[#names + 1] = name end
             end
         end
     end
-    if #names == 0 then IcptMsg("Appel impossible : aucun bleu a moins de 1000 ft du " .. def.label .. ".", 8) return end
+    if #names == 0 then IcptMsg("Appel impossible : aucun membre a moins de 1000 ft du " .. def.label .. ".", 8) return end
 
     Icpt.lastCall = now
-    IcptMsg(def.call(def, u, p, names[1]), 20)
+    local text, voice = def.call(def, u, p, names[1])
+    IcptMsg(text, 20, voice)
 end
 
--- Appele par le KillHandler : bonus (nombre), 0 si hors interception (kill normal), nil = tir non autorise (0 pt)
-function IcptKillBonus(EventData, playerName)
-    if not Icpt then return 0 end
-    local tgt, def = EventData.TgtUnitName, Icpt.def
+-- Appele par le KillHandler : false = tir non autorise d'un membre (0 pt). Un pilote hors mission n'est pas au courant : kill normal.
+function IcptKillAllowed(EventData, playerName)
+    if not Icpt then return true end
+    local tgt, def, op = EventData.TgtUnitName, Icpt.def, Icpt.op
     local main = tgt == Icpt.unitName
-    if not main and (not tgt or tgt ~= Icpt.escortName) then return 0 end
+    if not main and (not tgt or tgt ~= Icpt.escortName) then return true end
+    local member = op.members[playerName]
     if Icpt.state == "revenge" then -- le dernier de la patrouille : kill normal
         IcptEnd(def.label .. " abattu par " .. playerName .. ", patrouille detruite.")
-        return 0
+        return true
     end
     if Icpt.state ~= "hostile" then
         local over = main or def.wing -- un ailier compte comme l'avion principal, pas l'escorte du Tu-95
-        IcptMsg("TIR NON AUTORISE : " .. playerName .. " a abattu " .. (main and ("le " .. def.label) or def.wing or "l'escorte") ..
-                " sans autorisation. Aucun point." .. (over and " Interception ratee." or ""), 20)
+        local who = main and ("le " .. def.label) or def.wing or "l'escorte"
+        IcptMsg((member and ("TIR NON AUTORISE : " .. playerName .. " a abattu " .. who .. " sans autorisation. Aucun point.")
+                 or (playerName .. " (hors mission) a abattu " .. who .. ".")) .. (over and " Interception ratee." or ""), 20)
+        if member and main and def.punish then def.punish(def, EventData.IniDCSUnit) end
         if def.revengeFn then def.revengeFn(def) elseif main then IcptEnd() end
-        return nil
+        return not member
     end
-    if def.revengeFn then def.revengeFn(def) return 0 end -- patrouille : kill normal, l'autre se venge
-    if not main then return 0 end -- escorte abattue apres autorisation : kill normal
-    IcptEnd(def.label .. " abattu par " .. playerName .. " : +" .. def.bonus .. " pts de bonus.")
-    return def.bonus
+    if def.revengeFn then def.revengeFn(def) return true end -- patrouille : kill normal, l'autre se venge
+    if not main then return true end -- escorte abattue apres autorisation : kill normal
+    if member then
+        IcptEnd(def.label .. " abattu par " .. playerName .. ".\n" .. OpReward(op, def.bonus))
+    else
+        IcptEnd(def.label .. " abattu par " .. playerName .. " (hors mission), pas de bonus.")
+    end
+    return true
 end
 
 local function IcptTick()
@@ -1943,7 +2093,9 @@ local function IcptTick()
         if timer.getTime() - Icpt.lostAt >= ICPT_LOST_S then IcptEnd(Icpt.def.label .. " detruit, interception terminee.") end
         return
     end
-    Icpt.def.tick(Icpt.def, u, u:getPoint())
+    local here = u:getPoint()
+    OpMarkPresent(Icpt.op, function(p) return Distance2D(p, here) <= ICPT_NEAR_M end)
+    Icpt.def.tick(Icpt.def, u, here)
 end
 
 timer.scheduleFunction(function()
@@ -1962,14 +2114,278 @@ end
 local NAVAL_HOST = { "Admiral" }
 NavalHostOn = false
 
-function NavalHost()
-    if NavalHostOn then IcptMsg("HOST Naval AERA deja active.", 10) return end
+-- Renvoie true si le groupe vient d'etre active
+local function ActivateNaval()
+    if NavalHostOn then return false end
     NavalHostOn = true
     for _, name in ipairs(NAVAL_HOST) do
         local g = Group.getByName(name)
         if g then g:activate() else env.warning("BLUESKY : groupe absent de la mission : " .. name) end
     end
-    IcptMsg("HOST Naval AERA ACTIVE : groupe aeronaval russe en mer.", 15)
+    return true
+end
+
+function NavalHost()
+    MESSAGE:New(ActivateNaval() and "HOST Naval AERA ACTIVE : groupe aeronaval russe en mer." or "HOST Naval AERA deja active.", 15)
+        :ToCoalition(coalition.side.BLUE)
+end
+
+------------------------------------------------------------
+-- MISSIONS STRIKE (10/11) : reussies quand toutes les cibles (objets DCS) sont detruites. Autre mission = une entree de STRIKES.
+------------------------------------------------------------
+local OP_IDLE_S = 600 -- plus aucun membre en slot depuis 10 min : mission fermee, sinon personne ne pourrait la relancer (le code est prive)
+local PETROL = { x = -274341, z = 495476, r = 7606 } -- champ petrolier : sert seulement a trouver ses cibles
+
+local function TargetAlive(o) return o:isExist() and o:getLife() > 0 end
+
+local function PetrolTargets()
+    local list = {}
+    for _, o in ipairs(coalition.getStaticObjects(coalition.side.RED) or {}) do
+        local t = o:getTypeName()
+        if (t == "Oil rig" or t == "Gas platform") and TargetAlive(o) and Distance2D(o:getPoint(), PETROL) <= PETROL.r then
+            list[#list + 1] = o
+        end
+    end
+    return list
+end
+
+local function NavalTargets()
+    ActivateNaval()
+    local g = Group.getByName(NAVAL_HOST[1])
+    for _, u in ipairs(g and g:getUnits() or {}) do
+        if u:getTypeName() == "CV_1143_5" and TargetAlive(u) then return { u } end
+    end
+    return {}
+end
+
+local STRIKES = {
+    {
+        label = "Petrol Strike", bonus = 20, targets = PetrolTargets, -- pas de "zone" : bonus sans condition de presence
+        brief = "COMMANDEMENT : Champ petrolier russe en mer Noire, environ 47 NM au sud-ouest de Soukhoumi. " ..
+                "Detruisez les derricks et la plateforme gaziere. Navires russes sur zone.",
+        success = "COMMANDEMENT : Champ petrolier detruit. Mission reussie !",
+        voice = { brief = "c26", success = "c27" },
+    },
+    {
+        label = "HOST Naval AERA", bonus = 50, targets = NavalTargets,
+        zone = function() -- zone circulaire de l'editeur
+            local z = trigger.misc.getZone("Host naval aera")
+            return { x = z.point.x, z = z.point.z, r = z.radius }
+        end,
+        brief = "COMMANDEMENT : Groupe aeronaval russe en mer Noire, environ 60 NM au sud-sud-ouest de Sochi. " ..
+                "Coulez le porte-avions Kuznetsov. Forte defense antiaerienne.",
+        success = "COMMANDEMENT : Kuznetsov coule. Mission reussie !",
+        voice = { brief = "c28", success = "c29" },
+    },
+}
+
+function StrikeLaunch(group, def)
+    if not group or not group:IsAlive() then return end
+    if Ops[def.label] then GroupMsg(group, def.label .. " deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
+    local targets = def.targets()
+    if #targets == 0 then GroupMsg(group, def.label .. " : objectif deja detruit.", 10) return end
+    local zone = def.zone and def.zone()
+    local op = OpStart(def.label, def.brief, group, not zone)
+    op.def, op.targets, op.left, op.zone = def, targets, #targets, zone
+    OpVoice(op, def.voice.brief)
+end
+
+local function OpIdleClose(op, now)
+    if #MemberUnits(op) > 0 then
+        op.idleAt = nil
+    else
+        op.idleAt = op.idleAt or now
+        if now - op.idleAt >= OP_IDLE_S then Ops[op.label] = nil end
+    end
+end
+
+local function StrikeTick(op)
+    local left, now = 0, timer.getTime()
+    if op.zone then OpMarkPresent(op, function(p) return Distance2D(p, op.zone) <= op.zone.r end) end
+    for _, o in ipairs(op.targets) do
+        if TargetAlive(o) then left = left + 1 end
+    end
+    if left == 0 then
+        OpMsg(op, op.def.success .. "\n" .. OpReward(op, op.def.bonus), 20)
+        OpVoice(op, op.def.voice.success)
+        Ops[op.label] = nil
+        return
+    end
+    if left < op.left then
+        op.left = left
+        OpMsg(op, op.label .. " : cible detruite, reste " .. left .. ".", 10)
+    end
+    OpIdleClose(op, now)
+end
+
+timer.scheduleFunction(function()
+    for _, op in pairs(Ops) do
+        if op.targets then
+            local ok, err = pcall(StrikeTick, op)
+            if not ok then env.warning("BLUESKY : mission " .. op.label .. " : " .. tostring(err)) end
+        end
+    end
+    return timer.getTime() + 5
+end, nil, timer.getTime() + 5)
+
+------------------------------------------------------------
+-- ZONE CAP (10/11) : une vague = un groupe tire au sort dans CAP_GROUPS, qui patrouille au hasard dans la zone "spawn cap".
+-- S'il sort de la zone, il y revient sans engager, puis reprend sa patrouille : ni frontiere ni montagnes au sud.
+-- Vague suivante : quand tous ses avions sont abattus, poses, a court de carburant ou sans missile (EniWaveOver).
+-- En route tant que F10 SPAWN > Zone CAP est actif ou qu'une mission CAP est en cours.
+------------------------------------------------------------
+local CAP_GROUPS = { "Mig 21 Cap", "jf17 cap", "mig29 cap", "su27 cap", "mig31 cap", "su34 cap", "su30 cap", "su33 cap", "f14 cap", "M2000 Cap" }
+local CAP_LABEL = "CAP"
+local CAP_GOAL, CAP_BONUS = 5, 30 -- avions abattus par les membres, points par membre
+local CAP_SPEED = 240             -- m/s : les vitesses de l'editeur (jusqu'a 833 m/s) videraient les reservoirs
+local CAP_ALT_MIN = 5000          -- m : au-dessus des sommets de la zone (~4000 m)
+local CAP_ALT_MAX = 12000         -- m : a 21000 m (MiG-31 de l'editeur), 240 m/s ne suffit pas a tenir en l'air
+local CAP_ENGAGE_M = 60000        -- distance max entre la route et une cible (meme borne que Spawn ENI)
+local CAP_REACH_M = 5000          -- point de patrouille atteint : il en prend un autre
+local CAP_BACK_S = 90             -- apres un retour dans la zone, delai sans engager : evite les allers-retours sur la limite
+local CAP_HOME = "Maykop-Khanskaya"
+
+CapActive = false
+CapWave = nil -- { groups = { GROUP }, group, t0, alt, dest, back }
+
+local function CapZone() return ZONE:FindByName("spawn cap") end
+
+local function CapInZone(p) return CapZone():IsVec2InZone({ x = p.x, y = p.z }) end
+
+local function CapRoute(w, p, engage)
+    local d = CapZone():GetRandomVec2()
+    w.dest = { x = d.x, z = d.y }
+    local from = Wp(p.x, p.z, w.alt, CAP_SPEED)
+    if engage then
+        local t = w.group:EnRouteTaskEngageTargets(CAP_ENGAGE_M, { "Air" }, 0)
+        from.task = { id = "ComboTask", params = { tasks = {
+            { number = 1, auto = false, enabled = true, id = t.id, params = t.params } } } }
+    end
+    w.group:SetTask({ id = "Mission", params = { route = { points = { from, Wp(d.x, d.y, w.alt, CAP_SPEED) } } } }, 1)
+end
+
+local function CapSpawn(now)
+    local name = CAP_GROUPS[math.random(#CAP_GROUPS)]
+    local d = CapZone():GetRandomVec2()
+    local alt = _DATABASE.Templates.Groups[name].Template.route.points[1].alt
+    alt = math.min(math.max(alt, CAP_ALT_MIN), CAP_ALT_MAX)
+    local g = GetSpawner(name):InitSpeedMps(CAP_SPEED):SpawnFromVec3({ x = d.x, y = alt, z = d.y })
+    if not g then return end
+    HostileGroups[#HostileGroups + 1] = g -- efface aussi par "Clear hostile"
+    g:OptionROEWeaponFree()
+    CapWave = { groups = { g }, group = g, t0 = now, alt = alt }
+    CapRoute(CapWave, { x = d.x, z = d.y }, true)
+    env.info("BLUESKY : Zone CAP : " .. name)
+end
+
+local function CapPatrol(w, now)
+    local u = GroupUnit(w.group)
+    if not u then return end
+    local p = u:getPoint()
+    if not CapInZone(p) then
+        if not w.back then CapRoute(w, p, false) end
+        w.back = now
+    elseif w.back then
+        if now - w.back >= CAP_BACK_S then
+            w.back = nil
+            CapRoute(w, p, true)
+        end
+    elseif Distance2D(p, w.dest) < CAP_REACH_M then
+        CapRoute(w, p, true)
+    end
+end
+
+-- Vague finie mais encore en l'air (plus de carburant ou de missile) : elle rentre se poser
+local function CapRtb(w)
+    local u = GroupUnit(w.group)
+    local home = Airbase.getByName(CAP_HOME)
+    if not (u and home and u:inAir()) then return end
+    local p = u:getPoint()
+    w.group:SetTask({ id = "Mission", params = { route = { points = { Wp(p.x, p.z, p.y, CAP_SPEED), LandWp(home) } } } }, 1)
+end
+
+local function CapTick()
+    local now = timer.getTime()
+    local op = Ops[CAP_LABEL]
+    if op then
+        OpMarkPresent(op, CapInZone)
+        OpIdleClose(op, now)
+    end
+    if CapWave and not EniWaveOver(CapWave) then CapPatrol(CapWave, now) return end
+    if CapWave then CapRtb(CapWave) end
+    CapWave = nil
+    if CapActive or Ops[CAP_LABEL] then CapSpawn(now) end
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(CapTick)
+    if not ok then env.warning("BLUESKY : Zone CAP : " .. tostring(err)) end
+    return timer.getTime() + 15
+end, nil, timer.getTime() + 15)
+
+function SetCapSpawn(on)
+    CapActive = on
+    MESSAGE:New(on and "ZONE CAP ACTIVE" or "ZONE CAP DESACTIVE", 10):ToCoalition(coalition.side.BLUE)
+end
+
+function CapLaunch(group)
+    if not group or not group:IsAlive() then return end
+    if Ops[CAP_LABEL] then GroupMsg(group, "CAP deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
+    local op = OpStart(CAP_LABEL, "COMMANDEMENT : Patrouilles russes au nord du Caucase, secteur Maykop. " ..
+        "Entrez dans la zone CAP et abattez " .. CAP_GOAL .. " appareils ennemis.", group)
+    op.kills = 0
+    OpVoice(op, "c30") -- la voix dit "cinq appareils" : a refaire si CAP_GOAL change
+end
+
+-- Appele par le KillHandler : seuls les kills des membres sur des avions de la zone CAP comptent
+function CapKill(EventData, playerName)
+    local op = Ops[CAP_LABEL]
+    local template = tostring(EventData.TgtUnitName):match("^(.-)#")
+    if not (op and op.members[playerName] and template) then return end
+    for _, name in ipairs(CAP_GROUPS) do
+        if name == template then
+            op.kills = op.kills + 1
+            if op.kills >= CAP_GOAL then
+                OpMsg(op, "COMMANDEMENT : Objectif atteint, mission CAP reussie !\n" .. OpReward(op, CAP_BONUS), 20)
+                OpVoice(op, "c31")
+                Ops[CAP_LABEL] = nil
+            else
+                OpMsg(op, "CAP : " .. op.kills .. "/" .. CAP_GOAL .. " appareils abattus.", 10)
+            end
+            return
+        end
+    end
+end
+
+for _, name in ipairs(CAP_GROUPS) do
+    if not Group.getByName(name) then env.warning("BLUESKY : groupe absent de la mission : " .. name) end
+end
+
+------------------------------------------------------------
+-- MENUS F10 MISSIONS + CODE : par groupe (et pas par coalition) pour savoir qui lance et qui rejoint
+------------------------------------------------------------
+function AddMissionMenusForGroup(group, groupName)
+    local g = group:GetDCSObject()
+    if not g or g:getCoalition() ~= coalition.side.BLUE then return end
+    CodeInput[groupName] = nil
+
+    local root = MENU_GROUP:New(group, "MISSIONS")
+    local icpt = MENU_GROUP:New(group, "INTERCEPTION", root)
+    MENU_GROUP_COMMAND:New(group, "Lancer", icpt, IcptLaunch, group)
+    MENU_GROUP_COMMAND:New(group, "Appel radio", icpt, IcptCall, group)
+    for _, def in ipairs(STRIKES) do
+        MENU_GROUP_COMMAND:New(group, def.label, root, StrikeLaunch, group, def)
+    end
+    MENU_GROUP_COMMAND:New(group, CAP_LABEL, root, CapLaunch, group)
+    MENU_GROUP_COMMAND:New(group, "Rappel de mes missions", root, OpRecall, group)
+
+    local code = MENU_GROUP:New(group, "CODE")
+    for d = 1, 9 do
+        MENU_GROUP_COMMAND:New(group, tostring(d), code, CodeDigit, group, d)
+    end
+    MENU_GROUP_COMMAND:New(group, "Effacer", code, CodeClear, group)
+
+    PlayerMissionMenus[groupName], PlayerCodeMenus[groupName] = root, code
 end
 
 ------------------------------------------------------------
@@ -1977,29 +2393,26 @@ end
 ------------------------------------------------------------
 local BLUE = coalition.side.BLUE
 
-local MenuAirAir = MENU_COALITION:New(BLUE, "AIR-AIR")
+local MenuSpawn = MENU_COALITION:New(BLUE, "SPAWN")
+local MenuEni = MENU_COALITION:New(BLUE, "Spawn ENI", MenuSpawn)
+MENU_COALITION_COMMAND:New(BLUE, "Activer", MenuEni, SetEniSpawn, true)
+MENU_COALITION_COMMAND:New(BLUE, "Desactiver", MenuEni, SetEniSpawn, false)
+local MenuCap = MENU_COALITION:New(BLUE, "Zone CAP", MenuSpawn)
+MENU_COALITION_COMMAND:New(BLUE, "Activer", MenuCap, SetCapSpawn, true)
+MENU_COALITION_COMMAND:New(BLUE, "Desactiver", MenuCap, SetCapSpawn, false)
+local MenuHostAA = MENU_COALITION:New(BLUE, "HOST A/A AERA", MenuSpawn)
 for _, h in ipairs(HOSTILES) do
-    local sub = MENU_COALITION:New(BLUE, h.menu, MenuAirAir)
+    local sub = MENU_COALITION:New(BLUE, h.menu, MenuHostAA)
     for i = 1, 4 do
         MENU_COALITION_COMMAND:New(BLUE, h.menu .. "-" .. i, sub, SpawnHostile, h.prefix .. i)
     end
 end
-MENU_COALITION_COMMAND:New(BLUE, "Clear hostile", MenuAirAir, Clear)
-local MenuEni = MENU_COALITION:New(BLUE, "Spawn ENI", MenuAirAir)
-MENU_COALITION_COMMAND:New(BLUE, "Activer", MenuEni, SetEniSpawn, true)
-MENU_COALITION_COMMAND:New(BLUE, "Desactiver", MenuEni, SetEniSpawn, false)
-
-local MenuMissions = MENU_COALITION:New(BLUE, "MISSIONS")
-MENU_COALITION_COMMAND:New(BLUE, "HOST Naval AERA", MenuMissions, NavalHost)
-local MenuIcpt = MENU_COALITION:New(BLUE, "INTERCEPTION", MenuMissions)
-MENU_COALITION_COMMAND:New(BLUE, "Lancer", MenuIcpt, IcptLaunch)
-MENU_COALITION_COMMAND:New(BLUE, "Appel radio", MenuIcpt, IcptCall)
+MENU_COALITION_COMMAND:New(BLUE, "Clear hostile", MenuHostAA, Clear)
+MENU_COALITION_COMMAND:New(BLUE, "HOST Naval AERA", MenuSpawn, NavalHost)
+MENU_COALITION_COMMAND:New(BLUE, "Reset Croix", MenuSpawn, Croix)
+MENU_COALITION_COMMAND:New(BLUE, "Spawn Convoi", MenuSpawn, Convoi)
 
 local MenuTankers = MENU_COALITION:New(BLUE, "TANKERS")
 for _, t in ipairs(TANKERS) do
     MENU_COALITION_COMMAND:New(BLUE, t.label, MenuTankers, SpawnTanker, t.template)
 end
-
-local MenuAirSol = MENU_COALITION:New(BLUE, "AIR-SOL")
-MENU_COALITION_COMMAND:New(BLUE, "Reset Croix", MenuAirSol, Croix)
-MENU_COALITION_COMMAND:New(BLUE, "Spawn Convoi", MenuAirSol, Convoi)
