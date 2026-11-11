@@ -113,6 +113,8 @@ def aliases(rows: list[tuple[str, str, str]]) -> dict[str, str]:
     ucids: dict[str, set[str]] = {}
     current: dict[str, str] = {}
     for ucid, now, name in rows:
+        if not ucid:
+            continue  # UCID vide en base (fourre-tout de DCSServerBot) : pas un compte, rendrait tout pseudo ambigu
         current[ucid] = now
         for n in (now, name):
             if n:

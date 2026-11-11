@@ -11,8 +11,8 @@ window.BS_CONFIG = {
 
   // Une même personne sous plusieurs pseudos en jeu → un seul pilote (nom affiché = la clé).
   pilotAliases: {
-    'Breakdown': ['Breakdown 1-1 | Thibaud', '[ BS ]Thibaud | Breakdown'],
-    'Branch': ['Branch 1-1 | Weefe'],
+    'Breakdown': ['Breakdown 1-1 | Thibaud', '[ BS ]Thibaud | Breakdown', 'Breakdown | BlueSky 1-1'],
+    'Branch': ['Branch 1-1 | Weefe', 'Branch | BlueSky 1-2'],
     'Smokey': ['Xerion I Smokey'],
     'Redman': ['Redman 1-1 | Titirex'],
     'Lixx': ['Napster 1-1 | Lixx', 'Napster1-1 | Lixx'],

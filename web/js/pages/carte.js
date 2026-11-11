@@ -28,7 +28,8 @@
   loadStats().then(s => (pilots = s.pilots || []));
   const alias = {};
   Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.concat(cs).forEach(n => (alias[n.toLowerCase()] = cs)));
-  const statsOf = cs => { const n = alias[String(cs).toLowerCase()] || cs; return pilots.find(x => x.callsign === n); };
+  const short = cs => alias[String(cs).toLowerCase()] || cs;  // pseudo court de config.js (« Breakdown »), sinon celui du jeu
+  const statsOf = cs => pilots.find(x => x.callsign === short(cs));
   const ROLES = { awacs: 'AWACS', tanker: 'Ravitailleur', heli: 'Hélicoptère', heavy: 'Avion lourd', jet: 'Chasseur' };
 
   // Silhouettes de tar1090 / ADS-B Exchange (js/markers.js). Type DCS → forme ; les avions qui se ressemblent partagent la même.
@@ -78,7 +79,7 @@
     + (selected === p.key ? '#d9b45a' : enemy(p) ? '#d0342c' : '#13213a') + '" stroke-width="1.2" stroke-linejoin="round">' + SHIPS[p.ship] + '</svg>';
   const SHIP_NAMES = { cvn: 'Porte-avions (CVN)', kuz: 'Porte-avions (Kuznetsov)', lha: 'Porte-aéronefs (Tarawa)' };
   // multi-équipage : « Pilote + Gunner »
-  const crewName = p => esc([p.callsign].concat(p.crew || []).join(' + '));
+  const crewName = p => esc([p.callsign].concat(p.crew || []).map(short).join(' + '));
   const label = p => p.ai ? (enemy(p) ? '' : esc(p.callsign || '')) : crewName(p);
   const iconFor = p => {
     const sel = selected === p.key ? ' sel' : '';
@@ -212,7 +213,7 @@
     if (!p) return;
     const kind = p.ship ? SHIP_NAMES[p.ship] : ROLES[p.role];
     const side = p.ai ? (enemy(p) ? (p.ship ? 'Ennemi · ' : 'IA ennemie · ') : (p.ship ? 'Ami · ' : 'IA amie · ')) + kind + ' · ' : '';
-    $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : [p.callsign].concat(p.crew || []).join(' + ');
+    $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : [p.callsign].concat(p.crew || []).map(short).join(' + ');
     $('fType').textContent = side + (p.bs && !p.ai ? 'Mode Blue Sky · ' : '') + p.aircraft +(p.ship ? '' : ' · ' + (p.air ? 'En vol' : 'Au sol' + (p.base ? ' · ' + p.base : '')));
     $('fAlt').textContent = p.ship ? '—' : p.air ? fl(p) : Math.round(p.alt) + ' ft';
     $('fSpd').textContent = Math.round(p.spd) + ' kt';

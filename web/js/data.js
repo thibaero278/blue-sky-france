@@ -322,7 +322,9 @@
   function loadServer() {
     return serverP || (serverP = loadLive().then(l => {
       if (l.error || l.offline) return { demo: false, up: false, online: [], mission: '', clock: null };
-      const online = (l.online || (l.players || []).map(p => p.callsign)).filter(Boolean);
+      const alias = {};  // pseudo court de config.js (« Breakdown ») plutôt que le pseudo complet du jeu
+      Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.forEach(n => (alias[n.toLowerCase()] = cs)));
+      const online = [...new Set((l.online || (l.players || []).map(p => p.callsign)).filter(Boolean).map(n => alias[n.toLowerCase()] || n))];
       const clock = l.missionTime != null ? { t: l.missionTime, at: Date.now() } : null;
       return { demo: !!l.demo, up: true, online, mission: l.mission || '', clock };
     }));
