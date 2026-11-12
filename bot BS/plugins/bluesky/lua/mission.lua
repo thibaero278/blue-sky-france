@@ -204,9 +204,22 @@ end
 -- Total fusionné reçu de R2D2 : remplace les scores du script de mission (script Caucase.lua), puis Scores.lua.
 -- Les tables des pilotes sont modifiées sur place : le script garde ses références.
 -- removeJson : pilotes supprimés (RGPD) sur R2D2, retirés du fichier.
-function dcsbot.bsSetScores(json, removeJson)
+-- id, part, parts : envoi en plusieurs morceaux, appliqué d'un coup quand tous sont arrivés.
+function dcsbot.bsSetScores(json, removeJson, id, part, parts)
     local all = net.json2lua(json)
     if type(all) ~= 'table' or not InitPlayer or not SaveScores then return end
+    if (parts or 1) > 1 then
+        if not BS_PUSH or BS_PUSH.id ~= id then BS_PUSH = { id = id, got = 0, parts = {} } end
+        if not BS_PUSH.parts[part] then BS_PUSH.got = BS_PUSH.got + 1 end
+        BS_PUSH.parts[part] = all
+        if removeJson then BS_PUSH.remove = removeJson end
+        if BS_PUSH.got < parts then return end
+        all, removeJson = {}, BS_PUSH.remove
+        for _, chunk in pairs(BS_PUSH.parts) do
+            for name, p in pairs(chunk) do all[name] = p end
+        end
+        BS_PUSH = nil
+    end
     for name, p in pairs(all) do
         local s = InitPlayer(name)
         for k, v in pairs(p) do s[k] = v end
@@ -216,7 +229,7 @@ function dcsbot.bsSetScores(json, removeJson)
         for _, name in ipairs(removed) do Scores[name] = nil end
     end
     SaveScores()
-    BS_SCORES_SYNCED = true
+    BS_SCORES_SYNCED = (id and id ~= '') and id or true  -- le bot vérifie que c'est bien son dernier envoi
     env.info('BlueSky : scores fusionnes recus de R2D2')
 end
 
@@ -243,7 +256,7 @@ function dcsbot.bsGetLive(channel)
     if not okWx then env.warning('BlueSky live : météo ignorée : ' .. tostring(wx)) end
     dcsbot.sendBotTable({ command = 'bsGetLive', time = timer.getAbsTime(), players = players,
                           ai = okAi and ai or {}, weather = okWx and wx or nil,
-                          scoresReady = (InitPlayer and SaveScores and Scores) ~= nil, scoresSynced = BS_SCORES_SYNCED == true }, channel)
+                          scoresReady = (InitPlayer and SaveScores and Scores) ~= nil, scoresSynced = BS_SCORES_SYNCED or false }, channel)
 end
 
 env.info('DCSServerBot - BlueSky: mission.lua charge')

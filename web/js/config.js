@@ -16,7 +16,8 @@ window.BS_CONFIG = {
     'Smokey': ['Xerion I Smokey'],
     'Redman': ['Redman 1-1 | Titirex'],
     'Lixx': ['Napster 1-1 | Lixx', 'Napster1-1 | Lixx'],
-    'DEX': ['WAVE OFF 1-1 l DEX', 'DEX WAVE OFF 1-1']
+    'DEX': ['WAVE OFF 1-1 l DEX', 'DEX WAVE OFF 1-1', 'WaveOff | BlueSky 1-4'],
+    'Joker': ['Seigneur-Perceval', 'Joker | BlueSky 2-1']
   },
   // Pseudos par défaut de DCS, jamais affichés au classement
   ignorePilots: ['Player', 'Joueur'],

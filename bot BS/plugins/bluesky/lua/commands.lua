@@ -35,8 +35,11 @@ function dcsbot.bsGetLive(json)
 end
 
 -- Scores fusionnés de tous les serveurs (R2D2) → script de mission (mission.lua : dcsbot.bsSetScores)
+-- Envoyé en plusieurs morceaux (id, part, parts) : un message UDP du bot est limité à 8 Ko
 function dcsbot.bsSetScores(json)
     local script = 'dcsbot.bsSetScores(' .. utils.basicSerialize(json.scores or '{}') .. ', ' ..
-                   utils.basicSerialize(json.remove or '[]') .. ')'
+                   (json.remove and utils.basicSerialize(json.remove) or 'nil') .. ', ' ..
+                   utils.basicSerialize(tostring(json.id or '')) .. ', ' ..
+                   tostring(tonumber(json.part) or 1) .. ', ' .. tostring(tonumber(json.parts) or 1) .. ')'
     net.dostring_in('mission', 'a_do_script(' .. utils.basicSerialize(script) .. ')')
 end

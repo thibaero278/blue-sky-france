@@ -40,8 +40,16 @@ function player(id, name)
            pos = { x = 0, y = 0, z = 0 }, getPoint = function(s) return s.pos end }
 end
 trigger = { misc = { getZone = function() return { point = { x = 0, z = 0 }, radius = 100 } end } }
+BASES = { { name = "Gudauta", x = 0, y = 0, groups = { "renfort" } }, { name = "Sochi", x = 100000, y = 0, groups = {} },
+          { name = "Anapa", x = 200000, y = 0, groups = {} } }
+BASE_RADIUS = 8000
+REFRESH = 0
+function RefreshMissionMenus() REFRESH = REFRESH + 1 end
+function Bearing(from, to) return math.floor(math.deg(math.atan2(to.z - from.z, to.x - from.x)) + 360.5) % 360 end
+Airbase = { Category = { AIRDROME = 0 } }
 function obj(typeName, x, z)
-  local o = { life = 10 }
+  local o = { life = 10, active = true }
+  function o:isActive() return self.active end
   function o:isExist() return true end
   function o:getLife() return self.life end
   function o:getTypeName() return typeName end
@@ -58,8 +66,9 @@ function IcptEnd() Ops[ICPT_LABEL] = nil; Icpt = nil end
     cut('local OP_IDLE_S', '-- MENUS F10 MISSIONS + CODE') +
     cut('-- Appele par le KillHandler', 'local function IcptTick') + '''
 _G.STRIKES, _G.StrikeTick, _G.OpStart, _G.OpReward, _G.CapTick = STRIKES, StrikeTick, OpStart, OpReward, CapTick
-_G.OpVoice = OpVoice
-function enter(g, code) for d in code:gmatch(".") do CodeDigit(g, tonumber(d)) end end
+_G.OpVoice, _G.BASE_DEFS, _G.CONVOY_DEFS, _G.NORTH_DEF, _G.NOT_BASE = OpVoice, BASE_DEFS, CONVOY_DEFS, NORTH_DEF, NOT_BASE
+_G.NORTH_CONVOYS, _G.NORTH_LABEL, _G.GroupTargets, _G.GroupMsg, _G.CAP_LABEL = NORTH_CONVOYS, NORTH_LABEL, GroupTargets, GroupMsg, CAP_LABEL
+function enter(g, code) CodeJoin(g, code) end
 function members(op) local t = {} for n in pairs(op.members) do t[#t + 1] = n end table.sort(t) return table.concat(t, ",") end
 leader, wing = grp("L", "Alpha"), grp("W", "Bravo")
 UNITS = { player(1, "Alpha"), player(2, "Bravo") }
@@ -76,17 +85,17 @@ lua.execute('ZERO = obj("Oil rig", -274500, 495500); ZERO.life = 0; table.insert
 assert ev('#STRIKES[1].targets()') == 3
 lua.execute('table.remove(STATICS)')
 code = ev('Ops["Petrol Strike"].code')
-assert len(code) == 3 and '0' not in code and code in ev('GMSG.L')
+assert len(code) == 2 and '0' not in code and code in ev('GMSG.L')
+assert 'partage selon les cibles' in ev('GMSG.L')
 
 # deuxieme lancement refuse ; un mauvais code ne rejoint rien
 ev('StrikeLaunch(wing, STRIKES[1])')
 assert 'deja en cours' in ev('GMSG.W')
-bad = '111' if code != '111' else '222'
+bad = '11' if code != '11' else '22'
 ev(f'enter(wing, "{bad}")')
 assert 'INCONNU' in ev('GMSG.W') and ev('members(Ops["Petrol Strike"])') == 'Alpha'
 
-# Effacer repart de zero ; le bon code rejoint et donne le briefing
-ev('CodeDigit(wing, 5)'); ev('CodeClear(wing)')
+# le bon code rejoint et donne le briefing
 ev(f'enter(wing, "{code}")')
 assert ev('members(Ops["Petrol Strike"])') == 'Alpha,Bravo'
 assert 'MISSION REJOINTE' in ev('GMSG.W') and code in ev('GMSG.W')
@@ -113,7 +122,7 @@ ev('''(function()
 end)()''')
 assert ev('ACTIVATED') == 1 and ev('Ops["HOST Naval AERA"].left') == 1
 ev('NavalHost()'); assert ev('ACTIVATED') == 1
-lua.execute('UNITS = {}'); assert 'venir au moins une fois' in ev('GMSG.L'); ev('StrikeTick(Ops["HOST Naval AERA"])'); lua.execute('NOW = NOW + 601'); ev('StrikeTick(Ops["HOST Naval AERA"])')
+lua.execute('UNITS = {}'); assert 'partage selon' in ev('GMSG.L'); ev('StrikeTick(Ops["HOST Naval AERA"])'); lua.execute('NOW = NOW + 601'); ev('StrikeTick(Ops["HOST Naval AERA"])')
 assert ev('Ops["HOST Naval AERA"]') is None
 
 # Interception : tir non autorise d'un membre = 0 pt ; pilote hors mission = kill normal ; autorise = bonus a tous les membres
@@ -205,6 +214,8 @@ function GetSpawner()
     local g = { v = v, unit = { pos = { x = 500000, z = 0 }, inAir = function() return true end } }
     function g.unit.getPoint(u) return u.pos end
     function g:OptionROEWeaponFree() end
+    function g:GetName() return "cap" end
+    function g:Destroy() DESTROYED = (DESTROYED or 0) + 1 end
     function g:EnRouteTaskEngageTargets() return { id = "EngageTargets", params = {} } end
     function g:SetTask(t) ROUTES[#ROUTES + 1] = t.params.route.points end
     SPAWNED_CAP[#SPAWNED_CAP + 1] = g
@@ -221,7 +232,6 @@ ev('CapTick()'); assert ev('#SPAWNED_CAP') == 0
 ev('CapLaunch(leader)')
 ev('CapTick()'); ev('CapTick()')
 assert ev('#SPAWNED_CAP') == 1 and ev('#HostileGroups') == 1 and ev('SPAWNED_CAP[1].v.y') == 12000 and ev('#ROUTES') == 1 and ev('routeEngages()')
-assert ev('Ops.CAP.present.Alpha') is True
 # sortie de zone : un seul ordre de retour, sans engagement
 lua.execute('INZONE = false'); ev('CapTick()'); ev('CapTick()')
 assert ev('#ROUTES') == 2 and not ev('routeEngages()')
@@ -233,20 +243,141 @@ assert ev('#ROUTES') == 3 and ev('routeEngages()')
 # point de patrouille atteint : il en prend un autre
 lua.execute('SPAWNED_CAP[1].unit.pos = { x = 1000, z = 2000 }'); ev('CapTick()')
 assert ev('#ROUTES') == 4
-# kills : hors mission et autre avion ignores, les 5 kills des membres valident ; +30 seulement a qui est venu dans la zone
-ev('CapKill({ TgtUnitName = "mig29 cap#001-01" }, "Inconnu")'); ev('CapKill({ TgtUnitName = "T" }, "Alpha")'); ev('CapKill({ TgtUnitName = "autre#001-01" }, "Alpha")')
-assert ev('Ops.CAP.kills') == 0
-lua.execute('Ops.CAP.members.Bravo = true; Ops.CAP.present.Bravo = nil')
-for _ in range(4): ev('CapKill({ TgtUnitName = "mig29 cap#001-01" }, "Alpha")')
+# parti en poursuite : encore hors zone 2 min apres : supprime (et pas avant)
+lua.execute('INZONE = false'); ev('CapTick()'); lua.execute('NOW = NOW + 119'); ev('CapTick()')
+assert ev('DESTROYED') is None
+lua.execute('NOW = NOW + 2'); ev('CapTick()')
+assert ev('DESTROYED') == 1
+lua.execute('INZONE = true'); ev('CapTick()')
+# kills : hors mission et autre avion ignores, les 5 kills des membres valident ; bonus au prorata (comme le KillHandler : OpCredit puis CapKill)
+lua.execute('function kill(unit, who) OpCredit({ TgtUnitName = unit }, { who }); CapKill({ TgtUnitName = unit }, who) end')
+ev('kill("mig29 cap#001-01", "Inconnu")'); ev('kill("T", "Alpha")'); ev('kill("autre#001-01", "Alpha")')
+assert ev('Ops.CAP.kills') == 0 and ev('Ops.CAP.credit.Alpha') is None
+lua.execute('Ops.CAP.members.Bravo = true; Ops.CAP.members.Charlie = true')
+for _ in range(4): ev('kill("mig29 cap#001-01", "Alpha")')
 assert ev('Ops.CAP.kills') == 4
 lua.execute('UNITS = {}')
-ev('CapKill({ TgtUnitName = "M2000 Cap#002-01" }, "Bravo")')
-assert ev('Ops.CAP') is None and ev('AWARD.Alpha') == 30 and ev('AWARD.Bravo') is None
+ev('kill("M2000 Cap#002-01", "Bravo")')
+# 2 tireurs : cagnotte 60, Alpha 4/5 = 48, Bravo 1/5 = 12 ; Charlie (membre sans kill) : rien
+assert ev('Ops.CAP') is None and ev('AWARD.Alpha') == 48 and ev('AWARD.Bravo') == 12 and ev('AWARD.Charlie') is None
 # fin de mission : la vague restante rentre, plus de nouvelle ; le menu relance les vagues
 lua.execute('OVER = true'); n = ev('#ROUTES'); ev('CapTick()')
 assert ev('#SPAWNED_CAP') == 1 and ev('CapWave') is None and ev('#ROUTES') == n + 1
 lua.execute('CapActive, OVER = true, false'); ev('CapTick()')
 assert ev('#SPAWNED_CAP') == 2
+
+# Bases et convois (11/11)
+lua.execute('''
+AWARD, PlayerLife, ALL = {}, {}, {}
+UNITS = { player(1, "Alpha"), player(2, "Bravo") }
+function ground(name, units) local g = { units = units } function g:getName() return name end function g:getUnits() return self.units end return g end
+G1 = ground("G1", { obj("T-72", 100, 100), obj("ZU-23", 200, 0) })
+REN = ground("renfort", { obj("BTR", 50, 50) })
+FAR = ground("loin", { obj("BTR", 50000, 0) })
+OFF = ground("off", { obj("BTR", 10, 10) }); OFF.units[1].active = false
+SO = ground("S1", { obj("T-90", 100000, 10) })
+CV = ground("Gudauta convoie", { obj("Ural", 30000, 0) }); CV.units[1].active = false
+N1 = ground("convoie-1", { obj("T-72B3", 90000, 9000), obj("ZU", 90000, 9100), obj("KS-19", 90000, 9200), obj("T-72B3", 90000, 9300) })
+GROUPS = { G1, REN, FAR, OFF, SO, CV, N1 }
+Group.Category = { GROUND = 2 }
+coalition.getGroups = function() return GROUPS end
+Group.getByName = function(n) for _, g in ipairs(GROUPS) do if g:getName() == n then return g end end end
+AB = { getDesc = function() return { category = 0 } end, getPoint = function() return { x = 100000, z = 0 } end, getName = function() return "Maykop" end }
+world.getAirbases = function() return { AB } end
+Airbase.Category = { AIRDROME = 0 }
+MESSAGE = { New = function(_, text) return { ToGroup = function(_, g) GMSG[g:GetName()] = text end, ToCoalition = function() end,
+                                             ToAll = function() ALL[#ALL + 1] = text end } end }
+function credit(o, who) OpCredit({ TgtUnitName = o:getName() }, { who }) end
+''')
+# renforts, convois et unites inactives ne comptent jamais dans une base ; hors rayon non plus
+assert ev('NOT_BASE["renfort"]') and ev('NOT_BASE["Gudauta convoie"]') and ev('NOT_BASE["convoie-1"]')
+assert ev('CampaignStage') == 1
+ev('StrikeLaunch(leader, BASE_DEFS[1])')
+assert ev('Ops["Base Gudauta"].left') == 2
+ev(f'enter(wing, Ops["Base Gudauta"].code)')
+# Alpha detruit une cible ; la 2e tombe sous les coups d'un non-membre : hors calcul, Alpha prend toute la cagnotte (1 tireur = 30)
+lua.execute('credit(G1.units[1], "Alpha"); G1.units[1].life = 0'); ev('StrikeTick(Ops["Base Gudauta"])')
+assert 'reste 1' in ev('SENT[#SENT].text')
+lua.execute('REFRESH = 0; StrikeDead[G1.units[2]:getName()] = true'); ev('StrikeTick(Ops["Base Gudauta"])')
+assert ev('Ops["Base Gudauta"]') is None and ev('AWARD.Alpha') == 30 and ev('AWARD.Bravo') is None
+assert 'Aucune cible detruite, pas de bonus : Bravo' in ev('SENT[#SENT].text')
+assert ev('CampaignStage') == 2 and 'Gudauta est tombee' in ev('ALL[1]') and 'Sochi' in ev('ALL[1]') and ev('REFRESH') == 1
+# relancer Gudauta : detruite, la campagne ne recule pas
+ev('StrikeLaunch(leader, BASE_DEFS[1])'); assert 'deja detruit' in ev('GMSG.L') and ev('CampaignStage') == 2
+# Sochi videe sans mission : son lancement ouvre Anapa ; Anapa vide : victoire
+lua.execute('StrikeDead[SO.units[1]:getName()] = true'); ev('StrikeLaunch(leader, BASE_DEFS[2])')
+assert ev('CampaignStage') == 3 and 'Anapa' in ev('ALL[2]')
+ev('StrikeLaunch(leader, BASE_DEFS[3])'); assert ev('CampaignStage') == 4 and 'victoire' in ev('ALL[3]')
+
+# Convoi de renfort : aucune cible tant qu'il n'est pas active
+assert ev('#CONVOY_DEFS[1].targets()') == 0
+lua.execute('CV.units[1].active = true'); assert ev('#CONVOY_DEFS[1].targets()') == 1
+
+# Convoi nord : position au briefing ; prorata avec un membre mort (sa part est perdue, cagnotte 20 x 2 tireurs)
+lua.execute('AWARD = {}'); ev('StrikeLaunch(leader, NORTH_DEF)')
+assert 'environ 7 NM au 090 de Maykop' in ev('GMSG.L')  # cap 090 : Bearing remplace par le test de la punition and ev('Ops["Convoi nord"].left') == 4
+ev(f'enter(wing, Ops["Convoi nord"].code)')
+lua.execute('''for i = 1, 3 do credit(N1.units[i], "Alpha"); N1.units[i].life = 0 end
+credit(N1.units[4], "Bravo"); N1.units[4].life = 0; PlayerLife.Bravo = { dead = true }''')
+ev('StrikeTick(Ops["Convoi nord"])')
+assert ev('Ops["Convoi nord"]') is None and ev('AWARD.Alpha') == 30 and ev('AWARD.Bravo') is None
+assert 'Alpha +30 pts (75 %)' in ev('SENT[#SENT].text')
+lua.execute('PlayerLife.Bravo = nil')
+# plus aucun convoi nord vivant : rien a lancer
+ev('StrikeLaunch(leader, NORTH_DEF)'); assert 'deja detruit' in ev('GMSG.L')
+
+# HOST Naval : un kill d'escorte du groupe Admiral compte dans les parts
+lua.execute('''ADM = ground("Admiral", { obj("CV_1143_5", 0, 0), obj("REZKY", 0, 10) }); table.insert(GROUPS, ADM)''')
+ev('StrikeLaunch(leader, STRIKES[2])')
+assert ev('Ops["HOST Naval AERA"].left') == 1
+lua.execute('OpCredit({ TgtUnitName = "escorte", TgtGroupName = "Admiral" }, { "Alpha" }); OpCredit({ TgtUnitName = "x", TgtGroupName = "autre" }, { "Alpha" })')
+assert ev('Ops["HOST Naval AERA"].credit.Alpha') == 1
+lua.execute('Ops["HOST Naval AERA"] = nil')
+
+# Factory Strike : statiques industriels du cercle GCI-2 seulement (pas les sacs de sable, ni hors cercle), kill GCI-2 credite
+lua.execute('''STATICS = { obj("Tank 2", -33689, 587000), obj(".Command Center", -33500, 587300), obj("Sandbag_02", -33689, 587167),
+                         obj("Tank 2", -30000, 587167) }''')
+ev('StrikeLaunch(leader, STRIKES[3])')
+assert ev('STRIKES[3].label') == 'Factory Strike' and ev('Ops["Factory Strike"].left') == 2
+lua.execute('OpCredit({ TgtUnitName = "GCI-2-28", TgtGroupName = "GCI-2" }, { "Alpha" })')
+assert ev('Ops["Factory Strike"].credit.Alpha') == 1
+lua.execute('Ops["Factory Strike"] = nil')
+
+# Menus BASES / CONVOIS : seule la base debloquee, convois en route seulement, refaits a chaque RefreshMissionMenus
+lua.execute('''
+function menu(text, parent)
+  local m = { text = text, items = {} }
+  if parent then parent.items[#parent.items + 1] = m end
+  function m:RemoveSubMenus() self.items = {} end
+  function m:Remove() end
+  return m
+end
+MENU_GROUP = { New = function(_, g, text, parent) return menu(text, parent) end }
+MENU_GROUP_COMMAND = { New = function(_, g, text, parent) return menu(text, parent) end }
+PlayerMissionMenus, PlayerCodeMenus = {}, {}
+function leader:GetDCSObject() return { getCoalition = function() return 2 end } end
+function texts(m) local t = {} for _, i in ipairs(m.items) do t[#t + 1] = i.text end return table.concat(t, "|") end
+''' + cut('-- BASES et CONVOIS changent', '------------------------------------------------------------\n-- MENUS F10 COALITION BLEUE') + '''
+_G.PlayerDynMenus = PlayerDynMenus
+CampaignStage = 1
+for _, u in ipairs(G1.units) do StrikeDead[u:getName()] = nil end
+CV.units[1].active = false
+N1.units[1].life, StrikeDead[N1.units[1]:getName()] = 10, nil
+AddMissionMenusForGroup(leader, "L")
+''')
+assert ev('texts(PlayerDynMenus.L.bases)') == 'Base Gudauta'
+assert ev('texts(PlayerDynMenus.L.convois)') == 'Convoi nord'
+assert ev('texts(PlayerDynMenus.L.root)') == 'BASES|CONVOIS|STRIKE|NAVAL|AIR|Rappel de mes missions'
+assert ev('texts(PlayerDynMenus.L.root.items[3])') == 'Petrol Strike|Factory Strike'
+assert ev('texts(PlayerDynMenus.L.root.items[4])') == 'HOST Naval AERA'
+assert ev('#PlayerCodeMenus.L.items') == 9 and ev('#PlayerCodeMenus.L.items[4].items') == 9 and ev('PlayerCodeMenus.L.items[4].items[7].text') == '47'
+lua.execute('CampaignStage = 2; CV.units[1].active = true; RefreshMissionMenus()')
+assert ev('texts(PlayerDynMenus.L.bases)') == 'Base Sochi' and ev('texts(PlayerDynMenus.L.convois)') == 'Convoi Gudauta|Convoi nord'
+lua.execute('CampaignStage = 4; CV.units[1].active = false; StrikeDead[N1.units[1]:getName()] = true; RefreshMissionMenus()')
+assert ev('texts(PlayerDynMenus.L.bases)') == 'Campagne terminee' and ev('texts(PlayerDynMenus.L.convois)') == 'Aucun convoi en route'
+# menu remplace (nouvelle apparition) : l'ancienne entree n'est plus mise a jour
+lua.execute('PlayerMissionMenus.L = {}; RefreshMissionMenus()')
+assert ev('PlayerDynMenus.L') is None
 
 # Voix : chaque numero utilise existe dans VOIX et son .ogg est verrouille dans voix-ia/validees
 codes = set(re.findall(r'"(c\d\d)"', src))
@@ -269,6 +400,20 @@ timer.scheduleFunction = sf
 ''')
 assert ev('#PLAYED') == 2 and ev('PLAYED[1]') == '1c02_chasseur_rf59_1.ogg' and ev('PLAYED[2]') == '1c03_rf59_mensonge.ogg'
 assert abs(ev('CALLS[2].t - CALLS[1].t') - 8.6) < 1e-9
+
+# interception (11/11) : briefing + code envoyes a tous les pilotes, pas seulement au groupe du lanceur
+lua.execute('''
+ALL, GMSG = {}, {}
+MESSAGE = { New = function(_, text) return { ToGroup = function(_, g) GMSG[g:GetName()] = text end,
+                                             ToAll = function() ALL[#ALL + 1] = text end } end }
+PUB = OpStart("TEST PUBLIC", "Tu-95 en approche.", grp("Lanceur", "Alpha"), nil, nil, true)
+''')
+assert ev('#ALL') == 1 and ev('GMSG.Lanceur') is None
+assert f"CODE DE LA MISSION : {ev('PUB.code')}" in ev('ALL[1]') and 'Tous les pilotes' in ev('ALL[1]')
+assert ev('PUB.members.Alpha') is True   # le lanceur reste membre ; les autres rejoignent avec le code
+lua.execute('GMSG = {}; PRIV = OpStart("TEST PRIVE", "b", grp("L2", "Bravo"))')
+assert ev('#ALL') == 1 and 'Tes equipiers' in ev('GMSG.L2')   # les autres missions : groupe du lanceur
+assert re.search(r'Icpt\.op = OpStart\(ICPT_LABEL, [^\n]*, true\)', src)   # l'interception utilise bien le mode public
 
 # le script complet reste compilable
 lua.compile(src)

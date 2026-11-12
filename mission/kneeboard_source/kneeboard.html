@@ -45,7 +45,7 @@
   .info b { color: var(--ink); }
   .tag {
     background: var(--yellow); font-size: 20px; font-weight: 700; padding: 0 18px 0 30px;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0; white-space: nowrap;
     clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
   }
   .tag img { width: 40px; height: 40px; border-radius: 50%; }
@@ -92,6 +92,69 @@
   .note { font-size: 15px; color: #333; padding: 8px 26px 0; line-height: 1.35; }
   .legend { display: flex; gap: 22px; padding: 10px 26px 0; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
 
+  /* page 01 : lignes plus serrees (12 unites) + indicatif TACAN sous le canal */
+  .cn td { padding: 3px 10px; }
+  .cn th { padding: 4px 10px 3px; }
+  .cn .legend { padding-top: 6px; }
+  /* page 02 : 6 lignes de menu */
+  .mb td { padding: 5px 10px; }
+  .cn td.n { font-size: 22px; }
+  .cn td.n small { font-size: 13.5px; margin-top: 1px; }
+  .cn td.v { font-size: 24px; }
+  .cn td.v small { display: block; font-size: 12.5px; font-weight: 400; color: var(--muted); letter-spacing: 1px; }
+  .cn .sec { margin-top: 6px; }
+  .cn .ret { margin-top: 6px; padding: 5px 12px; }
+  .cn .note { padding-top: 5px; }
+
+  /* page 04 : missions a code, plus serree */
+  .ms td { padding: 3px 10px; }
+  .ms td.k { width: 150px; font-size: 17px; }
+  .ms td.t { font-size: 16.5px; line-height: 1.25; }
+  .ms td.n { font-size: 19px; }
+  .ms td.n small { font-size: 13px; }
+  .ms td.v { font-size: 23px; }
+  .ms .sec { margin-top: 8px; }
+
+  /* ---------- pages phraseologie (04+) ---------- */
+  /* calls : <pre class="calls"> une ligne = "ROLE|texte", [valeur] = a adapter. Rendu par le script en bas. */
+  pre.calls, pre.gloss { display: none; }
+  table.cl td { padding: 4px 10px; }
+  td.who { width: 66px; text-align: center; padding-right: 0 !important; }
+  td.who .pill { width: 54px; text-align: center; padding: 2px 0; }
+  .pill.rb { background: none; color: var(--muted); border: 1.5px solid var(--dot); }
+  .pill.ctl { background: #2a5ca8; color: #fff; }   /* controleurs : bleu Blue Sky du site */
+  .cs { font-weight: 700; color: var(--ils); }       /* indicatif du pilote (vert) */
+  td.c { font-size: 16.5px; line-height: 1.28; }
+  td.c.rb { color: #444; font-size: 15px; }
+  .val { font-family: Consolas, monospace; font-weight: 700; color: var(--uhf); }
+  .ret {
+    margin: 12px 22px 0; padding: 7px 12px; font-size: 14.5px; line-height: 1.35; color: #222;
+    border-left: 5px solid var(--red); background: var(--band);
+  }
+  .ret b:first-child { color: var(--red); letter-spacing: 1px; margin-right: 6px; }
+  .ex { font-size: 14px; color: var(--muted); padding: 0 26px 6px; }
+  .gl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; padding: 2px 22px 0; }
+  .gl div { border-bottom: 1px dotted var(--dot); padding: 3px 4px 2px; }
+  .gl b { display: block; font-family: Consolas, monospace; font-size: 16.5px; }
+  .gl span { font-size: 13.5px; color: #444; }
+  .abc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 14px; padding: 4px 22px 0; }
+  .abc div { font-family: Consolas, monospace; font-size: 20px; padding: 5px 4px; border-bottom: 1px dotted var(--dot); }
+  .abc b { display: inline-block; width: 26px; font-size: 24px; }
+  td.ln { width: 150px; font-size: 16px; font-weight: 700; }
+  td.fill { height: 42px; border-left: 1px dotted var(--dot); }
+  td.fill small { color: var(--muted); font-size: 13px; }
+  /* pages chargees : calls un peu plus serres */
+  .dense td.c { font-size: 15.5px; line-height: 1.22; }
+  .dense table.cl td { padding: 3px 10px; }
+  .dense .sec { margin-top: 7px; }
+  .dense .ret { margin-top: 8px; }
+  .dense td.fill { height: 26px; padding: 3px 10px; }
+  .dense td.ln, .dense td.id { padding-top: 3px; padding-bottom: 3px; }
+  /* encore plus serre (CASE III, calls longs du PDF anglais) */
+  .dense2 td.c { font-size: 14.5px; line-height: 1.18; }
+  .dense2 table.cl td { padding: 2px 10px; }
+  .dense2 .sec { margin-top: 5px; }
+
   footer {
     height: 46px; margin: 0 22px; border-top: 1.5px solid var(--red);
     display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted);
@@ -109,44 +172,62 @@
     <div class="info"><span><b>Caucase</b> · Multi DAY</span><span>Fréquences en MHz</span></div>
     <div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div>
   </div>
-  <main>
-    <div class="sec">PORTE-AVIONS</div>
+  <!-- Valeurs reverifiees le 11/11/2026 dans la .miz DAY de Saved Games\DCS\Missions\multi\Caucasus\Blue sky multi\
+       (taches ActivateBeacon / ICLS / Link4 + frequences des unites). La BAD NIGHT n'existe plus.
+       11/11 : Essex 127.50 -> 133.00 ; les 46 groupes rouges sont sur 300.00. -->
+
+  <main class="cn">
+    <div class="sec">PORTE-AVIONS &amp; NAVIRES</div>
     <table>
       <tr><th></th><th>NAVIRE</th><th class="band">TACAN</th><th>ICLS</th><th>LINK 4</th><th>ATC</th></tr>
-      <tr><td class="id">1</td><td class="n">CVN-75<small>USS Harry S. Truman</small></td>
-          <td class="v band tcn">75X</td><td class="v ils">22</td><td class="v lnk">336.50</td><td class="v vhf">127.50</td></tr>
-      <tr><td class="id">2</td><td class="n">CVN-74<small>USS John C. Stennis</small></td>
-          <td class="v band tcn">74X</td><td class="v ils">20</td><td class="v lnk">336.80</td><td class="v vhf">128.50</td></tr>
+      <tr><td class="id">1</td><td class="n">CVN-75<small>USS Harry S. Truman · ACLS</small></td>
+          <td class="v band tcn">75X<small>TRU</small></td><td class="v ils">20</td><td class="v lnk">336.50</td><td class="v vhf">127.50</td></tr>
+      <tr><td class="id">2</td><td class="n">CVN-74<small>USS John C. Stennis · ACLS</small></td>
+          <td class="v band tcn">74X<small>STN</small></td><td class="v ils">19</td><td class="v lnk">336.80</td><td class="v vhf">128.50</td></tr>
       <tr><td class="id">3</td><td class="n">LHA-1<small>USS Tarawa</small></td>
-          <td class="v band tcn">66X</td><td class="v ils">17</td><td class="na">—</td><td class="v vhf">129.50</td></tr>
+          <td class="v band tcn">66X<small>TAR</small></td><td class="v ils">17</td><td class="na">—</td><td class="v vhf">129.50</td></tr>
+      <tr><td class="id">4</td><td class="n">Essex<small>Porte-avions 1944</small></td>
+          <td class="v band tcn">2X<small>TKR</small></td><td class="v ils">2</td><td class="na">—</td><td class="v vhf">133.00</td></tr>
+      <tr><td class="id">5</td><td class="n">Ruskov<small>Kuznetsov · CJTF bleu</small></td>
+          <td class="na band">—</td><td class="na">—</td><td class="na">—</td><td class="v vhf">130.00</td></tr>
     </table>
 
     <div class="sec">TANKERS</div>
     <table>
       <tr><th></th><th>CALLSIGN</th><th>SYST.</th><th class="band">TACAN</th><th>UHF AM</th></tr>
       <tr><td class="id">1</td><td class="n">Texaco 1-1<small>KC-135 MPRS</small></td><td class="sys">BASKET</td>
-          <td class="v band tcn">44Y</td><td class="v uhf">244.00</td></tr>
+          <td class="v band tcn">44Y<small>TKR</small></td><td class="v uhf">255.00</td></tr>
       <tr><td class="id">2</td><td class="n">Shell 2-1<small>KC-135 Stratotanker</small></td><td class="sys">BOOM</td>
-          <td class="v band tcn">14Y</td><td class="v uhf">255.00</td></tr>
+          <td class="v band tcn">14Y<small>KC1</small></td><td class="v uhf">246.00</td></tr>
       <tr><td class="id">3</td><td class="n">Arco 3-1<small>KC-130 Hercules</small></td><td class="sys">BASKET</td>
-          <td class="v band tcn">16Y</td><td class="v uhf">235.00</td></tr>
+          <td class="v band tcn">16Y<small>TKR</small></td><td class="v uhf">235.00</td></tr>
       <tr><td class="id">4</td><td class="n">Arco 2-1<small>Ilyushin Il-78</small></td><td class="sys">BASKET</td>
-          <td class="na band">—</td><td class="v uhf">246.00</td></tr>
+          <td class="na band">—</td><td class="v uhf">249.00</td></tr>
       <tr><td class="id">5</td><td class="n">Navy One 1-1<small>S-3B Viking</small></td><td class="sys">BASKET</td>
-          <td class="v band tcn">73Y</td><td class="v uhf">250.00</td></tr>
+          <td class="v band tcn">73Y<small>TKR</small></td><td class="v uhf">250.00</td></tr>
     </table>
-    <p class="note">Tankers sur appel uniquement : <b>F10 › TANKERS</b>. Le temps de contact au ravitaillement est enregistré dans tes stats.</p>
+
+    <div class="sec">SOUTIEN</div>
+    <table>
+      <tr><th></th><th>CALLSIGN</th><th>RÔLE</th><th class="band"></th><th>UHF AM</th></tr>
+      <tr><td class="id">1</td><td class="n">Overlord 1-1<small>E-3A Sentry</small></td><td class="sys">AWACS</td>
+          <td class="band"></td><td class="v uhf">251.00</td></tr>
+      <tr><td class="id">2</td><td class="n">Colt 1-1<small>MQ-9 Reaper · drone</small></td><td class="sys">FAC</td>
+          <td class="band"></td><td class="v uhf">227.00</td></tr>
+    </table>
+    <p class="note">Tankers sur appel : <b>F10 › TANKERS</b>. Indicatif TACAN en petit sous le canal. Avions russes (IA) : <b>300.00</b>.</p>
 
     <div class="legend">
       <span class="tcn">■ TACAN</span><span class="ils">■ ICLS</span><span class="lnk">■ LINK 4</span>
       <span class="vhf">■ VHF</span><span class="uhf">■ UHF AM</span>
     </div>
+    <p class="ret"><b>COMMS RÉALISTES</b>Pas de canal magique : pour parler à quelqu’un, <b>règle toi-même ta radio</b> (SRS) sur <b>sa</b> fréquence. Une radio = une fréquence : pour en écouter une autre, change de fréquence ou passe sur ta 2<sup>e</sup> radio.</p>
   </main>
-  <footer><span>Blue Sky France</span><span class="p">PAGE 01</span><span>Source : briefing de mission</span></footer>
+  <footer><span>Blue Sky France</span><span class="p">PAGE 01</span><span>Source : mission DAY du 10/11</span></footer>
 </section>
 
 <!-- ============ 2 : MENU F10 & BAREME ============ -->
-<section class="page" data-n="2">
+<section class="page mb" data-n="2">
   <div class="top">
     <div class="num">02</div>
     <div class="title">Menu F10 &amp; Barème</div>
@@ -156,10 +237,12 @@
   <main>
     <div class="sec">MENU RADIO F10</div>
     <table>
-      <tr><td class="k">AIR-AIR</td><td class="t mono">Mig21 1-4 · Mig29 1-4 · Su27 1-4<br>Clear hostile</td></tr>
-      <tr><td class="k">TANKERS</td><td class="t mono">S3-B · KC-135 MPRS · KC-135<br>KC-130 · IL-78</td></tr>
-      <tr><td class="k">AIR-SOL</td><td class="t mono">Reset Croix · Spawn Convoi</td></tr>
+      <tr><td class="k">SPAWN</td><td class="t mono">Spawn ENI · Zone CAP · HOST A/A · HOST Naval<br>Reset Croix · Spawn Convoi</td></tr>
+      <tr><td class="k">MISSIONS</td><td class="t mono">Bases · Convois · Strike · Naval · Air<br>Rappel de mes missions · détail page 04</td></tr>
+      <tr><td class="k">CODE</td><td class="t mono">1er chiffre › 2e chiffre : rejoindre une mission</td></tr>
+      <tr><td class="k">TANKERS</td><td class="t mono">S3-B · MPRS · KC-135 · KC-130 · IL-78</td></tr>
       <tr><td class="k">STATISTIQUES</td><td class="t mono">Mes scores · Top 10 · Grades</td></tr>
+      <tr><td class="k">MODE BLUE SKY</td><td class="t mono">Activer (au sol) · Désactiver</td></tr>
     </table>
 
     <div class="sec">BARÈME</div>
@@ -167,10 +250,12 @@
       <tr><th></th><th>CIBLE</th><th>CAT.</th><th class="band" style="text-align:right">PTS</th></tr>
       <tr><td class="id">1</td><td class="n">Avion</td><td class="sys">A/A</td><td class="v band r">3</td></tr>
       <tr><td class="id">2</td><td class="n">Hélicoptère</td><td class="sys">A/A</td><td class="v band r">2</td></tr>
-      <tr><td class="id">3</td><td class="n">Navire</td><td class="sys">A/M</td><td class="v band r">5</td></tr>
-      <tr><td class="id">4</td><td class="n">Défense aérienne / radar</td><td class="sys">A/S</td><td class="v band r">3</td></tr>
-      <tr><td class="id">5</td><td class="n">Véhicule / structure / statique</td><td class="sys">A/S</td><td class="v band r">1</td></tr>
-      <tr><td class="id">6</td><td class="n red">Teamkill</td><td class="sys red">TK</td><td class="v band r red">0</td></tr>
+      <tr><td class="id">3</td><td class="n">Navire</td><td class="sys">A/M</td><td class="v band r">8</td></tr>
+      <tr><td class="id">4</td><td class="n">Défense aérienne / radar</td><td class="sys">A/S</td><td class="v band r">5</td></tr>
+      <tr><td class="id">5</td><td class="n">Dépôt / commandement / réservoir / derrick</td><td class="sys">A/S</td><td class="v band r">5</td></tr>
+      <tr><td class="id">6</td><td class="n">Véhicule / structure / avion parqué</td><td class="sys">A/S</td><td class="v band r">2</td></tr>
+      <tr><td class="id">7</td><td class="n">Autre statique</td><td class="sys">A/S</td><td class="v band r">1</td></tr>
+      <tr><td class="id">8</td><td class="n red">Teamkill</td><td class="sys red">TK</td><td class="v band r red">0</td></tr>
     </table>
 
     <div class="sec">COMPTAGE</div>
@@ -196,7 +281,7 @@
     <div class="sec">SERVEUR</div>
     <table>
       <tr><td class="k">Esprit</td><td class="t">Jeu et entraînement pour tous, débutants comme expérimentés.</td></tr>
-      <tr><td class="k">Missions</td><td class="t mono">AAR · CAP · STRIKE · SEAD · ANTI-SHIP</td></tr>
+      <tr><td class="k">Missions</td><td class="t mono">AAR · CAP · STRIKE · SEAD · ANTI-SHIP · INTERCEPTION</td></tr>
       <tr><td class="k">Terrains</td><td class="t">Plusieurs aéroports bleus dynamiques, slots variés.</td></tr>
       <tr><td class="k">Services</td><td class="t">Tanker, menaces, cibles : <b>tout par le menu F10</b>.</td></tr>
     </table>
@@ -206,7 +291,8 @@
       <tr><td class="id">1</td><td class="kp"><span class="pill red">INTERDIT</span></td><td class="t"><b>Fox 4</b> (tir ami) sur joueurs ou IA bleues.</td></tr>
       <tr><td class="id">2</td><td class="kp"><span class="pill red">INTERDIT</span></td><td class="t">Faire apparaître des ennemis <b>sans les engager</b>.</td></tr>
       <tr><td class="id">3</td><td class="kp"><span class="pill">RÈGLE</span></td><td class="t">Tu fais spawn une menace : <b>tu t'en occupes</b>.</td></tr>
-      <tr><td class="id">4</td><td class="kp"><span class="pill y">CONSEIL</span></td><td class="t">« Clear hostile » une fois fini, pour les perfs.</td></tr>
+      <tr><td class="id">4</td><td class="kp"><span class="pill">RÈGLE</span></td><td class="t">Radio réaliste : <b>règle ta fréquence toi-même</b> (page 01).</td></tr>
+      <tr><td class="id">5</td><td class="kp"><span class="pill y">CONSEIL</span></td><td class="t">« Clear hostile » une fois fini, pour les perfs.</td></tr>
     </table>
 
     <div class="sec">SITUATION</div>
@@ -220,7 +306,922 @@
   <footer><span>Blue Sky France</span><span class="p">PAGE 03</span><span>Bon vol à tous !</span></footer>
 </section>
 
+<!-- ============ 4 : MISSIONS A CODE & INTERCEPTIONS (script Caucase.lua du 11/11) ============ -->
+<section class="page ms" data-n="4">
+  <div class="top">
+    <div class="num">04</div>
+    <div class="title">Missions à code</div>
+    <div class="info"><span><b>F10 › MISSIONS</b> · CODE</span><span>Bases · strike · naval · air</span></div>
+    <div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div>
+  </div>
+  <main>
+    <div class="sec">LANCER &amp; REJOINDRE</div>
+    <table>
+      <tr><td class="k">Lancer</td><td class="t"><b>F10 › MISSIONS</b> › un onglet › une mission : briefing + <b>code à 2 chiffres</b>.</td></tr>
+      <tr><td class="k">Rejoindre</td><td class="t">Demande le code, puis <b>F10 › CODE</b> › 1<sup>er</sup> chiffre › code (ex. <b>4 › 47</b>).</td></tr>
+      <tr><td class="k">Privé</td><td class="t">Briefing, messages et <b>voix radio</b> pour les seuls membres.</td></tr>
+      <tr><td class="k">Bonus</td><td class="t"><b>Partagé selon tes destructions</b> : 80 % / 20 % des cibles = 48 / 12 pts sur un +30. Rien détruit : rien. Interceptions : <b>fixe</b>, à &lt; 3 NM de l’avion.</td></tr>
+    </table>
+
+    <div class="sec">MISSIONS</div>
+    <table>
+      <tr><th></th><th>MISSION</th><th>RÉUSSITE</th><th class="band" style="text-align:right">PTS</th></tr>
+      <tr><td class="id">1</td><td class="n">Bases<small>Gudauta › Sochi › Anapa</small></td><td class="t">100 % des unités au sol, puis la suivante</td><td class="v band r">+30/40/60</td></tr>
+      <tr><td class="id">2</td><td class="n">Convois<small>Renforts en route · Convoi nord</small></td><td class="t">Tous les véhicules détruits</td><td class="v band r">+20</td></tr>
+      <tr><td class="id">3</td><td class="n">Petrol Strike<small>Mer Noire · SO de Soukhoumi</small></td><td class="t">3 derricks + plateforme détruits</td><td class="v band r">+20</td></tr>
+      <tr><td class="id">4</td><td class="n">Factory Strike<small>Site GCI-2 · ONO de Min. Vody</small></td><td class="t">Réservoirs, dépôts, pompes, ateliers</td><td class="v band r">+30</td></tr>
+      <tr><td class="id">5</td><td class="n">HOST Naval AERA<small>Onglet NAVAL · SSO de Sochi</small></td><td class="t">Kuznetsov coulé (escorte comptée)</td><td class="v band r">+50</td></tr>
+      <tr><td class="id">6</td><td class="n">CAP<small>Zone CAP · secteur Maykop</small></td><td class="t">5 avions de la zone abattus</td><td class="v band r">+30</td></tr>
+      <tr><td class="id">7</td><td class="n">Interception Tu-95<small>RF-59 · FL300 · vers Tbilissi</small></td><td class="t">Demi-tour, ou abattu après TIR AUTORISÉ</td><td class="v band r">+10</td></tr>
+      <tr><td class="id">8</td><td class="n">Interception Su-34<small>VVS 34 / 35 · FL270</small></td><td class="t">Renvoyés chez eux à la 2<sup>e</sup> interception</td><td class="v band r">+15</td></tr>
+    </table>
+
+    <div class="sec">INTERCEPTION</div>
+    <table>
+      <tr><td class="k">Lancer</td><td class="t"><b>MISSIONS › AIR › INTERCEPTION › Lancer</b> : Tu-95 ou Su-34.</td></tr>
+      <tr><td class="k">Appel radio</td><td class="t">À <b>&lt; 1000 ft</b> de l’avion (Su-34 : après la frontière).</td></tr>
+      <tr><td class="k red">Tir</td><td class="t">Après <b class="red">TIR AUTORISÉ</b> seulement. Sinon <b class="red">0 pt</b>, ratée.</td></tr>
+    </table>
+
+    <div class="sec">MENU SPAWN</div>
+    <table>
+      <tr><td class="k">Zone CAP</td><td class="t">Vagues autour de Maykop, un groupe à la fois.</td></tr>
+      <tr><td class="k">Spawn ENI</td><td class="t">Vagues surprises entre Anapa, Krasnodar et Maykop. Coupé au lancement.</td></tr>
+      <tr><td class="k">Renforts</td><td class="t">1<sup>er</sup> kill sur une base : convois et hélicos (mission dans <b>CONVOIS</b>).</td></tr>
+    </table>
+  </main>
+  <footer><span>Blue Sky France</span><span class="p">PAGE 04</span><span>Une mission de chaque type à la fois</span></footer>
+</section>
+
+<!-- =====================================================================
+     PAGES 05+ : MEMO RADIO, une page kneeboard par page du PDF
+     (source depuis le 11/11 : PDF de Weefe Blue_Sky_Radio_Phraseology_EN_Logo_Link_Bars_Fixed.pdf, guide v1.8,
+      calls en anglais ; ancienne version francaise : mission/bakup/kneeboard_2026-11-11_14-25-12_avant-phraseo-EN.html)
+     Bandeau et pied generes par le script (data-title / data-info).
+     Calls : "ROLE|texte". PIL/LEAD = pilote (noir), RB = collationnement, autre = controleur (bleu Blue Sky).
+     [valeur] = a adapter (bleu). Types d'avions / armes et indicatif (Weefe / Branch One One) sont colores automatiquement.
+     Collationnements fusionnes avec l'appel suivant dans le PDF : separes en deux lignes ici.
+     ===================================================================== -->
+
+<!-- ---------- 05 : DECOLLAGE PISTE (PDF p.1) ---------- -->
+<section class="page ph" data-n="5" data-title="Décollage piste" data-info="Pilote ↔ Ground · Tower|Ex. Kobuleti · CAS · piste 07">
+  <main>
+    <div class="sec">PRISE DE CONTACT &amp; MISE EN ROUTE</div>
+<pre class="calls">
+PIL|[Kobuleti Ground], Branch One One, radio check.
+GND|Branch One One, Lima Charlie.
+PIL|[Kobuleti Ground], Branch One One, [one] F/A-18 at [Main Parking], request startup.
+GND|Branch One One, startup approved, Runway [07], terrain blue, QNH [29.92]. State mission type and destination sector.
+PIL|Startup approved, Runway [07], QNH [29.92], [CAS] mission to sector [3], Branch One One.
+GND|Branch One One, transponder mode 1 [11], report ready to taxi.
+PIL|Mode 1 [11], report ready to taxi, Branch One One.
+</pre>
+    <div class="sec">ROULAGE</div>
+<pre class="calls">
+PIL|[Kobuleti Ground], Branch One One, [one] F/A-18 on parking [Sierra], request taxi.
+GND|Branch One One, taxi to holding point [Delta], report ready.
+PIL|Taxi holding point [Delta], report ready, Branch One One.
+</pre>
+    <div class="sec">POINT D’ATTENTE &amp; DÉCOLLAGE</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, holding point [Delta], ready for departure.
+TWR|Branch One One, line up and wait Runway [07].
+PIL|Line up and wait Runway [07], Branch One One.
+TWR|Branch One One, cleared for takeoff Runway [07], wind [270] degrees [10] knots.
+PIL|Cleared for takeoff Runway [07], Branch One One.
+</pre>
+    <div class="sec">ENVOL &amp; SORTIE DE ZONE</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, airborne.
+TWR|Branch One One, report [Echo] at [5,200] feet.
+PIL|Report [Echo] at [5,200] feet, Branch One One.
+PIL|[Kobuleti Tower], Branch One One, [Echo], [5,200] feet.
+TWR|Branch One One, contact [Magic] on [271.0], good flight.
+PIL|Contact [Magic] on [271.0], Branch One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Fréquences, points et caps = exemples. « Contact … on [fréq.] » : <b>tu changes toi-même</b> ta radio de fréquence. Retour associé : page 09.</p>
+  </main>
+</section>
+
+<!-- ---------- 06 : CATAPULTAGE CASE I (PDF p.2) ---------- -->
+<section class="page ph" data-n="6" data-title="Catapultage Case I" data-info="Jour · météo visuelle|Ex. CVN-75 · BRC 080">
+  <main>
+    <div class="sec">CONTACT / MISE EN ROUTE · SOP SRS</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, radio check.
+TWR|Weefe One One, Truman Tower, loud and clear.
+PIL|Truman Tower, Weefe One One, [two] Hornets at parking, request start-up, CASE I departure.
+TWR|Weefe One One, start-up approved, CASE I, BRC [080], QNH [29.92]. Report ready for deck movement.
+PIL|Start-up approved, CASE I, BRC [080], QNH [29.92], will report ready for deck movement, Weefe One One.
+</pre>
+    <div class="sec">ROULAGE VERS LA CATAPULTE · SOP SRS</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, [two] Hornets ready for deck movement.
+TWR|Weefe One One, expect catapult [1], follow the deck directors.
+PIL|Expect catapult [1], following the deck directors, Weefe One One.
+</pre>
+    <div class="sec">CATAPULTE / LANCEMENT · SOP SRS</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, in position catapult [1], ready for launch.
+TWR|Weefe One One, roger, launch under control of the catapult officer.
+PIL|Launch under control of the catapult officer, Weefe One One.
+</pre>
+    <div class="sec">DÉPART CASE I &amp; TRANSFERT</div>
+<pre class="calls">
+PIL|Truman Departure, Weefe One One, airborne CASE I, [7] nautical miles, [500] feet.
+DEP|Weefe One One, roger. Proceed on the briefed route, contact Magic on [271.0].
+PIL|Proceeding on the briefed route, contact Magic on [271.0], Weefe One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Profil : virage d’écartement, puis <b>500 ft / 300 KIAS</b> parallèle au BRC jusqu’à <b>7 NM</b>, ensuite montée. En vrai, pont et départ CASE I peuvent être « zip lip ». Un appel SRS n’est <b>jamais</b> un signal de catapulte.</p>
+  </main>
+</section>
+
+<!-- ---------- 07 : CATAPULTAGE CASE II (PDF p.3) ---------- -->
+<section class="page ph" data-n="7" data-title="Catapultage Case II" data-info="Jour · montée dans la météo|Ex. radial de départ 120">
+  <main>
+    <div class="sec">MISE EN ROUTE &amp; INTENTION</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, [one] Hornet at parking, request start-up for CASE II departure.
+TWR|Weefe One One, start-up approved, CASE II, BRC [080], QNH [29.92]. Report ready for deck movement.
+PIL|Start-up approved, CASE II, BRC [080], QNH [29.92], will report ready for deck movement, Weefe One One.
+</pre>
+    <div class="sec">PRÉPARATION / ROLL-OUT</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, ready for deck movement.
+TWR|Weefe One One, catapult [2], follow the deck directors. Ready to copy departure?
+PIL|Catapult [2], following the deck directors, ready to copy departure, Weefe One One.
+</pre>
+    <div class="sec">BRIEF RADIO DE DÉPART · SOP SRS</div>
+<pre class="calls">
+TWR|Weefe One One, CASE II departure: [500] feet and [300] KIAS to [7] NM, arc [10] DME, intercept radial [120] outbound.
+PIL|CASE II, [500] feet and [300] KIAS to [7] NM, arc [10] DME, intercept radial [120] outbound, Weefe One One.
+</pre>
+    <div class="sec">CATAPULTAGE &amp; DEPARTURE</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, in position catapult [2], ready for launch.
+TWR|Weefe One One, launch coordinated, execute on the deck crew’s signal.
+PIL|Truman Departure, Weefe One One, airborne CASE II, passing [5] NM.
+DEP|Weefe One One, roger. Report established on the [10] DME arc.
+PIL|Truman Departure, Weefe One One, established on the [10] DME arc, proceeding outbound radial [120].
+DEP|Weefe One One, roger. Contact Magic on [271.0] after leaving the control zone.
+PIL|Contact Magic on [271.0] after leaving the control zone, Weefe One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Profil : virage d’écartement, <b>500 ft / 300 KIAS</b> jusqu’à <b>7 NM</b>, arc <b>10 DME</b> puis radiale de départ. Rester en conditions visuelles jusqu’à l’établissement sur la radiale, selon le briefing.</p>
+  </main>
+</section>
+
+<!-- ---------- 08 : CATAPULTAGE CASE III (PDF p.4) ---------- -->
+<section class="page ph" data-n="8" data-title="Catapultage Case III" data-info="Nuit ou météo IFR|Ex. départ radiale 120">
+  <main>
+    <div class="sec">CONTACT / PRÉPARATION</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, [one] Hornet at parking, request start-up for CASE III departure.
+TWR|Weefe One One, start-up approved, CASE III, BRC [080], QNH [29.92]. Report ready for deck movement.
+PIL|Start-up approved, CASE III, BRC [080], QNH [29.92], will report ready for deck movement, Weefe One One.
+</pre>
+    <div class="sec">MOUVEMENT &amp; CLAIRANCE DÉPART · SOP SRS</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, ready for deck movement, request CASE III departure clearance.
+TWR|Weefe One One, catapult [1], follow the deck directors. After launch, climb at [300] KIAS, minimum [1,500] feet at [5] NM; arc [10] DME from [7] NM, radial [120] outbound.
+PIL|Catapult [1], follow deck directors; [300] KIAS, minimum [1,500] feet at [5] NM, arc [10] DME from [7] NM, radial [120] outbound, Weefe One One.
+</pre>
+    <div class="sec">CATAPULTAGE</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, in position catapult [1], ready for launch.
+TWR|Weefe One One, roger, launch under catapult crew control. Contact Departure when airborne.
+PIL|Launch under catapult crew control, contact Departure when airborne, Weefe One One.
+</pre>
+    <div class="sec">CONTRÔLE IFR / TRANSFERT</div>
+<pre class="calls">
+PIL|Truman Departure, Weefe One One, airborne CASE III, [5] NM, passing [1,800] feet.
+DEP|Weefe One One, radar contact, proceed on the published departure, report outbound radial [120].
+PIL|Radar contact, proceeding on the published departure, will report outbound radial [120], Weefe One One.
+PIL|Truman Departure, Weefe One One, outbound radial [120], request frequency change.
+DEP|Weefe One One, contact Magic on [271.0], good flight.
+PIL|Contact Magic on [271.0], good flight, Weefe One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b><b>Pas</b> de virage d’écartement : montée directe à <b>300 KIAS</b>, <b>≥ 1 500 ft à 5 NM</b>, arc <b>10 DME</b> à partir de <b>7 NM</b> puis radiale briefée. Catapultages espacés de <b>≥ 30 s</b>.</p>
+  </main>
+</section>
+
+<!-- ---------- 09 : ATTERRISSAGE PISTE (PDF p.5) ---------- -->
+<section class="page ph dense" data-n="9"data-title="Atterrissage piste" data-info="Retour au break|Ex. Kobuleti · piste 25">
+  <main>
+    <div class="sec">ENTRÉE EN ZONE</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, [one] F/A-18, [25] nautical miles from [November Echo], [5,000] feet, inbound for the break.
+TWR|Branch One One, Runway [25], terrain blue, QNH [29.84], wind [250] degrees [8] knots. Report [November Echo] at [2,500] feet.
+PIL|Runway [25], QNH [29.84], report [November Echo] at [2,500] feet, Branch One One.
+</pre>
+    <div class="sec">POINT D’ENTRÉE</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, over [November Echo], [2,500] feet.
+TWR|Branch One One, report initial Runway [25].
+PIL|Report initial Runway [25], Branch One One.
+</pre>
+    <div class="sec">INITIAL &amp; CIRCUIT</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, passing initial Runway [25].
+TWR|Branch One One, number [1], report final turn, gear down and locked.
+PIL|Number [1], report final turn, gear down and locked, Branch One One.
+</pre>
+    <div class="sec">FINALE / ATTERRISSAGE</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, final turn, gear down and locked.
+TWR|Branch One One, cleared to land Runway [25], wind [250] degrees [8] knots.
+PIL|Cleared to land Runway [25], Branch One One.
+</pre>
+    <div class="sec">DÉGAGEMENT &amp; PARKING</div>
+<pre class="calls">
+PIL|[Kobuleti Tower], Branch One One, speed controlled, request parking.
+TWR|Branch One One, vacate via [Alpha], report runway vacated.
+PIL|Vacating via [Alpha], report runway vacated, Branch One One.
+PIL|[Kobuleti Tower], Branch One One, runway vacated.
+TWR|Branch One One, taxi to parking [Main] via [Sierra], then [Tango Papa]. Shut down, no further call.
+PIL|Taxi to parking [Main] via [Sierra], then [Tango Papa]. Shut down, no further call, Branch One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Maintenir le point d’entrée tant que l’ATC ne donne pas la suite. « Autorisé atterrissage » (piste) ≠ « Charlie » (porte-avions).</p>
+  </main>
+</section>
+
+<!-- ---------- 10 : APPONTAGE CASE I (PDF p.6) ---------- -->
+<section class="page ph" data-n="10" data-title="Appontage Case I" data-info="Marshal → Tower → Paddles|State 4.5 = 4 500 lb">
+  <main>
+    <div class="sec">INBOUND / MARSHAL</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, [two] Hornets, Mother’s [270] for [25], angels [15], low state [4.5], inbound.
+MAR|Weefe One One, CASE I recovery, BRC [080], QNH [29.92], hold in the stack at angels [2], report See You at Ten.
+PIL|CASE I recovery, BRC [080], QNH [29.92], holding in the stack at angels [2], will report See You at Ten, Weefe One One.
+</pre>
+    <div class="sec">SEE YOU AT TEN &amp; STACK</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, See You at Ten, state [4.3].
+MAR|Weefe One One, roger. Switch Tower.
+PIL|Truman Tower, Weefe One One, overhead, angels [2], state [4.2].
+TWR|Weefe One One, roger. Maintain the stack, standby for Charlie.
+</pre>
+    <div class="sec">CHARLIE / INITIAL / BREAK</div>
+<pre class="calls">
+TWR|Weefe One One, signal is Charlie, proceed Initial at [800] feet.
+PIL|Charlie received, proceeding Initial at [800] feet, Weefe One One.
+PIL|Truman Tower, Weefe One One, Initial, for the break.
+TWR|Weefe One One, roger, number [1].
+LEAD|Number [1], Weefe One One. Weefe flight, kiss off.
+</pre>
+    <div class="sec">FINALE &amp; LSO</div>
+<pre class="calls">
+PIL|Paddles, Weefe One One, Hornet Ball, [3.1].
+LSO|Roger Ball.
+LSO|Weefe One One, [Power / You’re high / Come left]!
+</pre>
+    <div class="sec">APPONTAGE / ÉCHEC · SOP SRS</div>
+<pre class="calls">
+PIL|Truman Tower, Weefe One One, trapped, following the deck directors.
+LSO|[If required] Wave off, wave off, wave off! / Bolter, bolter!
+PIL|Weefe One One, [wave-off / bolter], going around, re-entering the pattern.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Charlie = sortie du stack vers le circuit, <b>pas</b> un « atterrissage autorisé ». Boule IFLOLS pas en vue dans le groove : appeler « Clara ». Ordres LSO = priorité immédiate.</p>
+  </main>
+</section>
+
+<!-- ---------- 11 : APPONTAGE CASE II (PDF p.7) ---------- -->
+<section class="page ph dense" data-n="11" data-title="Appontage Case II" data-info="Instruments puis visuel|Ex. radial 160 · 23 DME · angels 8">
+  <main>
+    <div class="sec">INBOUND / ATTRIBUTION DU MARSHAL</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, Mother’s [270] for [40], angels [16], state [5.0], inbound CASE II.
+MAR|Weefe One One, CASE II, BRC [080], QNH [29.92], marshal radial [160], [23] DME, angels [8], EAT [14:32].
+PIL|CASE II, BRC [080], QNH [29.92], marshal radial [160], [23] DME, angels [8], EAT [14:32], Weefe One One.
+MAR|Weefe One One, readback correct.
+</pre>
+    <div class="sec">ESTABLISHED / COMMENCING</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, established angels [8], state [4.5].
+MAR|Weefe One One, roger, state [4.5].
+PIL|Truman Marshal, Weefe One One, commencing, QNH [29.92], state [4.2].
+MAR|Weefe One One, radar contact [23] miles, final bearing [071]. Switch Approach.
+</pre>
+    <div class="sec">APPROACH / PLATFORM</div>
+<pre class="calls">
+PIL|Radar contact [23] miles, final bearing [071], switching Approach.
+PIL|Truman Approach, Weefe One One, checking in, [20] miles, state [4.1].
+APP|Weefe One One, final bearing [071].
+PIL|Final bearing [071], Weefe One One.
+PIL|Truman Approach, Weefe One One, platform [5,000] feet.
+APP|Weefe One One, roger.
+</pre>
+    <div class="sec">VISUEL À 10 NM / TRANSFERT TOUR</div>
+<pre class="calls">
+PIL|Truman Approach, Weefe One One, See You at Ten.
+APP|Weefe One One, switch Tower, continue the visual pattern.
+PIL|Truman Tower, Weefe One One, visual, continuing the visual pattern for Initial and the break.
+TWR|Weefe One One, roger, follow the CASE I pattern, traffic number [1].
+</pre>
+    <div class="sec">BALL &amp; APPONTAGE</div>
+<pre class="calls">
+PIL|Following the CASE I pattern, traffic number [1], Weefe One One.
+PIL|Paddles, Weefe One One, Hornet Ball, [3.2].
+LSO|Roger Ball.
+PIL|Truman Tower, Weefe One One, trapped.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Pas de stack CASE I au-dessus du navire à la fin du CASE II : descente aux instruments, visuel à <b>10 NM</b> puis circuit. Pas de visuel : informer Approach et suivre ses instructions.</p>
+  </main>
+</section>
+
+<!-- ---------- 12 : APPONTAGE CASE III (PDF p.8) ---------- -->
+<section class="page ph dense dense2" data-n="12" data-title="Appontage Case III" data-info="Nuit / IFR|Marshal → APP → LSO">
+  <main>
+    <div class="sec">INBOUND / CLEARANCE MARSHAL</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, Mother’s [270] for [40], angels [16], low state [5.0], inbound CASE III.
+MAR|Weefe One One, CASE III, QNH [29.92], BRC [080], marshal radial [160], [23] DME, angels [8], EAT [14:32].
+PIL|CASE III, QNH [29.92], BRC [080], marshal radial [160], [23] DME, angels [8], EAT [14:32], Weefe One One.
+MAR|Weefe One One, readback correct.
+</pre>
+    <div class="sec">HOLDING / EAT</div>
+<pre class="calls">
+PIL|Truman Marshal, Weefe One One, established angels [8], state [4.5].
+MAR|Weefe One One, roger, state [4.5].
+PIL|Truman Marshal, Weefe One One, commencing, QNH [29.92], state [4.2].
+MAR|Weefe One One, radar contact [23] miles, final bearing [071]. Switch Approach.
+</pre>
+    <div class="sec">APPROACH / PLATFORM</div>
+<pre class="calls">
+PIL|Radar contact [23] miles, final bearing [071], switching Approach.
+PIL|Truman Approach, Weefe One One, checking in, [20] miles, state [4.1].
+APP|Weefe One One, final bearing [071].
+PIL|Final bearing [071], Weefe One One. Truman Approach, Weefe One One, platform.
+APP|Weefe One One, roger, fly bullseye.
+</pre>
+    <div class="sec">ICLS / ACLS · SI DISPONIBLE</div>
+<pre class="calls">
+APP|Weefe One One, ACLS lock on, [6] miles, say needles.
+PIL|Flying bullseye. ACLS lock on, [6] miles, needles [on and on / up and left / down and right], Weefe One One.
+APP|Weefe One One, concur, fly Mode Two. Approaching glideslope.
+</pre>
+    <div class="sec">3/4 NM · LSO</div>
+<pre class="calls">
+APP|Weefe One One, on glideslope, on centerline, three-quarter mile, call the ball.
+PIL|Flying Mode Two; on glideslope, on centerline, three-quarter mile.
+PIL|Paddles, Weefe One One, Hornet Ball, [3.1].
+LSO|Roger Ball, [25] knots wind over deck.
+</pre>
+    <div class="sec">ÉCHEC D’APPROCHE / PONT · SOP SRS</div>
+<pre class="calls">
+LSO|[If required] Wave off, wave off, wave off! / Bolter, bolter!
+PIL|Weefe One One, [wave-off / bolter], going around.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Platform = passage des <b>5 000 ft</b>. Descente : <b>1 200 ft</b> puis <b>600 ft</b> vers <b>3 NM</b> (profil DCS). « Say needles » = ACLS ; en ICLS seul, suivre le guidage approprié. Nuit : pas de break visuel.</p>
+  </main>
+</section>
+
+<!-- ---------- 13 : AWACS (PDF p.9) ---------- -->
+<section class="page ph dense" data-n="13" data-title="AWACS" data-info="Mission &amp; retour|Ex. Magic · CAP North">
+  <main>
+    <div class="sec">PRISE DE CONTACT &amp; MISSION</div>
+<pre class="calls">
+PIL|Magic, Weefe One One, checking in.
+AWX|Weefe One One, Magic, radar identified. State mission.
+PIL|Magic, Weefe One One, [two] F/A-18s, departed [Kutaisi], [CAP] mission, sector [North], playtime [30] minutes.
+AWX|Weefe One One, roger, climb flight level [280], establish CAP sector [North], report established.
+PIL|Climb flight level [280], establish CAP sector [North], will report established, Weefe One One.
+</pre>
+    <div class="sec">SITUATION AIR-AIR / BOGEY DOPE</div>
+<pre class="calls">
+PIL|Magic, Weefe One One, request bogey dope.
+AWX|Weefe One One, BRAA [270], [60] nautical miles, [10,000] feet, hot, [two] Su-27s.
+PIL|BRAA [270], [60] nautical miles, [10,000] feet, hot, [two] Su-27s, Weefe One One.
+AWX|Weefe One One, for intercept, fly heading [320], climb [30,000] feet.
+PIL|For intercept, heading [320], climb [30,000] feet, Weefe One One.
+</pre>
+    <div class="sec">ORDONNANCE / ÉTAT MISSION</div>
+<pre class="calls">
+AWX|Weefe One One, state playtime and ordnance.
+PIL|Playtime [30] minutes, flight ordnance [4/1/2+], Weefe One One.
+</pre>
+    <div class="sec">OPTION : MISSION AIR-SOL</div>
+<pre class="calls">
+AWX|Weefe One One, for tasking in sector [Tuapse], ready to copy target coordinates?
+PIL|Sector [Tuapse] tasking, ready to copy target coordinates, Weefe One One.
+AWX|Weefe One One, target Shilka, grid [mission coordinates], elevation [value].
+PIL|Target Shilka, grid [mission coordinates], elevation [value], copied, Weefe One One.
+</pre>
+    <div class="sec">RTB / TRANSFERT À L’ATC</div>
+<pre class="calls">
+PIL|Magic, Weefe One One, [25] nautical miles from [Kutaisi / Truman], request frequency change for RTB.
+AWX|Weefe One One, descend [5,000] feet, contact [Tower / Marshal] on [assigned frequency].
+PIL|Descend [5,000] feet, contact [Tower / Marshal] on [assigned frequency], Weefe One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>BRAA = Bearing, Range, Altitude, Aspect. Retour porte-avions : Marshal / Tower selon le CASE. Base terrestre : ATC du terrain.</p>
+  </main>
+</section>
+
+<!-- ---------- 14 : JTAC CONTACT & BRIEFING (PDF p.10) ---------- -->
+<section class="page ph dense" data-n="14" data-title="JTAC · Contact" data-info="CAS · SRS|Check-in · SITREP · Game Plan">
+  <main>
+    <div class="sec">01 · PRISE DE CONTACT &amp; CHECK-IN</div>
+<pre class="calls">
+PIL|Axeman, Weefe One One, radio check.
+JTAC|Weefe One One, Axeman, loud and clear, pass check-in.
+PIL|Loud and clear. Axeman, Weefe One One, [two] F/A-18s, [15] nautical miles [west], angels [12], [four] GBU-12s and [four] AGM-65s total, playtime [30] minutes, request CAS tasking.
+JTAC|Weefe One One, check-in received, hold sector [Alpha], angels [12], report established.
+PIL|Holding sector [Alpha], angels [12], will report established, Weefe One One.
+PIL|Axeman, Weefe One One, established sector [Alpha], angels [12].
+JTAC|Weefe One One, roger, prepare to copy tactical situation.
+PIL|Ready to copy tactical situation, Weefe One One.
+</pre>
+    <div class="sec">02 · SITREP · SITUATION TACTIQUE</div>
+<pre class="calls">
+JTAC|Weefe One One, situation: [enemy mechanized elements in sector Bravo]. Friendlies [south of the area], marked by [blue smoke]. [Possible light air defenses, no radar SAM identified].
+PIL|[Enemy mechanized elements sector Bravo], [friendlies south marked by blue smoke], [possible light air defenses, no radar SAM identified], Weefe One One.
+JTAC|Weefe One One, report ready to copy Game Plan.
+PIL|Ready to copy Game Plan, Weefe One One.
+</pre>
+    <div class="sec">03 · GAME PLAN</div>
+<pre class="calls">
+JTAC|Weefe One One, Type [Two] control, [bomb on target], [one] GBU-12 on [one armored vehicle], JTAC laser, report ready to copy Nine-Line.
+PIL|Type [Two] control, [bomb on target], [one] GBU-12 on [one armored vehicle], JTAC laser, ready to copy Nine-Line, Weefe One One.
+</pre>
+    <div class="sec">LES 3 TYPES DE CONTRÔLE</div>
+    <table>
+      <tr><td class="k">TYPE 1</td><td class="t">Le JTAC voit <b>l’avion et la cible</b>. Autorisation à chaque attaque.</td></tr>
+      <tr><td class="k">TYPE 2</td><td class="t">Le JTAC ne voit pas forcément les deux. Autorisation à chaque attaque.</td></tr>
+      <tr><td class="k">TYPE 3</td><td class="t">Autorisation d’engager <b>dans des limites</b>, sans nouvelle clairance par attaque.</td></tr>
+    </table>
+    <p class="ret"><b>À RETENIR</b>Types 1 / 2 / 3 (contrôle CAS) ≠ CASE I / II / III (porte-avions).</p>
+  </main>
+</section>
+
+<!-- ---------- 15 : JTAC 9-LINE (PDF p.11) ---------- -->
+<section class="page ph dense dense2" data-n="15" data-title="JTAC · 9-Line" data-info="À remplir en vol|Collationner 4, 6 et restrictions">
+  <main>
+    <div class="sec">9-LINE</div>
+    <table>
+      <tr><th></th><th>LIGNE</th><th>VALEUR</th></tr>
+      <tr><td class="id">1</td><td class="ln">IP / BP</td><td class="fill"><small>ex. IP Alpha</small></td></tr>
+      <tr><td class="id">2</td><td class="ln">Heading</td><td class="fill"><small>cap IP → cible · ex. 090</small></td></tr>
+      <tr><td class="id">3</td><td class="ln">Distance</td><td class="fill"><small>ex. 6 nautical miles</small></td></tr>
+      <tr><td class="id red">4</td><td class="ln red">Elevation ↺</td><td class="fill"><small>ex. 1 200 feet MSL</small></td></tr>
+      <tr><td class="id">5</td><td class="ln">Description</td><td class="fill"><small>ex. one armored vehicle</small></td></tr>
+      <tr><td class="id red">6</td><td class="ln red">Location ↺</td><td class="fill"><small>grid · coordonnées de mission</small></td></tr>
+      <tr><td class="id">7</td><td class="ln">Mark</td><td class="fill"><small>ex. laser, code 1688</small></td></tr>
+      <tr><td class="id">8</td><td class="ln">Friendlies</td><td class="fill"><small>ex. 1 000 meters south, blue smoke</small></td></tr>
+      <tr><td class="id">9</td><td class="ln">Egress</td><td class="fill"><small>ex. north, back to IP Alpha</small></td></tr>
+      <tr><td class="id red">R</td><td class="ln red">Remarks ↺</td><td class="fill"><small>final attack heading · laser code · restrictions</small></td></tr>
+    </table>
+    <div class="sec">04 · REMARKS &amp; READBACK</div>
+<pre class="calls">
+JTAC|Weefe One One, Nine-Line follows.
+JTAC|Remarks: final attack heading [080 to 110], laser code [1688], [no fire south of target]. Read back all Nine-Line items and restrictions.
+PIL|IP [Alpha], heading [090], [6] nautical miles, elevation [1,200] feet MSL, [one armored vehicle], grid [mission coordinates], laser code [1688], friendlies [1,000] meters [south] marked by [blue smoke], egress [north] to IP [Alpha], final attack heading [080 to 110], [no fire south of target], Weefe One One.
+JTAC|Weefe One One, readback correct, report target acquired.
+</pre>
+    <div class="sec">05 · ACQUISITION &amp; IDENTIFICATION</div>
+<pre class="calls">
+PIL|Axeman, Weefe One One, target area in sight, no joy on target.
+JTAC|Weefe One One, target [north of the main road, approximately 200 meters east of the intersection].
+PIL|Searching [north of the main road, 200 meters east of the intersection], Weefe One One.
+JTAC|Target is [the single armored vehicle on the eastern edge of the compound].
+PIL|Tally target, [one armored vehicle on the eastern edge of the compound], Weefe One One.
+JTAC|Correct target, prepare attack.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Lignes 4, 6 et restrictions toujours collationnées. Tally = cible vue à l’œil. Captured = cible suivie par un capteur.</p>
+  </main>
+</section>
+
+<!-- ---------- 16 : JTAC ATTAQUE TYPE 2 (PDF p.12) ---------- -->
+<section class="page ph" data-n="16" data-title="JTAC · Attaque" data-info="Type 2 · Cleared Hot|Largage · laser JTAC">
+  <main>
+    <div class="sec">06 · ATTAQUE · AUTORISATION DE TIR</div>
+<pre class="calls">
+PIL|Correct target, preparing attack. Axeman, Weefe One One, IP inbound.
+JTAC|Weefe One One, continue.
+PIL|Weefe One One, IN, heading [090].
+JTAC|Weefe One One, CLEARED HOT.
+PIL|Cleared hot, Weefe One One.
+PIL|Weefe One One, pickle, [one] GBU-12 away.
+PIL|Axeman, Weefe One One, time to impact [20] seconds.
+JTAC|Weefe One One, laser on.
+PIL|Laser on, laser spot captured, Weefe One One.
+JTAC|Continue.
+PIL|Weefe One One, splash.
+</pre>
+    <div class="sec">POINTS CLÉS DU CONTRÔLE</div>
+    <table>
+      <tr><td class="k">CONTINUE</td><td class="t">Poursuite de la manœuvre · <b class="red">pas d’autorisation de tir</b></td></tr>
+      <tr><td class="k red">CLEARED HOT</td><td class="t">Autorisation de tir pour le Type 1 ou 2</td></tr>
+      <tr><td class="k">LASER ON</td><td class="t">Désignation laser active · timing selon l’arme et le briefing</td></tr>
+    </table>
+    <p class="ret"><b>À RETENIR</b>« Continue » n’est <b>pas</b> une autorisation de tir. En Type 1 / 2, seul le <b>Cleared Hot</b> autorise l’attaque correspondante. Le timing du laser dépend de l’armement et du briefing.</p>
+  </main>
+</section>
+
+<!-- ---------- 17 : JTAC APRES LA PASSE (PDF p.13) ---------- -->
+<section class="page ph" data-n="17" data-title="JTAC · Après la passe" data-info="BDA · nouvelle cible|ABORT · RTB">
+  <main>
+    <div class="sec">07 · BDA · RÉSULTAT DE L’ATTAQUE</div>
+<pre class="calls">
+PIL|Axeman, Weefe One One, OFF [north], returning [Alpha].
+JTAC|Weefe One One, good impact, target destroyed, BDA [one armored vehicle destroyed].
+PIL|Good impact, target destroyed, BDA [one armored vehicle destroyed], Weefe One One.
+JTAC|Weefe One One, maintain [Alpha], stand by for further tasking.
+PIL|Maintaining [Alpha], standing by for further tasking, Weefe One One.
+</pre>
+    <div class="sec">08 · NOUVELLE PASSE / NOUVELLE CIBLE</div>
+<pre class="calls">
+JTAC|Weefe One One, new target, [light vehicle west of the previous target], report ready for a new Nine-Line.
+PIL|New target, [light vehicle west of the previous target], ready to copy a new Nine-Line, Weefe One One.
+JTAC|Weefe One One, Nine-Line follows…
+</pre>
+    <div class="sec">09 · ANNULATION DE L’ATTAQUE · ABORT</div>
+<pre class="calls">
+PIL|Weefe One One, IN heading [090].
+JTAC|Weefe One One, ABORT, ABORT, ABORT.
+PIL|ABORT, Weefe One One, OFF [north], weapons safe.
+JTAC|Weefe One One, roger, maintain [Alpha], stand by.
+</pre>
+    <div class="sec">10 · FIN DE MISSION CAS · RTB</div>
+<pre class="calls">
+PIL|Maintaining [Alpha], standing by. Axeman, Weefe One One, playtime complete, state [2.5], request RTB.
+JTAC|Weefe One One, mission complete, cleared to depart the CAS area, contact Magic on [frequency].
+PIL|Mission complete, cleared to depart the CAS area, contact Magic on [frequency], Weefe One One.
+</pre>
+    <p class="ret"><b>À RETENIR</b>Nouvelle cible = nouvelle coordination et nouvelle autorisation. La sortie de zone du JTAC ne remplace pas les instructions d’un contrôleur aérien.</p>
+  </main>
+</section>
+
+<!-- ---------- 17 : LEXIQUE RADIO & NAVIGATION (PDF p.14) ---------- -->
+<section class="page ph" data-n="18" data-title="Lexique · Radio" data-info="Expressions standard|Clairances · vol · carburant">
+  <main>
+    <div class="sec">ÉCHANGES RADIO</div>
+<pre class="gloss">
+Radio check|Demande de vérification radio
+Loud and clear · 5/5|Réception radio forte et claire
+Roger|Message reçu et compris
+Wilco|Message reçu, action exécutée
+Affirm / Negative|Oui / Non
+Say again|Demande de répéter un message
+Stand by|Attendre un instant
+Ready to copy|Prêt à noter les instructions
+Readback|Répétition des éléments clés
+Readback correct|Collationnement confirmé
+Cleared|Autorisation donnée par le contrôle
+Hold / Maintain|Maintenir une position ou un niveau
+Report|Faire un nouveau compte rendu
+Contact|Régler soi-même la fréquence désignée
+Monitor|Écouter la fréquence demandée
+Switch|Changer de contrôleur / fréquence
+Callsign|Indicatif d’appareil ou de patrouille
+</pre>
+    <div class="sec">NAVIGATION &amp; MISSION</div>
+<pre class="gloss">
+Angels|Altitude en milliers de pieds
+FL / Flight Level|Niveau de vol standard
+Block|Tranche d’altitude autorisée
+QNH|Pression niveau mer · altitude
+QFE|Pression terrain · hauteur
+QNE / Standard|1013,25 hPa · 29.92 inHg
+NM / Nautical mile|Mille nautique
+DME|Distance mesurée au repère radio
+KIAS|Vitesse indiquée en nœuds
+Playtime|Temps de présence possible sur zone
+State|Carburant en milliers de livres
+Joker|Seuil carburant pour arrêter la mission
+Bingo|Minimum carburant pour rentrer
+RTB|Return to Base : retour base
+Home Plate|Terrain ou navire de retour
+Buster / Gate|Plein sec / PC max
+Feet wet / dry|Au-dessus de la mer / des terres
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 18 : LEXIQUE AWACS & IDENTIFICATION (PDF p.15) ---------- -->
+<section class="page ph" data-n="19" data-title="Lexique · AWACS" data-info="Image tactique|Identification · guidage radar">
+  <main>
+    <div class="sec">DEMANDES &amp; GUIDAGE</div>
+<pre class="gloss">
+AWACS / GCI|Contrôle aérien de surveillance / tactique
+BRAA|Bearing, Range, Altitude, Aspect
+Bullseye|Point de référence commun au théâtre
+Bogey Dope|Position du contact le plus proche
+Picture|Vue d’ensemble des contacts radar
+Posit|Demande / annonce de position
+Declare|Demande d’identification d’un contact
+Snap|Cap rapide vers un groupe / une cible
+Commit|Départ à l’interception d’un groupe
+Judy|Interception gérée par la patrouille
+Monitor|Garder un contact ou secteur surveillé
+Sunrise|C2 opérationnel
+Midnight|C2 indisponible
+Timber|Contact reçu au datalink
+Heads up|Annonce d’une info importante
+Identified radar|Contact identifié par le contrôleur
+</pre>
+    <div class="sec">TYPES DE CONTACTS</div>
+<pre class="gloss">
+Bogey|Aéronef de statut encore inconnu
+Bandit|Ennemi identifié · pas de tir implicite
+Hostile|Hostile selon les règles d’engagement
+Friendly|Appareil ou unité allié identifié
+Gorilla|Gros groupe ennemi / inconnu
+Leaker|Menace ayant franchi la défense
+Popup|Contact qui vient d’apparaître
+Faded|Contact radar temporairement perdu
+Hot|Contact en rapprochement
+Cold|Contact en éloignement
+Flanking|Contact présentant son flanc
+Beam|Contact de profil · 90° relatif
+BarCAP|Patrouille d’interdiction d’une zone
+TarCAP|Protection d’une cible / d’un strike
+Grand Slam|Ennemis de la zone engagés et abattus
+BIRD|Missile sol-air / SAM allié
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 19 : LEXIQUE AIR-AIR & COMBAT (PDF p.16) ---------- -->
+<section class="page ph" data-n="20" data-title="Lexique · Air-Air" data-info="Brevity words|Détection · tirs · défense">
+  <main>
+    <div class="sec">ENGAGEMENTS &amp; ARMEMENT</div>
+<pre class="gloss">
+Fox 1|Tir missile radar semi-actif
+Fox 2|Tir missile infrarouge
+Fox 3|Tir missile radar actif
+Pitbull|Missile actif devenu autonome
+Splash|Destruction / impact sur la cible
+Winchester|Armement de mission épuisé
+Target|Cible désignée pour engagement
+Tally|Visuel sur l’ennemi
+Visual|Visuel sur un allié
+No Joy|Pas de visuel sur l’ennemi
+Blind|Pas de visuel sur l’allié
+Raygun|Verrouillage d’une cible non identifiée
+Buddy Spike|Verrouillé par un allié
+Spike|Verrouillage radar ennemi sur soi
+Nail|Radar de menace au RWR
+Naked|Aucune menace au RWR
+Broke Lock|Verrouillage radar / IR perdu
+</pre>
+    <div class="sec">MANŒUVRES &amp; SITUATIONS</div>
+<pre class="gloss">
+Defensive|Manœuvre défensive prioritaire
+Pump|Demi-tour défensif pour ré-engager
+Drag|Éloignement de la menace
+Crank|Trajectoire décalée, radar conservé
+Notch|Cap ~90° pour réduire le Doppler
+Beam|Mise travers de la menace
+Hot / Cold|Vers la menace / s’en éloigne
+Merge|Passage à la rencontre rapprochée
+Furball|Combat rapproché, contacts mêlés
+Gimbal|Limite angulaire du radar
+Buster|Régime militaire maximal
+Gate|Postcombustion maximale
+Magnum|Tir d’un missile antiradar
+Rifle|Tir air-sol type Maverick
+Bittersweet|Alerte tir fratricide / sur neutre
+BDA|Évaluation des dégâts
+SEAD / DEAD|Suppression / destruction des SAM
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 20 : LEXIQUE PA DEPART (PDF p.17) ---------- -->
+<section class="page ph" data-n="21" data-title="Lexique · PA départ" data-info="Pont · catapultage|Départs CASE I / II / III">
+  <main>
+    <div class="sec">PONT &amp; LANCEMENT</div>
+<pre class="gloss">
+Mother|Nom radio du porte-avions
+Tower / PriFly|Tour / Air Boss · contrôle proche
+Air Boss|Responsable des opérations de pont
+Departure|Contrôleur de sortie de zone navire
+Deck crew|Équipes de manœuvre sur le pont
+Yellow shirts|Directeurs d’aéronefs sur le pont
+Catapult / Cat|Catapulte utilisée pour le lancement
+Shooter|Officier donnant le signal final
+Launch bar|Barre de liaison au sabot catapulte
+Holdback|Retient l’avion au départ
+JBD|Déflecteur de souffle arrière
+Hook up|Accrochage à la catapulte
+Tension|Mise en tension de la catapulte
+Zip lip|Sans calls superflus
+Wind over deck|Vent relatif sur le pont
+BRC|Base Recovery Course : cap du navire
+</pre>
+    <div class="sec">DÉPARTS &amp; PROFILS</div>
+<pre class="gloss">
+CASE I|Départ / retour en conditions visuelles
+CASE II|Visuel puis instruments
+CASE III|IFR, notamment de nuit
+Airborne|Aéronef qui vient de décoller
+Outbound|En éloignement du repère / radial
+Departure radial|Radiale de sortie assignée
+Arc 10 DME|Arc à 10 NM autour du TACAN
+7 NM|Repère de profil départ CASE I / II
+500 ft / 300 KIAS|Profil initial CASE I / II
+1 500 ft à 5 NM|Repère départ CASE III
+Cleared for takeoff|Clairance piste ≠ signal catapulte
+Ramps / Spot|Stationnement sur le pont
+TACAN|Aide radio de navigation du navire
+Final bearing|Axe final d’appontage ≠ BRC
+SOP SRS|Conventions radio du serveur
+Case brief|Briefing qui fixe le profil
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 21 : LEXIQUE PA APPONTAGE (PDF p.18) ---------- -->
+<section class="page ph" data-n="22" data-title="Lexique · Appontage" data-info="Marshal · stack · Charlie|Finale &amp; signaux LSO">
+  <main>
+    <div class="sec">MARSHAL &amp; CIRCUIT</div>
+<pre class="gloss">
+Marshal|Contrôle des retours et attentes navales
+Mother’s 270 for 25|Navire relevé au 270°, à 25 NM
+Low state|Carburant du plus bas de la patrouille
+Stack|Attente visuelle CASE I empilée
+Marshal radial|Radiale assignée à l’attente IFR
+EAT|Expected Approach Time
+Established|Établi dans l’attente assignée
+Commencing|Début de la descente d’approche
+Platform|Passage des 5 000 ft
+See you at ten|Appel visuel vers 10 NM de Mother
+Charlie|Signal d’entrée dans le circuit
+Spin|Tour d’attente supplémentaire
+Initial|Arrivée dans l’axe du pont
+Break|Virage d’entrée dans le circuit
+Downwind|Vent arrière après le break
+180|Repère en virage de finale
+</pre>
+    <div class="sec">FINALE &amp; ISSUE</div>
+<pre class="gloss">
+Groove|Dernier segment stabilisé vers le pont
+Paddles / LSO|Officier qui guide l’appontage
+Ball|Boule optique IFLOLS en vue
+Hornet Ball, 3.1|Avion · boule · carburant (3 100 lb)
+Roger Ball|Appel pris en compte par le LSO
+Clara|Boule / visée non visible
+IFLOLS|Aide lumineuse de pente
+ICLS|Guidage de précision localizer / glide
+ACLS|Assistance automatisée à l’appontage
+Say needles|Position des indications ?
+On and on|Indications centrées sur les deux axes
+Fly Mode 2|Suivre le guidage d’approche
+Wave-off|Remise de gaz imposée
+Bolter|Brins manqués · remise de gaz
+Trapped|Accroché à un brin d’arrêt
+Foul deck|Pont non libre pour appontage
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 22 : LEXIQUE JTAC CONTACT & 9-LINE (PDF p.19) ---------- -->
+<section class="page ph" data-n="23" data-title="Lexique · JTAC" data-info="Contact &amp; 9-Line|Coordination air-sol">
+  <main>
+    <div class="sec">CONTACT &amp; CONTRÔLE</div>
+<pre class="gloss">
+JTAC|Contrôleur d’attaque terminale interarmées
+CAS|Close Air Support · appui rapproché
+Check-in|Compte rendu initial de l’appareil
+SITREP|Situation tactique actualisée
+Game Plan|Type de contrôle, méthode de désignation
+Type 1|JTAC voit l’avion et la cible
+Type 2|JTAC ne voit pas forcément les deux
+Type 3|Engagements multiples dans des limites fixées
+Bomb on Target (BOT)|Le pilote acquiert / désigne la cible
+Bomb on Coordinate|Attaque sur coordonnées validées
+9-Line follows|Le JTAC va dicter les 9 lignes
+Ready to copy|Pilote prêt au briefing
+Readback|Collationnement des données critiques
+Remarks|Infos complémentaires / restrictions
+IP / BP|Initial Point / Battle Position
+Egress|Route de sortie après l’attaque
+</pre>
+    <div class="sec">LES 9 LIGNES &amp; ACQUISITION</div>
+<pre class="gloss">
+1 · IP / BP|Point initial ou position d’attaque
+2 · Heading|Cap du point initial vers la cible
+3 · Distance|Distance IP / BP → objectif
+4 · Elevation|Élévation cible · collationnée
+5 · Description|Nature de la cible
+6 · Location|Coordonnées cible · collationnées
+7 · Mark|Marquage : laser, fumée…
+8 · Friendlies|Position des forces amies
+9 · Egress|Itinéraire / direction de sortie
+Final attack heading|Axe d’attaque autorisé / limité
+No fire / Restriction|Restriction de tir impérative
+Laser code|Code de désignation / armement
+Target area in sight|Zone de l’objectif identifiée
+Tally|Cible en visuel
+No Joy|Cible pas vue
+Captured|Cible acquise par un capteur
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 23 : LEXIQUE JTAC AUTORISATIONS (PDF p.20) ---------- -->
+<section class="page ph" data-n="24" data-title="Lexique · Tir JTAC" data-info="Autorisations · laser|Bilan &amp; sécurité">
+  <main>
+    <div class="sec">PRÉPARATION &amp; CLEARANCE</div>
+<pre class="gloss">
+IP Inbound|Le pilote quitte l’IP vers l’objectif
+IN|Début de la phase terminale d’attaque
+Continue|Poursuivre · aucune autorisation de tir
+Continue Dry|Poursuivre sans tir ni largage
+Cleared Hot|Autorisation individuelle Type 1 ou 2
+Cleared to Engage|Autorisation encadrée Type 3
+Abort|Interrompre immédiatement l’attaque
+Stand by|Attendre le prochain ordre JTAC
+Laser On|Désignation laser mise en marche
+Spot|Signal laser acquis
+Lasing|Cible actuellement éclairée
+Time to impact|Temps estimé avant impact
+Pickle|Annonce du largage de bombe
+Rifle|Annonce de tir missile air-sol
+Magnum|Annonce de tir antiradar
+Weapons safe|Armement sécurisé
+</pre>
+    <div class="sec">RÉSULTAT &amp; SORTIE</div>
+<pre class="gloss">
+OFF|Sortie du passage d’attaque
+Splash|Impact / destruction observé
+BDA|Battle Damage Assessment · bilan
+Reattack|Nouvelle passe, nouvelle coordination
+Further tasking|Attendre de nouvelles missions
+Mission complete|Mission locale terminée
+RTB|Retour base ou porte-avions
+Playtime|Temps disponible pour le CAS
+Winchester|Plus de munition utilisable
+Bingo|Minimum carburant pour le retour
+Joker|Seuil carburant de sortie
+Tally / No Joy|Cible vue / pas vue
+No Joy / Captured|Pas de visuel / capteur sur la cible
+Laser code 1688|Exemple · à confirmer au briefing
+No fire south|Exemple d’interdiction de tir
+Cleared to depart|Autorisé à quitter le secteur CAS
+</pre>
+  </main>
+</section>
+
+<!-- ---------- 24 : ALPHABET & ACRONYMES (PDF p.21) ---------- -->
+<section class="page ph" data-n="25" data-title="Alphabet &amp; Acronymes" data-info="Alphabet radio|Abréviations">
+  <main>
+    <div class="sec">ALPHABET RADIO A–Z</div>
+    <div class="abc" id="abc"></div>
+    <div class="sec">MISSION / COMMS</div>
+<pre class="gloss">
+ATC|Air Traffic Control · contrôle aérien
+AWACS|Airborne Warning and Control System
+CAP|Combat Air Patrol
+BARCAP|Barrier Combat Air Patrol
+TARCAP|Target Combat Air Patrol
+CAS|Close Air Support
+SEAD|Suppression of Enemy Air Defenses
+DEAD|Destruction of Enemy Air Defenses
+BDA|Battle Damage Assessment
+RTB|Return to Base
+RWR|Radar Warning Receiver
+IFF|Identification Friend or Foe
+UHF / Uniform|Bande radio UHF
+VHF / Victor|Bande radio VHF
+BRAA|Bearing, Range, Altitude, Aspect
+DME / TACAN|Distance radio / nav tactique
+</pre>
+  </main>
+</section>
+
+
 <script>
+  // Pages 04+ : bandeau, pied, calls et lexiques generes a partir du balisage simple ci-dessus.
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+  // [valeur] et types d'avions / armes = bleu (a adapter) ; indicatif (Weefe / Branch One One) = vert
+  function vals(s) {
+    return esc(s).replace(/(F\/A-18s?|Hornets?|Su-27s?|GBU-12s?|AGM-65s?|Shilka)/g, "[$1]")
+      .replace(/\[([^\]]+)\]/g, '<b class="val">$1</b>')
+      .replace(/(Weefe|Branch) (One One|flight)/g, '<span class="cs">$1 $2</span>');
+  }
+  function lines(pre) { return pre.textContent.trim().split("\n").map(function (l) { var i = l.indexOf("|"); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }); }
+
+  document.querySelectorAll("section.ph").forEach(function (s) {
+    var n = ("0" + s.dataset.n).slice(-2), info = s.dataset.info.split("|");
+    s.insertAdjacentHTML("afterbegin", '<div class="top"><div class="num">' + n + '</div><div class="title">' + s.dataset.title +
+      '</div><div class="info"><span><b>' + info[0] + '</b></span><span>' + info[1] + '</span></div><div class="tag"><img src="blue_sky.png" alt="">BLUE SKY</div></div>');
+    s.insertAdjacentHTML("beforeend", '<footer><span>Mémo radio EN · guide v1.8</span><span class="p">PAGE ' + n + '</span><span>Bleu = à adapter · <b class="cs">vert</b> = ton indicatif</span></footer>');
+  });
+  document.querySelectorAll("pre.calls").forEach(function (pre) {
+    var h = lines(pre).map(function (r) {
+      var rb = r[0] === "RB", pil = r[0] === "PIL" || r[0] === "LEAD";
+      return '<tr><td class="who"><span class="pill' + (rb ? " rb" : pil ? "" : " ctl") + '">' + (rb ? "↺" : r[0]) + '</span></td>' +
+        '<td class="c' + (rb ? " rb" : "") + '">' + (rb ? vals(r[1]) : "« " + vals(r[1]) + " »") + '</td></tr>';
+    });
+    pre.insertAdjacentHTML("afterend", '<table class="cl">' + h.join("") + '</table>');
+  });
+  document.querySelectorAll("pre.gloss").forEach(function (pre) {
+    pre.insertAdjacentHTML("afterend", '<div class="gl">' + lines(pre).map(function (r) {
+      return '<div><b>' + esc(r[0]) + '</b><span>' + esc(r[1]) + '</span></div>'; }).join("") + '</div>');
+  });
+  document.getElementById("abc").innerHTML = "ALPHA BRAVO CHARLIE DELTA ECHO FOXTROT GOLF HOTEL INDIA JULIET KILO LIMA MIKE NOVEMBER OSCAR PAPA QUEBEC ROMEO SIERRA TANGO UNIFORM VICTOR WHISKEY X-RAY YANKEE ZULU"
+    .split(" ").map(function (w) { return "<div><b>" + w[0] + "</b>" + w + "</div>"; }).join("");
+
   var n = (location.hash || "#1").slice(1);
   var p = document.querySelector('.page[data-n="' + n + '"]') || document.querySelector('.page');
   p.classList.add("on");

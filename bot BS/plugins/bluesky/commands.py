@@ -45,6 +45,9 @@ DEFAULTS = {
     'site_url': 'https://thibaero278.github.io/blue-sky-france/',
     'discord_invite': 'https://discord.gg/zVEsRbm8h2',
     'relay': {'url': '', 'token': ''},
+    # Pseudos d'un même pilote que l'UCID ne relie pas (pseudo d'avant le bot, nom porté par plusieurs comptes) :
+    # « ancien pseudo: pseudo actuel ». Prioritaire sur l'UCID. Les stats de l'ancien sont versées dans l'actuel.
+    'aliases': {},
     # Rôles Discord affichés dans « L'équipe » du site (noms ou IDs, du plus haut au plus bas).
     # Vide = automatique : rôles affichés à part dans la liste des membres, avec droits de modération.
     'staff_roles': [],
@@ -63,13 +66,13 @@ DEFAULTS = {
         'server', 'scheduler',
         # admin : DCS se met à jour lui-même ; on garde /dcs ban, /dcs unban, /dcs bans
         'dcs update', 'dcs repair', 'dcs install', 'dcs uninstall', 'dcs info', 'download', 'prune',
-        'node', 'plugin', 'extension',
+        'node', 'plugin', 'extension', 'webadmin',
         # userstats / missionstats : doublons de /pilote et /classement
         'statistics', 'highscore', 'reset_statistics', 'delete_statistics', 'squadron',
         'missionstats', 'sorties', 'refuelings', 'nemesis', 'antagonist',
         # gamemaster : /annonce suffit
         'chat', 'popup', 'broadcast', 'flag', 'variable', 'do_script', 'do_script_file',
-        'reset_coalition', 'reset_coalitions', 'campaign', 'message',
+        'reset_coalition', 'reset_coalitions', 'campaign', 'message', 'marker',
     ],
     # Commandes du chat en jeu à couper (restent : -ban -kick -spec -mute -unmute -linkme -911 et les nôtres)
     'hide_chat_commands': ['pause', 'unpause', 'atis', 'restart', 'list', 'load', 'preset',
@@ -96,8 +99,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         self._hosts: dict[str, tuple[str, str]] = {}  # hôte déjà enregistré, par serveur : (ucid, pseudo)
         self._scores_loaded = asyncio.Event()
         self._scores_lock = asyncio.Lock()
-        # total envoyé à un serveur, pas encore confirmé → (heure d'envoi, base d'avant) ; son fichier n'est pas lu en attendant
-        self._push_pending: dict[str, tuple[datetime, dict | None]] = {}
+        # total envoyé à un serveur, pas encore confirmé → (heure d'envoi, id, envoi) ; son fichier n'est pas lu en attendant
+        self._push_pending: dict[str, tuple[datetime, str, dict]] = {}
+        self._push_tried: set[str] = set()  # serveurs déjà servis pendant cette mission (un seul envoi par mission)
         self._raw: dict[str, bytes] = {}       # contenu brut lu, pour ne retraiter que s'il change
         self._live_ok: dict[str, bool] = {}
         self._live_idle: dict[str, datetime] = {}  # dernier envoi « serveur vide », par serveur
@@ -119,6 +123,12 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     def scores_path(self, server: Server) -> str:
         path = os.path.expandvars(self.cfg(server)['scores_file'])
         return path if os.path.isabs(path) else os.path.join(server.instance.home, path)
+
+    @staticmethod
+    def base_key(server: Server) -> str:
+        # machine + instance DCS : ne change pas quand le serveur est renommé (un nouveau nom = « jamais lu »
+        # = import au maximum d'un fichier déjà compté)
+        return f'{server.node.name}/{server.instance.name}' if server.instance else server.name
 
     def all_servers(self) -> list[Server]:
         # aussi les serveurs des autres nœuds : le bot tourne sur R2D2, DCS sur le MSI
@@ -154,7 +164,26 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         async with self.apool.connection() as conn:
             cursor = await conn.execute('SELECT p.ucid, p.name, h.name FROM players p '
                                         'LEFT JOIN players_hist h ON h.ucid = p.ucid')
-            self._alias = sc.aliases(await cursor.fetchall())
+            alias = sc.aliases(await cursor.fetchall())
+        alias.update({str(k): str(v) for k, v in (self.cfg().get('aliases') or {}).items()})
+        self._alias = sc.resolve(alias)
+
+    async def consolidate(self) -> None:
+        """Verse dans le pseudo actuel les stats d'un ancien pseudo encore rangé à part dans le total
+        (alias apparu depuis : changement de pseudo, alias manuel), et efface l'ancien. Une seule fois :
+        ensuite ses gains arrivent directement sur le pseudo actuel (merge)."""
+        old = [n for n in self._total if n in self._alias]
+        if not old:
+            return
+        total = sc.group(self._total, self._alias)
+        async with self.apool.connection() as conn:
+            async with conn.transaction():
+                await conn.execute('DELETE FROM bluesky_scores WHERE name = ANY(%s)', (old,))
+                for name in {self._alias[n] for n in old}:
+                    await conn.execute('INSERT INTO bluesky_scores (name, data) VALUES (%s, %s) '
+                                       'ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data', (name, Json(total[name])))
+        self._total = total
+        self.log.info(f'BlueSky: pseudos regroupés : {", ".join(f"{n} → {self._alias[n]}" for n in old)}')
 
     async def cog_load(self) -> None:
         await super().cog_load()
@@ -200,6 +229,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     async def stats_loop(self):
         try:
             await self.load_aliases()
+            async with self._scores_lock:
+                await self.consolidate()
         except Exception as ex:
             self.log.warning(f'BlueSky: pseudos par UCID non relus ({ex!r})')
         for server in self.all_servers():
@@ -241,8 +272,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         if new is None:
             return
         self._raw[server.name] = raw
-        base = self._base.get(server.name)
-        old, total = self._total, sc.merge(self._total, base or {}, new, first_read=base is None)
+        base = self._base.get(self.base_key(server))
+        old, total = self._total, sc.merge(self._total, base or {}, new, first_read=base is None, alias=self._alias)
         await self.save_scores(server, new, {n: p for n, p in total.items() if old.get(n) != p})
         self._total = total
         # pas de fil au premier chargement ni à l'import d'un nouveau serveur (le maximum ferait de fausses promotions)
@@ -254,11 +285,11 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         async with self.apool.connection() as conn:
             async with conn.transaction():
                 await conn.execute('INSERT INTO bluesky_scores_base (server, data) VALUES (%s, %s) '
-                                   'ON CONFLICT (server) DO UPDATE SET data = EXCLUDED.data', (server.name, Json(base)))
+                                   'ON CONFLICT (server) DO UPDATE SET data = EXCLUDED.data', (self.base_key(server), Json(base)))
                 for name, data in changed.items():
                     await conn.execute('INSERT INTO bluesky_scores (name, data) VALUES (%s, %s) '
                                        'ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data', (name, Json(data)))
-        self._base[server.name] = base
+        self._base[self.base_key(server)] = base
 
     async def push_scores(self, server: Server) -> None:
         """Envoie le total au script de mission (kneeboard, grades en jeu), qui remplace son Scores.lua."""
@@ -266,28 +297,36 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         async with self._scores_lock:
             if not self._total or server.name in self._push_pending:
                 return
-            # le fichier du serveur va devenir le total envoyé : c'est sa nouvelle base. Les pilotes supprimés
-            # (dans la base, plus dans le total) y restent pour ne pas être recomptés si le fichier les garde encore.
             sent = sc.for_mission(self._total, self._alias)
-            old_base = self._base.get(server.name)
+            old_base = self._base.get(self.base_key(server))
+            # anciens pseudos et pilotes supprimés (RGPD) : retirés du fichier par la mission
             removed = [n for n in (old_base or {}) if n not in sent]
-            self._push_pending[server.name] = (datetime.now(timezone.utc), old_base)
-            await self.save_scores(server, {**copy.deepcopy(old_base or {}), **copy.deepcopy(sent)}, {})
-            await server.send_to_dcs({'command': 'bsSetScores', 'scores': json.dumps(sent),
-                                      'remove': json.dumps(removed)})
+            pid = datetime.now(timezone.utc).strftime('%H%M%S%f')
+            self._push_pending[server.name] = (datetime.now(timezone.utc), pid, sent)
+            self._push_tried.add(server.name)
+            # base sûre tout de suite (survit à un redémarrage du bot) ; la vraie base (= l'envoi) à la confirmation
+            await self.save_scores(server, sc.safe_base(old_base, sent), {})
+            parts = sc.chunks(sent)
+            for i, part in enumerate(parts, 1):
+                msg = {'command': 'bsSetScores', 'scores': json.dumps(part), 'id': pid, 'part': i, 'parts': len(parts)}
+                if i == len(parts):
+                    msg['remove'] = json.dumps(removed)
+                await server.send_to_dcs(msg)
 
-    async def cancel_push(self, server: Server) -> None:
-        """Total jamais confirmé par la mission : le fichier n'a pas changé, on remet la base d'avant l'envoi."""
+    async def confirm_push(self, server: Server) -> None:
+        """La mission a remplacé son Scores.lua par l'envoi : c'est exactement sa nouvelle base."""
         async with self._scores_lock:
             sent = self._push_pending.pop(server.name, None)
-            if not sent:
-                return
-            if sent[1] is not None:
-                await self.save_scores(server, sent[1], {})
-                return
-            async with self.apool.connection() as conn:  # serveur jamais lu avant l'envoi
-                await conn.execute('DELETE FROM bluesky_scores_base WHERE server = %s', (server.name,))
-            self._base.pop(server.name, None)
+            if sent:
+                await self.save_scores(server, copy.deepcopy(sent[2]), {})
+
+    async def cancel_push(self, server: Server) -> None:
+        """Total jamais confirmé : on garde la base sûre (pas de retour à l'ancienne base, qui recomptait tout
+        quand le fichier avait quand même été remplacé) et on ne renvoie pas avant la prochaine mission."""
+        async with self._scores_lock:
+            if self._push_pending.pop(server.name, None):
+                self.log.warning(f'BlueSky: {server.name} n\'a pas confirmé la réception du total (dcs.log : '
+                                 f'« scores fusionnes recus de R2D2 » ?)')
 
     async def publish_stats(self, server: Server) -> None:
         pilots = [{'name': n, **p} for n, p in self.scores_of(server).items()]
@@ -322,6 +361,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         for server in self.all_servers():
             if server.status not in (Status.RUNNING, Status.PAUSED):
                 await self.cancel_push(server)  # mission finie sans confirmation : son fichier redevient lisible
+                self._push_tried.discard(server.name)  # prochaine mission : nouvel envoi
                 if self._live_ok.pop(server.name, None):
                     await self.publish('live', {'server': server.display_name, 'time': None, 'players': []})
                 continue
@@ -331,11 +371,12 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 continue  # mission en cours de chargement, ou mission.lua pas encore chargé
             # script de mission chargé sans le total : on lui envoie (une fois par mission, confirmé par scoresSynced)
             sent = self._push_pending.get(server.name)
-            if (data or {}).get('scoresSynced'):
-                self._push_pending.pop(server.name, None)
+            synced = (data or {}).get('scoresSynced')
+            if sent and (synced is True or synced == sent[1]):  # True : mission.lua d'avant les identifiants d'envoi
+                await self.confirm_push(server)
             elif sent and (datetime.now(timezone.utc) - sent[0]).total_seconds() > 60:
-                await self.cancel_push(server)  # perdu en route : on renverra au prochain tour
-            elif (data or {}).get('scoresReady') and not sent:
+                await self.cancel_push(server)  # perdu en route : pas de nouvel essai avant la prochaine mission
+            elif (data or {}).get('scoresReady') and not sent and server.name not in self._push_tried:
                 await self.push_scores(server)
             players = (data or {}).get('players') or []
             if isinstance(players, dict):  # table Lua vide → {} en JSON

@@ -16,6 +16,11 @@ DEFAULT:
     token: ''                     # = propriété TOKEN de l'Apps Script
   staff_roles: []                 # rôles Discord de « L'équipe » sur le site, ex. [Fondateur, Admin, Modérateur, Helper]
                                   # vide = auto (rôles affichés à part avec droits de modération)
+  # Pseudos d'un même pilote que l'UCID ne relie pas (pseudo d'avant le bot, nom porté par plusieurs comptes DCS) :
+  # « ancien pseudo: pseudo actuel ». Les stats de l'ancien sont versées une fois dans l'actuel.
+  # aliases:
+  #   'Branch 1-1 | Weefe': 'Branch | BlueSky 1-2'
+  aliases: {}
   # Missions et inscriptions : clic droit sur le briefing > Applications > Publier sur le site
   mission_channel: 1419768783282896987   # salon des briefings (#missions-dcs) ; -1 = n'importe quel salon
   signup_channel: 1562459201618452540    # salon où le bot poste le sondage d'inscription

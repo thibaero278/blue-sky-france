@@ -8,7 +8,7 @@ sur le serveur DCS, pas d'appel d'instructeur. Base de données neuve (l'ancienn
 
 | Dossier / fichier | Rôle |
 |---|---|
-| `bot\DCSServerBot\` | Moteur DCSServerBot v3.0.4.27, non modifié (plugin T-45 retiré). |
+| `bot\DCSServerBot\` | Moteur DCSServerBot v3.0.5.2 + 3 patchs Blue Sky (`max_hung`, DNS AdGuard, accueil `off`). Ne jamais utiliser `/node upgrade`. Voir `PLAN-MAJ-3.0.5.md`. |
 | `plugins\bluesky\` | **Notre plugin** : lien DCS ↔ Discord ↔ site (voir plus bas), et ici qu'on ajoute nos commandes. |
 | `config\templates\` | Modèles de config (le vrai fichier est généré dans `config\dcssb\`). |
 | `tools\` | Installation, configuration Discord, lancement, panneau GO/STOP. |
@@ -41,19 +41,44 @@ Vérification : `powershell -ExecutionPolicy Bypass -File tools\Test-BlueSkyEnvi
 - `config\dcssb\` est la même sur les deux machines : après une modif, la recopier sur R2D2 puis
   `docker compose restart bot` (dans `~/bluesky-bot`). Idem pour le plugin (`bot\DCSServerBot\plugins\bluesky`).
 - ⚠️ Ne pas relancer `CONFIGURER-DISCORD.cmd` : il régénère un `nodes.yaml` sans R2D2.
-- Logs R2D2 : `docker compose logs -f bot` ou `~/bluesky-bot/DCSServerBot/logs/dcssb-R2D2.log`.
+- Logs R2D2 : `docker compose logs -f bot` ou `~/bluesky-bot/DCSServerBot/logs/dcssb-R2D2.log` (heures en **UTC**).
+- Scores : total par pilote dans `bluesky_scores`, dernier `Scores.lua` lu par **machine/instance** dans `bluesky_scores_base`
+  (`MSI/DCS`, `DESKTOP-G4AMVIN/DCS_Weefe` : renommer un serveur ne change rien). Pseudo changé sans UCID commun :
+  l'ajouter dans `aliases` de `config/plugins/bluesky.yaml` (« ancien: actuel »), puis `docker compose restart bot`
+  (voir PASSATION du 11/11 nuit).
 
 ### Sauvegarde de la base (depuis le 30/10/2026)
 
 - `r2d2\backup-db.sh` (copié dans `~/bluesky-bot`) : `pg_dump` de `dcsserverbot` + rôles PostgreSQL dans
   `~/backups/bluesky-bot`, gardés 14 jours. Lancé chaque jour à 4 h par la crontab de `thibaud`.
-- ⚠️ Même disque que la base : protège d'une erreur ou d'une base cassée, **pas** d'une panne du disque.
+- 2e copie (depuis le 04/11/2026) sur le 2e disque de R2D2 : `/mnt/sauvegarde/bluesky-bot`, gardée 60 jours.
+  Protège d'une panne du disque système. Si le 2e disque est absent, la sauvegarde principale se fait quand même.
+- Configs (depuis le 04/11/2026), même script, même disque : `/mnt/sauvegarde/configs/configs-AAAA-MM-JJ.tar.gz`
+  (~13 Mo, 60 jours) = `config` du bot (avec `.secret`), compose/Dockerfile/`db.env`/`pg_hba.conf`, `partage`,
+  `~/adguard` (sans `work`, `AdGuardHome.yaml` copié par `docker cp` car il appartient à root), `~/uptime-kuma`,
+  la crontab, `install-r2d2.sh`. Restaurer : `tar -xzf configs-AAAA-MM-JJ.tar.gz -C ~` (le yaml AdGuard ressort
+  dans `~/backups/bluesky-bot/`, à remettre dans `~/adguard/conf/` avec `sudo`).
+- 3e copie, **hors de R2D2**, à la main : bouton **SAUVEGARDER SUR I:** du panneau (disque externe du MSI, rarement
+  branché). Archive datée `I:\Sauvegardes R2D2\r2d2-AAAA-MM-JJ_HHhMM.tar.gz` (~1 Mo) : sauvegardes de la base +
+  `config` du bot, **sans** `.secret` (token et mots de passe à recréer si R2D2 est perdu).
 - Restauration testée le 30/10 (38 tables, mêmes nombres de lignes). Pour restaurer, dans `~/bluesky-bot` :
   1. `docker compose stop bot`
   2. `docker compose exec -T db psql -U postgres -c "drop database dcsserverbot" -c "create database dcsserverbot"`
   3. `docker compose exec -T db pg_restore -U postgres -d dcsserverbot < ~/backups/bluesky-bot/dcsserverbot-AAAA-MM-JJ.dump`
   4. `docker compose start bot`
   - Volume `pgdata` perdu (rôles disparus) : passer d'abord `globals-AAAA-MM-JJ.sql` avec `psql -U postgres`.
+
+### Console web du bot (depuis le 10/11/2026)
+
+- Adresse : `http://r2d2.tail5d7d84.ts.net:9876` depuis un appareil connecté à Tailscale, **jamais publique** (l'API REST
+  est sur le même port). Compte `thibaud`, rôle Admin : serveurs, joueurs, missions, logs, boutons start / stop.
+- Config `config/services/webservice.yaml` (droits 600, secret de session dedans, jamais dans le dépôt) ;
+  `compose.yaml` publie seulement `127.0.0.1:9876` ; `sudo tailscale serve --bg --http=9876 http://127.0.0.1:9876`
+  le sert au réseau Tailscale (HTTP dans le tunnel, déjà chiffré).
+- Changer le mot de passe : `ssh -t thibaud@100.88.196.19 python3 bluesky-bot/creer-acces-web.py`, puis
+  `docker compose restart bot`. Seul le hash est stocké.
+- Couper la console : retirer `frontend: true` (ou le fichier), `sudo tailscale serve --http=9876 off`. Ancien
+  `compose.yaml` : `~/backups/compose.yaml.avant-webui-20261110`.
 
 ### PC de Weefe (agent, depuis le 02/11/2026)
 

@@ -77,8 +77,10 @@ UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite e
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
 BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
 WelcomeVoiced = {}        -- pilote -> true : voix d'accueil deja jouee depuis le lancement de la mission
+WELCOME_VOICE_DELAY_S = 10 -- s apres l'apparition avant la voix d'accueil (cockpit charge chez le joueur)
 BSCrew = {}               -- unite -> places 2, 3... occupees (pseudos), envoye toutes les 5 s par le bot (mission.lua)
 CrewUnit = {}             -- membre d'equipage en vol -> unite ou son vol a commence
+SeatUnit = {}             -- joueur -> unite ou le serveur le voit assis (BSCrew), pour detecter qu'il change de place
 
 function InitPlayer(playerName)
     local s = Scores[playerName] or {}
@@ -366,6 +368,7 @@ local function StartCrewFlight(name, unitName)
     StartFlight(name)
     CrewUnit[name] = unitName
     PlayerLife[name] = { dead = false }
+    env.info("BlueSky equipage : vol demarre pour " .. name .. " dans " .. tostring(unitName))
 end
 
 -- Valide les kills/points d'un vol dans le total.
@@ -474,11 +477,20 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             "Tes stats : F10 > STATISTIQUES\n" ..
             "Vol Blue Sky : F10 > MODE BLUE SKY (au sol)\n" ..
             "Discord : discord.gg/zVEsRbm8h2", 15)
-        -- Voix d'accueil (commandement) : seulement a la premiere apparition depuis le lancement de la mission
+        -- Voix d'accueil (commandement) : seulement a la premiere apparition depuis le lancement de la mission.
+        -- Lancee WELCOME_VOICE_DELAY_S apres l'apparition : a +2 s elle etait coupee au milieu (11/11, au mot
+        -- « kneeboard »), sans doute par la fin du chargement du cockpit chez le joueur.
         if not WelcomeVoiced[playerName] then
             WelcomeVoiced[playerName] = true
-            local id = dcsUnit:getID()
-            timer.scheduleFunction(function() trigger.action.outSoundForUnit(id, "c00_accueil.ogg") end, nil, timer.getTime() + 2)
+            local id, unitName = dcsUnit:getID(), dcsUnit:getName()
+            timer.scheduleFunction(function()
+                local u = Unit.getByName(unitName)
+                if u and u:isExist() and u:getPlayerName() == playerName then
+                    trigger.action.outSoundForUnit(id, "c00_accueil.ogg")
+                else
+                    WelcomeVoiced[playerName] = nil -- avion quitte avant : la voix passera a la prochaine apparition
+                end
+            end, nil, timer.getTime() + WELCOME_VOICE_DELAY_S)
         end
     end
 
@@ -541,6 +553,23 @@ end
 -- (pas dans les 10 s apres la fin d'un vol : rebond a l'atterrissage).
 local function CheckAirbornePlayers()
     local now = timer.getTime()
+    -- Monter dans un multi-places = nouvelle vie : DCS n'envoie pas de Birth a celui qui monte.
+    -- Sans ca, sa mort ou son changement de slot d'avant (dead = true) bloquait son vol quand
+    -- DCS le donne comme pilote (getPlayerName) d'un avion deja en l'air.
+    local seated = {}
+    for unitName, seats in pairs(BSCrew) do
+        for _, n in ipairs(seats) do
+            seated[n] = true
+            if SeatUnit[n] ~= unitName then
+                SeatUnit[n] = unitName
+                PlayerLife[n] = { dead = false }
+                env.info("BlueSky equipage : " .. n .. " assis dans " .. unitName)
+            end
+        end
+    end
+    for n in pairs(SeatUnit) do
+        if not seated[n] then SeatUnit[n] = nil end
+    end
     for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
         for _, u in ipairs(coalition.getPlayers(side) or {}) do
             local name = u:isExist() and u:getPlayerName()
@@ -579,9 +608,24 @@ timer.scheduleFunction(function()
 end, nil, timer.getTime() + 5)
 timer.scheduleFunction(CheckAirbornePlayers, nil, timer.getTime() + 5)
 
--- Records d'altitude (m, au-dessus de la mer) et de vitesse (m/s, vitesse sol) : relevés chaque seconde
--- pour chaque vol en cours, équipage compris. shortcut: un pic plus court qu'1 s peut être manqué, réduire l'intervalle si besoin.
+-- Records d'altitude (m, au-dessus de la mer) et de vitesse (m/s, vitesse sol) : relevés toutes les 0,5 s
+-- pour chaque vol en cours, équipage compris. Garde-fou (Mach 4 en F-18 le 11/11) : une valeur ne compte que
+-- si elle est tenue au moins RECORD_HOLD_S, c.-à-d. le minimum des relevés de la dernière seconde.
+RECORD_SAMPLE_S = 0.5
+RECORD_HOLD_S = 1
+
+-- Valeur tenue pendant RECORD_HOLD_S d'après l'historique h (relevés { t, v }), ou nil si trop court
+function HeldValue(h, now, value)
+    h[#h + 1] = { t = now, v = value }
+    while #h > 1 and now - h[2].t >= RECORD_HOLD_S do table.remove(h, 1) end  -- garde juste de quoi couvrir 1 s
+    if now - h[1].t < RECORD_HOLD_S then return nil end
+    local low = value
+    for _, s in ipairs(h) do low = math.min(low, s.v) end
+    return low
+end
+
 local function SampleFlights()
+    local now = timer.getTime()
     for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
         for _, u in ipairs(coalition.getPlayers(side) or {}) do
             local name = u:isExist() and u:getPlayerName()
@@ -592,8 +636,13 @@ local function SampleFlights()
                 for _, c in ipairs(Crew(u:getName(), name)) do
                     local f = Flights[c]
                     if f and f.active then
-                        f.maxAlt = math.max(f.maxAlt or 0, alt)
-                        f.maxSpeed = math.max(f.maxSpeed or 0, speed)
+                        -- trou dans les relevés (au sol, slot changé) : on repart de zéro
+                        if f.sampleAt and now - f.sampleAt > RECORD_SAMPLE_S * 2.5 then f.altHist, f.spdHist = nil, nil end
+                        f.sampleAt = now
+                        f.altHist, f.spdHist = f.altHist or {}, f.spdHist or {}
+                        local heldAlt, heldSpd = HeldValue(f.altHist, now, alt), HeldValue(f.spdHist, now, speed)
+                        if heldAlt then f.maxAlt = math.max(f.maxAlt or 0, heldAlt) end
+                        if heldSpd then f.maxSpeed = math.max(f.maxSpeed or 0, heldSpd) end
                     end
                 end
             end
@@ -604,7 +653,7 @@ end
 timer.scheduleFunction(function()
     local ok, err = pcall(SampleFlights)
     if not ok then env.warning("BlueSky : records altitude/vitesse : " .. tostring(err)) end
-    return timer.getTime() + 1
+    return timer.getTime() + RECORD_SAMPLE_S
 end, nil, timer.getTime() + 1)
 
 ------------------------------------------------------------
@@ -947,6 +996,7 @@ function KillHandler:OnEventKill(EventData)
         return
     end
 
+    OpCredit(EventData, crew) -- avant CapKill (le 5e avion doit compter dans les parts) et meme pour une cible sans points
     local kind, points, title, typeLabel = ClassifyKill(EventData)
     if not kind then return end
     -- avion a intercepter abattu sans autorisation par un membre de la mission : 0 pt (IcptKillAllowed plus bas)
@@ -1287,11 +1337,10 @@ end
 local BASE_RADIUS = 8000 -- m
 
 local BASES = {
-    { name = "Gudauta",   x = -196500, y = 516500, groups = { "Gudauta convoie", "KA 50 gudauta" } },
+    -- "sukumi convoie" : contre-attaque russe partie de Gudauta vers Soukhoumi (11/11 : avant, au premier kill a Soukhoumi)
+    { name = "Gudauta",   x = -196500, y = 516500, groups = { "Gudauta convoie", "KA 50 gudauta", "sukumi convoie" } },
     { name = "Sochi",     x = -164000, y = 462000, groups = { "sochi convoie", "hélico sochi convoie", "helico sochi" } },
     { name = "Anapa",     x = -5000,   y = 243500, groups = { "hélico anapa" } },
-    -- base bleue : premier kill a Soukhoumi = contre-attaque russe partie de Gudauta
-    { name = "Soukhoumi", x = -220000, y = 564000, groups = { "sukumi convoie" } },
 }
 
 local function IsGroundTarget(obj)
@@ -1314,6 +1363,8 @@ function OnGroundTargetKilled(obj)
                 if g then g:activate() else env.warning("BLUESKY : renfort introuvable : " .. name) end
             end
             env.info("BLUESKY : premier kill a " .. base.name .. ", renforts actives")
+            -- les convois en route apparaissent dans F10 > MISSIONS > CONVOIS (2 s : laisser l'activation se faire)
+            timer.scheduleFunction(function() RefreshMissionMenus() end, nil, timer.getTime() + 2)
         end
     end
 end
@@ -1435,10 +1486,9 @@ end
 -- MISSIONS A CODE (10/11) : qui lance une mission recoit un code, ses equipiers le composent dans F10 > CODE.
 -- Messages et bonus reserves aux membres. Le menu F10 de groupe ne dit pas qui a clique : le clic vaut pour tout le groupe.
 ------------------------------------------------------------
-local OP_CODE_LEN = 3  -- chiffres 1 a 9 : le menu CODE tient sur une page F10 (10 lignes maxi avec Effacer)
+local OP_CODE_LEN = 2  -- chiffres 1 a 9 (11 a 99) : F10 > CODE > 1er chiffre (sous-menu) > 2e chiffre (rejoint)
 
 Ops = {}       -- missions en cours par nom : { label, code, brief, members = { pilote = true } }
-CodeInput = {} -- groupe -> chiffres deja composes
 
 local function GroupMsg(group, text, t) MESSAGE:New(text, t or 10):ToGroup(group) end
 
@@ -1523,8 +1573,10 @@ end
 
 local function OpBrief(op)
     return "=== MISSION " .. op.label .. " ===\n\n" .. op.brief .. "\n\nCODE DE LA MISSION : " .. op.code ..
-           "\nTes equipiers le composent dans F10 > CODE pour te rejoindre." ..
-           (op.noZone and "" or "\nBonus : il faut venir au moins une fois sur zone (message de confirmation).") ..
+           (op.public and "\nTous les pilotes peuvent la rejoindre : composez ce code dans F10 > CODE."
+                       or "\nTes equipiers le composent dans F10 > CODE pour te rejoindre.") ..
+           (op.prorata and "\nBonus partage selon les cibles detruites par chacun : qui ne detruit rien ne touche rien." or
+            op.noZone and "" or "\nBonus : il faut venir au moins une fois sur zone (message de confirmation).") ..
            "\nRappel : F10 > MISSIONS > Rappel de mes missions"
 end
 
@@ -1537,11 +1589,14 @@ local function NewCode()
     end
 end
 
-local function OpStart(label, brief, group, noZone)
-    local op = { label = label, brief = brief, code = NewCode(), members = {}, present = {}, noZone = noZone }
+-- prorata : bonus partage selon les kills de cibles (OpCredit), sans condition de presence
+-- public : briefing et code envoyes a tous les pilotes du serveur (interceptions, 11/11), sinon au groupe du lanceur
+local function OpStart(label, brief, group, noZone, prorata, public)
+    local op = { label = label, brief = brief, code = NewCode(), members = {}, present = {}, noZone = noZone,
+                 prorata = prorata, credit = {}, public = public }
     Ops[label] = op
     ForEachGroupPlayer(group, function(_, name) op.members[name] = true end)
-    GroupMsg(group, OpBrief(op), 30)
+    if public then MESSAGE:New(OpBrief(op), 30):ToAll() else GroupMsg(group, OpBrief(op), 30) end
     return op
 end
 
@@ -1562,26 +1617,12 @@ local function OpJoin(op, group)
     GroupMsg(group, "MISSION REJOINTE\n\n" .. OpBrief(op), 30)
 end
 
-function CodeDigit(group, digit)
+function CodeJoin(group, code)
     if not group or not group:IsAlive() then return end
-    local groupName = group:GetName()
-    local code = (CodeInput[groupName] or "") .. digit
-    if #code < OP_CODE_LEN then
-        CodeInput[groupName] = code
-        GroupMsg(group, "CODE : " .. code .. string.rep(" _", OP_CODE_LEN - #code), 5)
-        return
-    end
-    CodeInput[groupName] = nil
     for _, op in pairs(Ops) do
         if op.code == code then OpJoin(op, group) return end
     end
     GroupMsg(group, "CODE " .. code .. " INCONNU ou mission terminee.", 8)
-end
-
-function CodeClear(group)
-    if not group or not group:IsAlive() then return end
-    CodeInput[group:GetName()] = nil
-    GroupMsg(group, "CODE efface.", 5)
 end
 
 function OpRecall(group)
@@ -1604,11 +1645,54 @@ local function AwardPoints(name, pts)
 end
 
 -- Bonus egal a chaque membre en vie et venu sur zone (mort ou slot quitte : le vol est perdu, comme ses kills). Renvoie la ligne a afficher.
+-- Appele par le KillHandler : chaque membre d'equipage qui detruit une cible d'une mission au prorata gagne une part
+function OpCredit(EventData, crew)
+    local unitName, groupName = EventData.TgtUnitName or EventData.TgtDCSUnitName, EventData.TgtGroupName
+    for _, op in pairs(Ops) do
+        if op.prorata and op.isTarget and op.isTarget(unitName, groupName) then
+            for _, name in ipairs(crew) do
+                if op.members[name] then op.credit[name] = (op.credit[name] or 0) + 1 end
+            end
+        end
+    end
+end
+
+-- Prorata (11/11) : cagnotte = bonus x membres ayant detruit au moins une cible, partagee selon la part de chacun dans
+-- les kills des membres (kills de non-membres ou d'avant le lancement : hors calcul). Mort ou slot quitte : sa part est perdue.
+-- Aucun kill credite (cible sans evenement Kill, ex. derrick) : bonus egal a chaque membre vivant, comme avant.
+local function OpRewardShare(op, bonus)
+    local total, shooters = 0, 0
+    for name, n in pairs(op.credit) do
+        if op.members[name] then total, shooters = total + n, shooters + 1 end
+    end
+    if total == 0 then return nil end
+    local names, paid, none = {}, {}, {}
+    for name in pairs(op.members) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do
+        local n = op.credit[name] or 0
+        if n == 0 then
+            none[#none + 1] = name
+        elseif not (PlayerLife[name] and PlayerLife[name].dead) then
+            local pts = math.floor(bonus * shooters * n / total + 0.5)
+            AwardPoints(name, pts)
+            paid[#paid + 1] = name .. " +" .. pts .. " pts (" .. math.floor(100 * n / total + 0.5) .. " %)"
+        end
+    end
+    SaveScores()
+    return (#paid > 0 and ("Bonus partage : " .. table.concat(paid, ", ") .. " (valides a l'atterrissage).") or "Aucun bonus.") ..
+           (#none > 0 and ("\nAucune cible detruite, pas de bonus : " .. table.concat(none, ", ")) or "")
+end
+
 local function OpReward(op, bonus)
+    if op.prorata then
+        local text = OpRewardShare(op, bonus)
+        if text then return text end
+    end
     local paid, absent = {}, {}
     for name in pairs(op.members) do
         if not (PlayerLife[name] and PlayerLife[name].dead) then
-            if op.noZone or op.present[name] then
+            if op.noZone or op.prorata or op.present[name] then
                 AwardPoints(name, bonus)
                 paid[#paid + 1] = name
             else
@@ -2028,7 +2112,7 @@ function IcptLaunch(group)
     -- cap du lanceur vers l'avion, repris par def.alert (%03d, puis %s = lanceur)
     local hdg, who = 0, "le lanceur"
     ForEachGroupPlayer(group, function(_, name, pu) hdg, who = Bearing(pu:getPoint(), p), name end)
-    Icpt.op = OpStart(ICPT_LABEL, string.format(def.alert, hdg, who), group)
+    Icpt.op = OpStart(ICPT_LABEL, string.format(def.alert, hdg, who), group, nil, nil, true)
     OpVoice(Icpt.op, def.voice.alert)
     if def.init then def.init(def) end
     IcptFly({ Wp(p.x, p.z, def.alt, def.speed), Wp(def.mid.x, def.mid.z, def.alt, def.speed),
@@ -2170,6 +2254,23 @@ local function PetrolTargets()
     return list
 end
 
+-- Factory Strike (11/11) : site industriel de GCI-2 (N 44 30 19, E 41 38 17), meme cercle que STRIKE_ZONES.
+-- Cibles = statiques rouges industriels du cercle (pas les tours, sacs de sable, tentes, barrages).
+local FACTORY = { x = -33689, z = 587167, r = 969 }
+local FACTORY_TYPES = { ["Tank 2"] = true, [".Ammunition depot"] = true, [".Command Center"] = true, ["FARP Fuel Depot"] = true,
+    ["Nodding_Donkey_Pump"] = true, ["Workshop A"] = true, ["Building01_PBR"] = true, ["Building05_PBR"] = true, ["HESCO_generator"] = true }
+
+local function FactoryTargets()
+    local list = {}
+    for _, o in ipairs(coalition.getStaticObjects(coalition.side.RED) or {}) do
+        if FACTORY_TYPES[o:getTypeName()] and Distance2D(o:getPoint(), FACTORY) <= FACTORY.r and TargetAlive(o) then
+            list[#list + 1] = o
+        end
+    end
+    env.info("BLUESKY : Factory Strike, " .. #list .. " cibles")
+    return list
+end
+
 local function NavalTargets()
     ActivateNaval()
     local g = Group.getByName(NAVAL_HOST[1])
@@ -2179,37 +2280,176 @@ local function NavalTargets()
     return {}
 end
 
+-- Toutes les missions strike sont au prorata (11/11) : plus de condition de presence.
+-- creditGroups : groupes dont chaque kill compte dans les parts, en plus des cibles (HOST Naval : toute l'escorte).
+-- tab = "NAVAL" : rangee dans F10 > MISSIONS > NAVAL au lieu de STRIKE.
 local STRIKES = {
     {
-        label = "Petrol Strike", bonus = 20, targets = PetrolTargets, -- pas de "zone" : bonus sans condition de presence
+        label = "Petrol Strike", bonus = 20, targets = PetrolTargets,
         brief = "COMMANDEMENT : Champ petrolier russe en mer Noire, environ 47 NM au sud-ouest de Soukhoumi. " ..
                 "Detruisez les derricks et la plateforme gaziere. Navires russes sur zone.",
         success = "COMMANDEMENT : Champ petrolier detruit. Mission reussie !",
         voice = { brief = "c26", success = "c27" },
     },
     {
-        label = "HOST Naval AERA", bonus = 50, targets = NavalTargets,
-        zone = function() -- zone circulaire de l'editeur
-            local z = trigger.misc.getZone("Host naval aera")
-            return { x = z.point.x, z = z.point.z, r = z.radius }
-        end,
+        label = "HOST Naval AERA", bonus = 50, targets = NavalTargets, creditGroups = { [NAVAL_HOST[1]] = true }, tab = "NAVAL",
         brief = "COMMANDEMENT : Groupe aeronaval russe en mer Noire, environ 60 NM au sud-sud-ouest de Sochi. " ..
                 "Coulez le porte-avions Kuznetsov. Forte defense antiaerienne.",
         success = "COMMANDEMENT : Kuznetsov coule. Mission reussie !",
         voice = { brief = "c28", success = "c29" },
     },
+    {
+        label = "Factory Strike", bonus = 30, targets = FactoryTargets, creditGroups = { ["GCI-2"] = true },
+        brief = "COMMANDEMENT : Complexe industriel russe au nord du Caucase, autour du site radar GCI-2, " ..
+                "environ 65 NM a l'ouest-nord-ouest de Mineralnye Vody. Detruisez reservoirs, depots, pompes et ateliers. " ..
+                "Defense antiaerienne sur place.",
+        success = "COMMANDEMENT : Complexe industriel detruit. Mission reussie !",
+    },
+}
+
+------------------------------------------------------------
+-- BASES ET CONVOIS (11/11) : memes regles que les strikes (cibles = unites, reussie quand tout est detruit, prorata).
+-- Bases enchainees : Gudauta, puis Sochi, puis Anapa ; seule la base debloquee apparait dans F10 > MISSIONS > BASES.
+-- Progression remise a zero a chaque lancement de la mission serveur (les unites detruites reapparaissent).
+-- Cibles d'une base : unites au sol rouges actives a moins de BASE_RADIUS de son centre, sauf renforts et convois.
+------------------------------------------------------------
+local CAMPAIGN = {
+    { base = "Gudauta", bonus = 30,
+      brief = "COMMANDEMENT : Base aerienne de Gudauta, environ 30 NM au nord-ouest de Soukhoumi. " ..
+              "Detruisez toutes les unites au sol de la base. Defense antiaerienne sur place, renforts attendus." },
+    { base = "Sochi", bonus = 40,
+      brief = "COMMANDEMENT : Base aerienne de Sochi, environ 35 NM au nord-ouest de Gudauta. " ..
+              "Detruisez toutes les unites au sol de la base. Renforts blindes et helicopteres attendus." },
+    { base = "Anapa", bonus = 60,
+      brief = "COMMANDEMENT : Base aerienne d'Anapa, a l'extremite nord-ouest de la cote. Derniere base russe du front : " ..
+              "plus de 60 vehicules. Detruisez toutes les unites au sol de la base." },
+}
+CampaignStage = 1 -- indice de la base debloquee dans CAMPAIGN (au-dela : campagne finie)
+
+-- Convois activables en renfort : leur mission n'apparait qu'une fois le convoi en route
+local CONVOY_MISSIONS = {
+    { label = "Convoi Gudauta", group = "Gudauta convoie",
+      brief = "COMMANDEMENT : Un convoi blinde russe fait route vers Gudauta en renfort. Detruisez tous ses vehicules." },
+    { label = "Convoi Sochi", group = "sochi convoie",
+      brief = "COMMANDEMENT : Un convoi blinde russe fait route vers Sochi en renfort. Detruisez tous ses vehicules." },
+    { label = "Convoi Soukhoumi", group = "sukumi convoie",
+      brief = "COMMANDEMENT : Contre-attaque russe : un convoi parti de Gudauta fait route vers Soukhoumi. Arretez-le." },
+}
+local CONVOY_BONUS = 20
+-- Convoi nord : un tire au sort parmi les vivants (GCI-2 exclu : site radar, pas un convoi)
+local NORTH_CONVOYS = { "convoie-1", "convoie-2", "convoie-3", "convoie-4", "convoie-5", "convoie-6", "sochi convoie-1" }
+local NORTH_LABEL = "Convoi nord"
+
+-- Unites vivantes et actives (renfort pas encore active : rien) d'une liste de groupes
+local function GroupTargets(names)
+    local list = {}
+    for _, name in ipairs(names) do
+        local g = Group.getByName(name)
+        for _, u in ipairs(g and g:getUnits() or {}) do
+            if u:isActive() and TargetAlive(u) then list[#list + 1] = u end
+        end
+    end
+    return list
+end
+
+local NOT_BASE = {} -- renforts et convois : jamais comptes dans une base
+for _, b in ipairs(BASES) do for _, name in ipairs(b.groups) do NOT_BASE[name] = true end end
+for _, c in ipairs(CONVOY_MISSIONS) do NOT_BASE[c.group] = true end
+for _, name in ipairs(NORTH_CONVOYS) do NOT_BASE[name] = true end
+
+local function BaseTargets(baseName)
+    local center
+    for _, b in ipairs(BASES) do if b.name == baseName then center = { x = b.x, z = b.y } end end
+    local list, groups = {}, {}
+    for _, g in ipairs(coalition.getGroups(coalition.side.RED, Group.Category.GROUND) or {}) do
+        local name = g:getName()
+        if not NOT_BASE[name] then
+            for _, u in ipairs(g:getUnits()) do
+                if u:isActive() and TargetAlive(u) and Distance2D(u:getPoint(), center) <= BASE_RADIUS then
+                    list[#list + 1] = u
+                    groups[name] = true
+                end
+            end
+        end
+    end
+    local names = {}
+    for name in pairs(groups) do names[#names + 1] = name end
+    table.sort(names)
+    env.info("BLUESKY : base " .. baseName .. ", " .. #list .. " cibles, groupes : " .. table.concat(names, ", "))
+    return list
+end
+
+-- Position approximative pour un briefing : distance et cap depuis l'aerodrome le plus proche
+local function WhereIs(p)
+    local best, bd
+    for _, ab in ipairs(world.getAirbases() or {}) do
+        if ab:getDesc().category == Airbase.Category.AIRDROME then
+            local d = Distance2D(ab:getPoint(), p)
+            if not bd or d < bd then best, bd = ab, d end
+        end
+    end
+    if not best then return "" end
+    return string.format(" Derniere position : environ %d NM au %03d de %s.", math.floor(bd / 1852 + 0.5),
+        Bearing(best:getPoint(), p), best:getName())
+end
+
+local function CampaignDone(stage)
+    if CampaignStage ~= stage then return end
+    CampaignStage = stage + 1
+    local name, nxt = CAMPAIGN[stage].base, CAMPAIGN[stage + 1]
+    MESSAGE:New(nxt and ("COMMANDEMENT : " .. name .. " est tombee. Nouvelle mission disponible : " .. nxt.base ..
+                         " (F10 > MISSIONS > BASES).")
+                    or ("COMMANDEMENT : " .. name .. " est tombee. Le front russe est brise : victoire !"), 20):ToAll()
+    env.info("BLUESKY : campagne, " .. name .. " tombee")
+end
+
+local BASE_DEFS, CONVOY_DEFS = {}, {}
+for i, c in ipairs(CAMPAIGN) do
+    BASE_DEFS[i] = { label = "Base " .. c.base, bonus = c.bonus, brief = c.brief, stage = i,
+                     targets = function() return BaseTargets(c.base) end,
+                     success = "COMMANDEMENT : Base de " .. c.base .. " detruite. Mission reussie !" }
+end
+for i, c in ipairs(CONVOY_MISSIONS) do
+    CONVOY_DEFS[i] = { label = c.label, bonus = CONVOY_BONUS, brief = c.brief,
+                       targets = function() return GroupTargets({ c.group }) end,
+                       success = "COMMANDEMENT : Convoi detruit. Mission reussie !" }
+end
+local NORTH_DEF = {
+    label = NORTH_LABEL, bonus = CONVOY_BONUS,
+    targets = function()
+        local alive = {}
+        for _, name in ipairs(NORTH_CONVOYS) do
+            if #GroupTargets({ name }) > 0 then alive[#alive + 1] = name end
+        end
+        return #alive > 0 and GroupTargets({ alive[math.random(#alive)] }) or {}
+    end,
+    brief = function(targets)
+        return "COMMANDEMENT : Convoi russe repere au nord, en zone hostile. Detruisez tous ses vehicules." ..
+               WhereIs(targets[1]:getPoint())
+    end,
+    success = "COMMANDEMENT : Convoi detruit. Mission reussie !",
 }
 
 function StrikeLaunch(group, def)
     if not group or not group:IsAlive() then return end
     if Ops[def.label] then GroupMsg(group, def.label .. " deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
     local targets = def.targets()
-    if #targets == 0 then GroupMsg(group, def.label .. " : objectif deja detruit.", 10) return end
-    local zone = def.zone and def.zone()
-    local op = OpStart(def.label, def.brief, group, not zone)
-    op.def, op.targets, op.left, op.zone, op.life0 = def, targets, #targets, zone, {}
-    for _, o in ipairs(targets) do op.life0[o:getName()] = o:getLife() end
-    OpVoice(op, def.voice.brief)
+    if #targets == 0 then
+        GroupMsg(group, def.label .. " : objectif deja detruit.", 10)
+        if def.stage then CampaignDone(def.stage) RefreshMissionMenus() end -- base videe sans mission : la suivante s'ouvre
+        return
+    end
+    local brief = type(def.brief) == "function" and def.brief(targets) or def.brief
+    local op = OpStart(def.label, brief, group, true, true)
+    op.def, op.targets, op.left, op.life0, op.names = def, targets, #targets, {}, {}
+    for _, o in ipairs(targets) do
+        op.life0[o:getName()] = o:getLife()
+        op.names[o:getName()] = true
+    end
+    op.isTarget = function(unitName, groupName)
+        return (unitName and op.names[unitName]) or (groupName and def.creditGroups and def.creditGroups[groupName]) or false
+    end
+    OpVoice(op, def.voice and def.voice.brief)
 end
 
 local function OpIdleClose(op, now)
@@ -2223,14 +2463,15 @@ end
 
 local function StrikeTick(op)
     local left, now = 0, timer.getTime()
-    if op.zone then OpMarkPresent(op, function(p) return Distance2D(p, op.zone) <= op.zone.r end) end
     for _, o in ipairs(op.targets) do
         if TargetAlive(o, op.life0[o:getName()]) then left = left + 1 end
     end
     if left == 0 then
         OpMsg(op, op.def.success .. "\n" .. OpReward(op, op.def.bonus), 20)
-        OpVoice(op, op.def.voice.success)
+        OpVoice(op, op.def.voice and op.def.voice.success)
         Ops[op.label] = nil
+        if op.def.stage then CampaignDone(op.def.stage) end
+        RefreshMissionMenus() -- base suivante, convoi detruit
         return
     end
     if left < op.left then
@@ -2262,7 +2503,8 @@ local CAP_GOAL, CAP_BONUS = 5, 30 -- avions abattus par les membres, points par 
 local CAP_SPEED = 240             -- m/s : les vitesses de l'editeur (jusqu'a 833 m/s) videraient les reservoirs
 local CAP_ALT_MIN = 5000          -- m : au-dessus des sommets de la zone (~4000 m)
 local CAP_ALT_MAX = 12000         -- m : a 21000 m (MiG-31 de l'editeur), 240 m/s ne suffit pas a tenir en l'air
-local CAP_ENGAGE_M = 60000        -- distance max entre la route et une cible (meme borne que Spawn ENI)
+local CAP_ENGAGE_M = 25000        -- distance max entre la route et une cible (12/11 : 60 km allaient chercher un Apache a Gudauta)
+local CAP_OUT_MAX_S = 120         -- hors zone depuis 2 min (parti trop loin en poursuite) : groupe supprime, sans points, vague suivante
 local CAP_REACH_M = 5000          -- point de patrouille atteint : il en prend un autre
 local CAP_BACK_S = 90             -- apres un retour dans la zone, delai sans engager : evite les allers-retours sur la limite
 local CAP_HOME = "Maykop-Khanskaya"
@@ -2305,9 +2547,18 @@ local function CapPatrol(w, now)
     if not u then return end
     local p = u:getPoint()
     if not CapInZone(p) then
+        w.out = w.out or now
+        if now - w.out >= CAP_OUT_MAX_S then
+            env.info("BLUESKY : Zone CAP : " .. w.group:GetName() .. " hors zone depuis " .. CAP_OUT_MAX_S .. " s, supprime")
+            w.group:Destroy()
+            return
+        end
         if not w.back then CapRoute(w, p, false) end
         w.back = now
-    elseif w.back then
+        return
+    end
+    w.out = nil
+    if w.back then
         if now - w.back >= CAP_BACK_S then
             w.back = nil
             CapRoute(w, p, true)
@@ -2329,10 +2580,7 @@ end
 local function CapTick()
     local now = timer.getTime()
     local op = Ops[CAP_LABEL]
-    if op then
-        OpMarkPresent(op, CapInZone)
-        OpIdleClose(op, now)
-    end
+    if op then OpIdleClose(op, now) end
     if CapWave and not EniWaveOver(CapWave) then CapPatrol(CapWave, now) return end
     if CapWave then CapRtb(CapWave) end
     CapWave = nil
@@ -2354,28 +2602,32 @@ function CapLaunch(group)
     if not group or not group:IsAlive() then return end
     if Ops[CAP_LABEL] then GroupMsg(group, "CAP deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
     local op = OpStart(CAP_LABEL, "COMMANDEMENT : Patrouilles russes au nord du Caucase, secteur Maykop. " ..
-        "Entrez dans la zone CAP et abattez " .. CAP_GOAL .. " appareils ennemis.", group)
+        "Entrez dans la zone CAP et abattez " .. CAP_GOAL .. " appareils ennemis.", group, true, true)
     op.kills = 0
+    op.isTarget = function(unitName) return CapTemplate(unitName) ~= nil end
     OpVoice(op, "c30") -- la voix dit "cinq appareils" : a refaire si CAP_GOAL change
 end
 
 -- Appele par le KillHandler : seuls les kills des membres sur des avions de la zone CAP comptent
+-- Nom du modele CAP d'une unite spawnee ("mig29 cap#001-01" -> "mig29 cap"), nil si ce n'est pas un avion de la zone CAP
+function CapTemplate(unitName)
+    local template = tostring(unitName):match("^(.-)#")
+    for _, name in ipairs(CAP_GROUPS) do
+        if name == template then return name end
+    end
+    return nil
+end
+
 function CapKill(EventData, playerName)
     local op = Ops[CAP_LABEL]
-    local template = tostring(EventData.TgtUnitName):match("^(.-)#")
-    if not (op and op.members[playerName] and template) then return end
-    for _, name in ipairs(CAP_GROUPS) do
-        if name == template then
-            op.kills = op.kills + 1
-            if op.kills >= CAP_GOAL then
-                OpMsg(op, "COMMANDEMENT : Objectif atteint, mission CAP reussie !\n" .. OpReward(op, CAP_BONUS), 20)
-                OpVoice(op, "c31")
-                Ops[CAP_LABEL] = nil
-            else
-                OpMsg(op, "CAP : " .. op.kills .. "/" .. CAP_GOAL .. " appareils abattus.", 10)
-            end
-            return
-        end
+    if not (op and op.members[playerName] and CapTemplate(EventData.TgtUnitName)) then return end
+    op.kills = op.kills + 1
+    if op.kills >= CAP_GOAL then
+        OpMsg(op, "COMMANDEMENT : Objectif atteint, mission CAP reussie !\n" .. OpReward(op, CAP_BONUS), 20)
+        OpVoice(op, "c31")
+        Ops[CAP_LABEL] = nil
+    else
+        OpMsg(op, "CAP : " .. op.kills .. "/" .. CAP_GOAL .. " appareils abattus.", 10)
     end
 end
 
@@ -2394,26 +2646,80 @@ function StrikeDeadHandler:OnEventDead(EventData)
     if name then StrikeDead[name] = true end
 end
 
+-- BASES et CONVOIS changent en cours de partie (base debloquee, convoi en route ou detruit) : refaits par RefreshMissionMenus
+PlayerDynMenus = PlayerDynMenus or {} -- groupe -> { group, root, bases, convois }
+
+local function NorthAlive()
+    for _, name in ipairs(NORTH_CONVOYS) do
+        if #GroupTargets({ name }) > 0 then return true end
+    end
+    return false
+end
+
+local function FillDynMenus(e)
+    local group = e.group
+    e.bases:RemoveSubMenus()
+    e.convois:RemoveSubMenus()
+    local base = BASE_DEFS[CampaignStage]
+    if base then
+        MENU_GROUP_COMMAND:New(group, base.label, e.bases, StrikeLaunch, group, base)
+    else
+        MENU_GROUP_COMMAND:New(group, "Campagne terminee", e.bases, GroupMsg, group, "Toutes les bases sont tombees.", 8)
+    end
+    local any = false
+    for _, def in ipairs(CONVOY_DEFS) do
+        if Ops[def.label] or #def.targets() > 0 then
+            MENU_GROUP_COMMAND:New(group, def.label, e.convois, StrikeLaunch, group, def)
+            any = true
+        end
+    end
+    if Ops[NORTH_LABEL] or NorthAlive() then
+        MENU_GROUP_COMMAND:New(group, NORTH_LABEL, e.convois, StrikeLaunch, group, NORTH_DEF)
+        any = true
+    end
+    if not any then
+        MENU_GROUP_COMMAND:New(group, "Aucun convoi en route", e.convois, GroupMsg, group, "Aucun convoi a attaquer pour l'instant.", 8)
+    end
+end
+
+function RefreshMissionMenus()
+    for groupName, e in pairs(PlayerDynMenus) do
+        if PlayerMissionMenus[groupName] == e.root and e.group:IsAlive() then
+            local ok, err = pcall(FillDynMenus, e)
+            if not ok then env.warning("BLUESKY : menus missions : " .. tostring(err)) end
+        else
+            PlayerDynMenus[groupName] = nil
+        end
+    end
+end
+
 function AddMissionMenusForGroup(group, groupName)
     local g = group:GetDCSObject()
     if not g or g:getCoalition() ~= coalition.side.BLUE then return end
-    CodeInput[groupName] = nil
 
     local root = MENU_GROUP:New(group, "MISSIONS")
-    local icpt = MENU_GROUP:New(group, "INTERCEPTION", root)
+    local e = { group = group, root = root, bases = MENU_GROUP:New(group, "BASES", root),
+                convois = MENU_GROUP:New(group, "CONVOIS", root) }
+    local tabs = { STRIKE = MENU_GROUP:New(group, "STRIKE", root), NAVAL = MENU_GROUP:New(group, "NAVAL", root) }
+    for _, def in ipairs(STRIKES) do
+        MENU_GROUP_COMMAND:New(group, def.label, tabs[def.tab or "STRIKE"], StrikeLaunch, group, def)
+    end
+    local air = MENU_GROUP:New(group, "AIR", root)
+    local icpt = MENU_GROUP:New(group, "INTERCEPTION", air)
     MENU_GROUP_COMMAND:New(group, "Lancer", icpt, IcptLaunch, group)
     MENU_GROUP_COMMAND:New(group, "Appel radio", icpt, IcptCall, group)
-    for _, def in ipairs(STRIKES) do
-        MENU_GROUP_COMMAND:New(group, def.label, root, StrikeLaunch, group, def)
-    end
-    MENU_GROUP_COMMAND:New(group, CAP_LABEL, root, CapLaunch, group)
+    MENU_GROUP_COMMAND:New(group, CAP_LABEL, air, CapLaunch, group)
     MENU_GROUP_COMMAND:New(group, "Rappel de mes missions", root, OpRecall, group)
+    FillDynMenus(e)
+    PlayerDynMenus[groupName] = e
 
     local code = MENU_GROUP:New(group, "CODE")
-    for d = 1, 9 do
-        MENU_GROUP_COMMAND:New(group, tostring(d), code, CodeDigit, group, d)
+    for a = 1, 9 do
+        local sub = MENU_GROUP:New(group, a .. "_", code)
+        for b = 1, 9 do
+            MENU_GROUP_COMMAND:New(group, tostring(a * 10 + b), sub, CodeJoin, group, tostring(a * 10 + b))
+        end
     end
-    MENU_GROUP_COMMAND:New(group, "Effacer", code, CodeClear, group)
 
     PlayerMissionMenus[groupName], PlayerCodeMenus[groupName] = root, code
 end
