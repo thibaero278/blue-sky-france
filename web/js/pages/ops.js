@@ -102,7 +102,7 @@
   $('lastName').textContent = o.code + (o.phase ? ' · ' + o.phase : '') + ' · ' + day(o.date);
   $('lastText').textContent = o.summary;
   $('lastFacts').innerHTML = [[o.pilots, 'Pilotes'], [o.duration, 'Durée'], [o.result, 'Résultat'], [o.map, 'Théâtre']]
-    .map(([a, b]) => `<div><dt>${esc(b)}</dt><dd>${esc(a)}</dd></div>`).join('');
+    .filter(([a]) => a).map(([a, b]) => `<div><dt>${esc(b)}</dt><dd>${esc(a)}</dd></div>`).join('');
   const v = o.tiktok || o.youtube;
   if (v) { $('lastVideo').href = v; $('lastVideo').hidden = false; }
   if (O.demo) $('lastDemo').hidden = false;

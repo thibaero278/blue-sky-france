@@ -12,11 +12,12 @@
     hud:       { src: 'assets/ops/cockpit-hornet-nuit.jpg', alt: 'Cockpit de Hornet de nuit, sous les étoiles' },
     plateformes: { src: 'assets/ops/flir-plateformes.jpg', alt: 'Plateformes en mer vues à la caméra infrarouge du pod de ciblage' },
     camp:      { src: 'assets/ops/flir-camp.webp', alt: 'Camp ennemi pointé au pod de ciblage' },
-    ville:     { src: 'assets/ops/ville-nuit.jpg', alt: 'Survol de nuit au-dessus des lumières de la ville' }
+    ville:     { src: 'assets/ops/ville-nuit.jpg', alt: 'Survol de nuit au-dessus des lumières de la ville' },
+    f117:      { src: 'assets/ops/f117-nvg-ville.webp', alt: 'F-117 en silhouette au-dessus des lumières de la ville, vu aux lunettes de vision nocturne' }
   };
 
   window.BS_OPS = {
-    demo: true,
+    demo: false,
     photos: Object.values(PHOTOS),
     // Ce qu'on vole. photo = celle qui s'affiche à côté quand on passe sur la ligne.
     missions: [
@@ -27,10 +28,13 @@
       { code: 'Interception', name: 'Interception', desc: 'Décoller vite, rejoindre la piste radar et identifier avant de tirer.', photo: PHOTOS.hud }
     ],
     // Dernière opération affichée sur la page.
+    // duration vide = case masquée.
     last: {
-      code: 'Silent Wave', phase: 'Phase 2', date: '2026-10-27', map: 'Syrie', pilots: 14, duration: '2 h 40', result: 'Succès',
-      cover: PHOTOS.lune, tiktok: '',
-      summary: "Une vague SEAD ouvre le corridor nord, la frappe suit sur le dépôt logistique. Deux appareils perdus, tous les pilotes récupérés."
+      code: 'Chemical Silent', phase: '', date: '2026-11-12', map: 'Syrie', pilots: 3, duration: '', result: 'Succès',
+      cover: PHOTOS.f117, tiktok: '',
+      summary: "De nuit, trois Hornets du Truman font taire les trois sites SAM qui protègent le dépôt d'armes chimiques de Palmyre. "
+        + "Les deux F-117 passent par la brèche et détruisent les quatre hangars. Un Hornet, en panne, se déroute sur Beyrouth ; "
+        + "les deux autres appontent de nuit sur le Truman. Aucune perte."
     },
     // Les deux versions de la livrée. photo vide = « photo à venir » ; ex. photo: 'assets/ops/livree-visibility.jpg'
     livery: {

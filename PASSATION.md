@@ -1052,10 +1052,26 @@ Thibaud en LIVE pendant le codage : **rien injecté dans la .miz**, seul `site\m
 - **Injecté le 12/11 à 20 h 18**, DCS fermé : script (NAVAL, Factory Strike, CAP, garde-fou records, interception à tous, voix d'accueil 10 s) + 25 pages kneeboard. Vérifié : archive OK, 75 entrées, script et pages identiques aux sources. Sauvegarde d'avant : `Blue sky multi\bakup\…_2026-11-12_20-18-47.miz.bak`. Script recopié à côté de la .miz.
 - **Site poussé** (commit d79e971 : tous les fichiers suivis + 4 tests). Les fichiers non suivis (bot, r2d2, `Scores_corrige…`, sauvegarde git…) ne sont volontairement pas ajoutés.
 - **Voix c32 à c44 branchées et injectées** (20 h 33, sauvegarde `bakup\…_2026-11-12_20-33-13.miz.bak`) : textes validés par Thibaud (sans nombres ; « Goudaouta », « Sotchi » écrits pour Chatterbox), une prise chacune, radio « grosse mais un poil moins » validée à l'écoute (`fr_commandement_fort` dans `generer.py` : 400-2600 Hz, `acrusher bits=9 mix=0.35`, souffle rose 0,22). Verrouillées dans `voix-ia\validees` (.wav + .ogg vorbis 24 kHz). Script : `VOIX` c32-c44 ; bases = briefing aux membres (`voice` de `CAMPAIGN`) + chute à **tout le serveur** (`fallen`, `VoiceAll` → `trigger.action.outSound`) ; convois c38-c41 + réussite c42 ; Factory c43 / c44. .miz : 13 .ogg + `mapResource` ResKey_Action_96 à 108 + 13 actions du déclencheur de départ (47 sons), vérifié en relisant la mission avec lupa. Pas testé en jeu.
-- Reste : test en jeu de tout (dont la voix d'accueil à 10 s) ; .miz + MAJ du bot chez Weefe (plus tard, décidé par Thibaud).
+- **Déposé pour Weefe** (12/11) : .miz du MSI (avec voix c32-c44) dans `partage/fichiers/` sur R2D2, remplace celle du 10/11 (md5 identique, téléchargeable en HTTP 200 sur le port 8099). La MAJ du bot (plugin `bluesky` du 11/11 : `commands.py`, `scores.py`, `lua/mission.lua`, `lua/commands.lua`) était déjà dans `partage/maj/` et identique à la source : rien de neuf à y mettre. Weefe doit cliquer **FICHIERS / MAJ** dans BLUE-SKY-CONTROL, puis STOP / GO, et lancer la nouvelle .miz.
+- Reste : test en jeu de tout (dont la voix d'accueil à 10 s) ; Weefe clique FICHIERS / MAJ.
 
 ## 12/11/2026 soir : classement nettoyé, 20 pilotes + « afficher les autres »
 - **6 pilotes effacés pour de bon** (décision de Thibaud, ils ne reviendront pas) : `[BS] Xyrox | Templier 1-1`, `Gugus30`, `LayZz`, `Napster 1-1 | Lixx` + `Napster1-1 | Lixx`, `Hadronn 1-1 | Wataru`, `SEEKER | EWAN`. Fait à 20 h 22 sur R2D2 (DELETE dans `bluesky_scores`, 28 → 21 pilotes) puis `docker compose restart bot` (serveur de Weefe vide et en pause). Sauvegarde d'avant : `~/backups/bluesky-bot/avant-suppression-pilotes-2026-11-12.dump`. Relais vérifié : 21 pilotes, aucun des 6. S'ils revolent, ils repartent de 0 ; leurs lignes des Scores.lua partent au prochain lancement de mission. Même effet que `/supprimer_pilote` sur Discord.
 - **Site** : alias `DEX` renommé `WaveOff` (nom affiché) ; Joker était déjà bon. Le site montrait encore les pseudos longs car `config.js?v=6` restait en cache : **toujours monter le `?v=` d'un JS modifié** (config.js → v7, classements.js → v16, sur toutes les pages).
 - **Classement** : 20 lignes, la 21e dépasse en fondu (masque CSS `.table.fold`), bouton « Afficher plus ▾ » / « Afficher moins ▴ » sous le tableau, dépliage animé (max-height + masque qui glisse, 0,7 s). Une recherche montre tous les résultats ; changer de tri replie. Testé en local (ordinateur et mobile 375 px). style.css → v11, classements.js → v17.
 - **108 pts de Dex en un vol** : impossible avec le barème (record de Dex : 9 kills air-sol en un vol, 67 min max → ~78 pts au plus). Erreur de lecture probable (total lu). Il n'existe pas de journal des points par vol. Renommages : site seulement, pas Discord.
+
+## 12/11/2026 soir : mission Syrie « Chemical Silent » (codé, injecté, PAS testé en jeu)
+
+Mission à part (pas la carte multi) : 3 Hornets SEAD + 2 F-117 IA, nuit, Truman. Tout est dans `serveur BS\missions\chemical-silent\` :
+`chemical_silent.lua` (apparition des F-117 à la zone « Spawn 117 », départ des F-117 et du KC-135 quand les 3 radars de tir sont morts,
+F10 S-3B d'urgence, bombes suivies avec explosions et feu, réussite à 4 hangars avec annonce Discord par `dcsbot.sendEmbed`),
+`test_hors_jeu.lua` (banc d'essai avec le Lua de DCS), `kneeboard.html` + `generer_kneeboard.ps1` (5 pages CS01-CS05),
+`injecter.ps1` (script + déclencheur + briefing + kneeboards, relançable, sauvegarde dans `bakup\`), `radio_a_valider.md`.
+Voix : 14 répliques (`generer_voix.py`), Overlord et Shell en gros effet radio (`fr_commandement_radio`, `fr_militaire_radio`
+dans `voix-ia\generer.py`), injectées et actives, gardées par un déclencheur MISSION START. F-117 : pas de ravitaillement
+(perche rigide), retour direct à Akrotiri. **Volée le 12/11 : succès** (3 SAM, 4 hangars ; DexWayOff dérouté sur Beyrouth,
+Branch et Breakdown appontés). .miz déposée pour Weefe. Carte live et stats de base : rien à faire si la mission tourne sur le serveur du bot ;
+scores Blue Sky (heures, records, sans points) : plus tard.
+
+**12/11 nuit, Blue Sky Ops :** dernière opération = Chemical Silent (`web/data/ops.js`, photo `assets/ops/f117-nvg-ville.webp`, `demo: false` : le bandeau « opération d'exemple » disparaît). Une case vide (ex. durée) est masquée (`js/pages/ops.js`). Vérifié en local, poussé.
