@@ -1542,6 +1542,20 @@ local VOIX = {
     c29 = { "c29_naval_ok.ogg", 4.4 },
     c30 = { "c30_cap_brief.ogg", 5.2 },
     c31 = { "c31_cap_ok.ogg", 4.9 },
+    -- 12/11 : bases, convois, Factory (radio plus forte)
+    c32 = { "c32_gudauta_brief.ogg", 7.3 },
+    c33 = { "c33_gudauta_tombee.ogg", 5.2 },
+    c34 = { "c34_sochi_brief.ogg", 6.1 },
+    c35 = { "c35_sochi_tombee.ogg", 4.4 },
+    c36 = { "c36_anapa_brief.ogg", 5.9 },
+    c37 = { "c37_anapa_victoire.ogg", 4.1 },
+    c38 = { "c38_convoi_gudauta.ogg", 6.1 },
+    c39 = { "c39_convoi_sochi.ogg", 5.8 },
+    c40 = { "c40_convoi_soukhoumi.ogg", 4.4 },
+    c41 = { "c41_convoi_nord.ogg", 5.6 },
+    c42 = { "c42_convoi_ok.ogg", 2.9 },
+    c43 = { "c43_factory_brief.ogg", 8.3 },
+    c44 = { "c44_factory_ok.ogg", 3.8 },
 }
 
 -- Joue une voix ou une liste de voix a la suite (DCS superpose deux sons lances ensemble), aux membres presents a ce moment-la
@@ -1555,6 +1569,12 @@ local function OpVoice(op, voice)
         end, nil, at)
         at = at + v[2] + 0.5
     end
+end
+
+-- Annonce a tout le serveur (base tombee)
+local function VoiceAll(key)
+    local v = key and VOIX[key]
+    if v then timer.scheduleFunction(function() trigger.action.outSound(v[1]) end, nil, timer.getTime() + 0.5) end
 end
 
 -- Anti-triche : retient les membres venus sur zone, seuls eux auront le bonus (pas de tir de tres loin, pas de points sur le dos des autres)
@@ -2304,6 +2324,7 @@ local STRIKES = {
                 "environ 65 NM a l'ouest-nord-ouest de Mineralnye Vody. Detruisez reservoirs, depots, pompes et ateliers. " ..
                 "Defense antiaerienne sur place.",
         success = "COMMANDEMENT : Complexe industriel detruit. Mission reussie !",
+        voice = { brief = "c43", success = "c44" },
     },
 }
 
@@ -2314,13 +2335,14 @@ local STRIKES = {
 -- Cibles d'une base : unites au sol rouges actives a moins de BASE_RADIUS de son centre, sauf renforts et convois.
 ------------------------------------------------------------
 local CAMPAIGN = {
-    { base = "Gudauta", bonus = 30,
+    -- voice : briefing (membres) ; fallen : base tombee (tout le serveur, seule voix de la reussite)
+    { base = "Gudauta", bonus = 30, voice = "c32", fallen = "c33",
       brief = "COMMANDEMENT : Base aerienne de Gudauta, environ 30 NM au nord-ouest de Soukhoumi. " ..
               "Detruisez toutes les unites au sol de la base. Defense antiaerienne sur place, renforts attendus." },
-    { base = "Sochi", bonus = 40,
+    { base = "Sochi", bonus = 40, voice = "c34", fallen = "c35",
       brief = "COMMANDEMENT : Base aerienne de Sochi, environ 35 NM au nord-ouest de Gudauta. " ..
               "Detruisez toutes les unites au sol de la base. Renforts blindes et helicopteres attendus." },
-    { base = "Anapa", bonus = 60,
+    { base = "Anapa", bonus = 60, voice = "c36", fallen = "c37",
       brief = "COMMANDEMENT : Base aerienne d'Anapa, a l'extremite nord-ouest de la cote. Derniere base russe du front : " ..
               "plus de 60 vehicules. Detruisez toutes les unites au sol de la base." },
 }
@@ -2328,11 +2350,11 @@ CampaignStage = 1 -- indice de la base debloquee dans CAMPAIGN (au-dela : campag
 
 -- Convois activables en renfort : leur mission n'apparait qu'une fois le convoi en route
 local CONVOY_MISSIONS = {
-    { label = "Convoi Gudauta", group = "Gudauta convoie",
+    { label = "Convoi Gudauta", group = "Gudauta convoie", voice = "c38",
       brief = "COMMANDEMENT : Un convoi blinde russe fait route vers Gudauta en renfort. Detruisez tous ses vehicules." },
-    { label = "Convoi Sochi", group = "sochi convoie",
+    { label = "Convoi Sochi", group = "sochi convoie", voice = "c39",
       brief = "COMMANDEMENT : Un convoi blinde russe fait route vers Sochi en renfort. Detruisez tous ses vehicules." },
-    { label = "Convoi Soukhoumi", group = "sukumi convoie",
+    { label = "Convoi Soukhoumi", group = "sukumi convoie", voice = "c40",
       brief = "COMMANDEMENT : Contre-attaque russe : un convoi parti de Gudauta fait route vers Soukhoumi. Arretez-le." },
 }
 local CONVOY_BONUS = 20
@@ -2400,18 +2422,19 @@ local function CampaignDone(stage)
     MESSAGE:New(nxt and ("COMMANDEMENT : " .. name .. " est tombee. Nouvelle mission disponible : " .. nxt.base ..
                          " (F10 > MISSIONS > BASES).")
                     or ("COMMANDEMENT : " .. name .. " est tombee. Le front russe est brise : victoire !"), 20):ToAll()
+    VoiceAll(CAMPAIGN[stage].fallen)
     env.info("BLUESKY : campagne, " .. name .. " tombee")
 end
 
 local BASE_DEFS, CONVOY_DEFS = {}, {}
 for i, c in ipairs(CAMPAIGN) do
     BASE_DEFS[i] = { label = "Base " .. c.base, bonus = c.bonus, brief = c.brief, stage = i,
-                     targets = function() return BaseTargets(c.base) end,
+                     targets = function() return BaseTargets(c.base) end, voice = { brief = c.voice },
                      success = "COMMANDEMENT : Base de " .. c.base .. " detruite. Mission reussie !" }
 end
 for i, c in ipairs(CONVOY_MISSIONS) do
     CONVOY_DEFS[i] = { label = c.label, bonus = CONVOY_BONUS, brief = c.brief,
-                       targets = function() return GroupTargets({ c.group }) end,
+                       targets = function() return GroupTargets({ c.group }) end, voice = { brief = c.voice, success = "c42" },
                        success = "COMMANDEMENT : Convoi detruit. Mission reussie !" }
 end
 local NORTH_DEF = {
@@ -2428,6 +2451,7 @@ local NORTH_DEF = {
                WhereIs(targets[1]:getPoint())
     end,
     success = "COMMANDEMENT : Convoi detruit. Mission reussie !",
+    voice = { brief = "c41", success = "c42" },
 }
 
 function StrikeLaunch(group, def)

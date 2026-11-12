@@ -386,6 +386,11 @@ assert codes and codes <= set(voix), codes - set(voix)
 valid = pathlib.Path(__file__).parent.parent.parent / 'voix-ia' / 'validees'
 assert all((valid / f).exists() for f in voix.values())
 assert all((valid / f).exists() for f in re.findall(r'"(c\d\d_\w+\.ogg)"', src))  # voix jouees hors VOIX (accueil)
+# 12/11 : chaque base a sa voix de briefing et de chute, chaque convoi et Factory brief + reussite
+assert [ev(f'BASE_DEFS[{i}].voice.brief') for i in (1, 2, 3)] == ['c32', 'c34', 'c36']
+assert [ev(f'CONVOY_DEFS[{i}].voice.brief') for i in (1, 2, 3)] == ['c38', 'c39', 'c40'] and ev('CONVOY_DEFS[1].voice.success') == 'c42'
+assert ev('NORTH_DEF.voice.brief') == 'c41' and ev('STRIKES[3].voice.brief') == 'c43' and ev('STRIKES[3].voice.success') == 'c44'
+assert all(f'fallen = "c{n}"' in src for n in (33, 35, 37))
 # une liste se joue a la suite (duree + 0,5 s), aux seuls membres ; pas de voix = rien
 lua.execute('''
 PLAYED, CALLS = {}, {}
