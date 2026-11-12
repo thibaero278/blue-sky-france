@@ -78,7 +78,7 @@
     const ql = q.trim().toLowerCase();
     const all = ranked.map((p, i) => ({ p, rank: i + 1 })).filter(({ p }) => !ql || p.callsign.toLowerCase().includes(ql));
     const cut = !ql && all.length > TOP;
-    const rows = cut && !showAll ? all.slice(0, TOP) : all;
+    const rows = all; // tout est rendu ; replié, la hauteur coupe sous la 20e ligne (fold)
     $('table').innerHTML = `
       <div class="tr th"><span>#</span><span>Pilote</span><span>Grade</span>
         ${COLS.map(([k, l]) => `<button data-m="${k}"${k === metric ? ' class="on"' : ''}>${l}</button>`).join('')}
@@ -91,7 +91,26 @@
           ${COLS.map(([k]) => `<span class="n${k === metric ? ' on' : ''}">${num(p, k)}</span>`).join('')}
         </div>`).join('')}
       ${rows.length ? '' : `<div class="empty">${S.pilots.length ? 'Aucun pilote ne correspond à « ' + esc(q) + ' ».' : 'Aucun pilote classé pour le moment.'}</div>`}`;
-    $('more').innerHTML = cut ? `<button class="btn outline" data-more aria-expanded="${showAll}">${showAll ? 'Réduire ▴' : `Afficher ${all.length - TOP > 1 ? 'les ' + (all.length - TOP) + ' autres pilotes' : "l'autre pilote"} ▾`}</button>` : '';
+    $('more').innerHTML = cut ? `<button class="btn outline" data-more aria-expanded="${showAll}">${showAll ? 'Afficher moins ▴' : 'Afficher plus ▾'}</button>` : '';
+    fold(cut, false);
+  }
+
+  // Replié : on voit le haut de la 21e ligne, fondue en dégradé. smooth : glisse vers la nouvelle hauteur.
+  function fold(cut, smooth) {
+    const box = $('table').parentElement, rows = $('table').querySelectorAll('.tr.row');
+    const shut = cut && !showAll;
+    rows.forEach((r, i) => (r.inert = shut && i >= TOP));
+    box.classList.toggle('fold', cut);
+    box.classList.toggle('shut', shut);
+    if (!cut) { box.style.maxHeight = ''; return; }
+    const peek = rows[TOP], top = box.getBoundingClientRect().top;
+    const to = shut ? peek.getBoundingClientRect().top - top + peek.offsetHeight : box.scrollHeight;
+    box.style.transition = smooth ? '' : 'none';
+    const from = box.getBoundingClientRect().height;
+    if (smooth) { box.style.maxHeight = from + 'px'; box.offsetHeight; }
+    // déplié sans changement de hauteur : pas de transitionend, on libère tout de suite
+    box.style.maxHeight = !shut && (!smooth || to <= from) ? 'none' : to + 'px';
+    if (!smooth) { box.offsetHeight; box.style.transition = ''; }
   }
 
   function renderStatic() {
@@ -202,7 +221,14 @@
     if (!S) return;
     const m = e.target.closest('[data-m]');
     if (m) { if (m.dataset.m !== metric) { metric = m.dataset.m; showAll = false; render(true); } return; }
-    if (e.target.closest('[data-more]')) { showAll = !showAll; render(); return; }
+    if (e.target.closest('[data-more]')) {
+      showAll = !showAll;
+      const b = e.target.closest('[data-more]');
+      b.textContent = showAll ? 'Afficher moins ▴' : 'Afficher plus ▾';
+      b.setAttribute('aria-expanded', showAll);
+      fold(true, true);
+      return;
+    }
     if (e.target.closest('[data-close]')) { closePilot(); return; }
     const r = e.target.closest('[data-id]');
     if (r) openPilot(Number(r.dataset.id));
@@ -212,6 +238,10 @@
     if (e.key === 'Enter' && e.target.matches('.tr.row')) openPilot(Number(e.target.dataset.id));
   });
   $('q').addEventListener('input', e => { q = e.target.value; if (S) render(); });
+  // déplié : plus de hauteur fixe, pour qu'un redimensionnement ne coupe rien
+  $('table').parentElement.addEventListener('transitionend', e => {
+    if (e.propertyName === 'max-height' && showAll) e.currentTarget.style.maxHeight = 'none';
+  });
 
   loadStats().then(s => {
     S = s;

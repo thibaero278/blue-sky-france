@@ -200,6 +200,12 @@ button { font-family: var(--f-text); }
 .podium .cs { font-family: var(--f-display); font-weight: 700; font-size: 32px; line-height: 1; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; }
 .table { border-radius: 22px; border: 1px solid var(--line); background: var(--card); overflow-x: auto; }
 .table .inner { min-width: 900px; }
+/* Classement replié : la 21e ligne dépasse en fondu ; le masque glisse hors du cadre quand on déplie */
+.table.fold { overflow-y: hidden; transition: max-height .7s cubic-bezier(.22, .8, .24, 1), mask-size .7s ease, -webkit-mask-size .7s ease;
+  -webkit-mask: linear-gradient(#000 calc(100% - 75px), transparent) top / 100% calc(100% + 75px) no-repeat;
+  mask: linear-gradient(#000 calc(100% - 75px), transparent) top / 100% calc(100% + 75px) no-repeat; }
+.table.fold.shut { -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+@media (prefers-reduced-motion: reduce) { .table.fold { transition: none; } }
 .tr { display: grid; grid-template-columns: 56px minmax(180px, 2fr) minmax(180px, 1.8fr) repeat(8, minmax(76px, 1fr)); align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line2); font-size: 15px; }
 .tr.th { padding: 14px 20px; border-bottom-color: var(--line); font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
 .tr.th button { text-align: right; border: none; background: none; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; }
