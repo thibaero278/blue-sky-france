@@ -50,7 +50,8 @@
   const bestOf = (k, lowest) => S.pilots.filter(p => hasRecord(p, k, lowest)).reduce((a, p) => !a || (lowest ? p[k] < a[k] : p[k] > a[k]) ? p : a, null);
 
   const params = new URLSearchParams(location.search);
-  let S = null, metric = METRICS.some(m => m.id === params.get('tri')) ? params.get('tri') : 'points', q = '';
+  let S = null, metric = METRICS.some(m => m.id === params.get('tri')) ? params.get('tri') : 'points', q = '', showAll = false;
+  const TOP = 20; // lignes visibles avant « Afficher les autres pilotes » (une recherche montre tout)
 
   // animate : le tri a changé → les lignes glissent vers leur nouvelle place
   function render(animate) {
@@ -75,7 +76,9 @@
       </button>`).join('');
 
     const ql = q.trim().toLowerCase();
-    const rows = ranked.map((p, i) => ({ p, rank: i + 1 })).filter(({ p }) => !ql || p.callsign.toLowerCase().includes(ql));
+    const all = ranked.map((p, i) => ({ p, rank: i + 1 })).filter(({ p }) => !ql || p.callsign.toLowerCase().includes(ql));
+    const cut = !ql && all.length > TOP;
+    const rows = cut && !showAll ? all.slice(0, TOP) : all;
     $('table').innerHTML = `
       <div class="tr th"><span>#</span><span>Pilote</span><span>Grade</span>
         ${COLS.map(([k, l]) => `<button data-m="${k}"${k === metric ? ' class="on"' : ''}>${l}</button>`).join('')}
@@ -88,6 +91,7 @@
           ${COLS.map(([k]) => `<span class="n${k === metric ? ' on' : ''}">${num(p, k)}</span>`).join('')}
         </div>`).join('')}
       ${rows.length ? '' : `<div class="empty">${S.pilots.length ? 'Aucun pilote ne correspond à « ' + esc(q) + ' ».' : 'Aucun pilote classé pour le moment.'}</div>`}`;
+    $('more').innerHTML = cut ? `<button class="btn outline" data-more aria-expanded="${showAll}">${showAll ? 'Réduire ▴' : `Afficher ${all.length - TOP > 1 ? 'les ' + (all.length - TOP) + ' autres pilotes' : "l'autre pilote"} ▾`}</button>` : '';
   }
 
   function renderStatic() {
@@ -197,7 +201,8 @@
   document.addEventListener('click', e => {
     if (!S) return;
     const m = e.target.closest('[data-m]');
-    if (m) { if (m.dataset.m !== metric) { metric = m.dataset.m; render(true); } return; }
+    if (m) { if (m.dataset.m !== metric) { metric = m.dataset.m; showAll = false; render(true); } return; }
+    if (e.target.closest('[data-more]')) { showAll = !showAll; render(); return; }
     if (e.target.closest('[data-close]')) { closePilot(); return; }
     const r = e.target.closest('[data-id]');
     if (r) openPilot(Number(r.dataset.id));
