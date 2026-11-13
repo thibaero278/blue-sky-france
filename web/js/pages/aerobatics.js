@@ -48,12 +48,15 @@
   function open(list, i) { lbList = list; lbIdx = i; showLb(); }
   function showLb() {
     const lb = $('lightbox');
-    if (lbIdx == null) { lb.hidden = true; document.body.style.overflow = ''; return; }
+    if (lbIdx == null) {
+      const shut = () => { if (lbIdx == null) { lb.hidden = true; document.body.style.overflow = ''; } };
+      return window.BSMotion && !lb.hidden ? BSMotion.leave(lb, shut) : shut();
+    }
     const p = lbList[lbIdx];
     $('lbImg').src = p.src; $('lbImg').alt = p.caption;
     if (window.BSMotion) BSMotion.replay($('lbImg'), 'show');
     $('lbCap').textContent = p.caption + ' · ' + (lbIdx + 1) + ' / ' + lbList.length;
-    lb.hidden = false; document.body.style.overflow = 'hidden';
+    lb.classList.remove('leaving'); lb.hidden = false; document.body.style.overflow = 'hidden';
   }
   const step = n => { lbIdx = (lbIdx + n + lbList.length) % lbList.length; showLb(); };
   $('lbPrev').onclick = e => { e.stopPropagation(); step(-1); };

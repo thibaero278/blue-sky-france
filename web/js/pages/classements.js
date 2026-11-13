@@ -83,15 +83,15 @@
       <div class="tr th"><span>#</span><span>Pilote</span><span>Grade</span>
         ${COLS.map(([k, l]) => `<button data-m="${k}"${k === metric ? ' class="on"' : ''}>${l}</button>`).join('')}
       </div>
-      ${rows.map(({ p, rank }) => `
-        <div class="tr row" data-id="${p.id}" tabindex="0">
+      ${rows.map(({ p, rank }, i) => `
+        <div class="tr row" data-id="${p.id}" tabindex="0" style="--i:${i}">
           <span class="rank">${rank}</span>
           <span class="who"><b>${esc(p.callsign)}</b><small>${fmt.n(p.flights)} vol${p.flights > 1 ? 's' : ''}</small></span>
           <span class="gr">${insignia(p.grade, 'xs')}<span>${esc(p.grade.name)}</span></span>
           ${COLS.map(([k]) => `<span class="n${k === metric ? ' on' : ''}">${num(p, k)}</span>`).join('')}
         </div>`).join('')}
       ${rows.length ? '' : `<div class="empty">${S.pilots.length ? 'Aucun pilote ne correspond à « ' + esc(q) + ' ».' : 'Aucun pilote classé pour le moment.'}</div>`}`;
-    $('more').innerHTML = cut ? `<button class="btn outline" data-more aria-expanded="${showAll}">${showAll ? 'Afficher moins ▴' : 'Afficher plus ▾'}</button>` : '';
+    $('more').innerHTML = cut ? `<button class="btn outline" data-more aria-expanded="${showAll}" aria-label="${showAll ? 'Afficher moins' : 'Afficher plus'}"><span class="xf${showAll ? ' x' : ''}" aria-hidden="true"><span>Afficher plus ▾</span><span>Afficher moins ▴</span></span></button>` : '';
     fold(cut, false);
   }
 
@@ -224,8 +224,9 @@
     if (e.target.closest('[data-more]')) {
       showAll = !showAll;
       const b = e.target.closest('[data-more]');
-      b.textContent = showAll ? 'Afficher moins ▴' : 'Afficher plus ▾';
+      b.firstChild.classList.toggle('x', showAll);
       b.setAttribute('aria-expanded', showAll);
+      b.setAttribute('aria-label', showAll ? 'Afficher moins' : 'Afficher plus');
       fold(true, true);
       return;
     }
@@ -246,6 +247,7 @@
   loadStats().then(s => {
     S = s;
     renderStatic(); render();
+    if (window.BSMotion) BSMotion.stagger($('table').parentElement);
     const pilot = params.get('pilote');
     if (pilot) { const p = s.pilots.find(x => x.callsign.toLowerCase() === pilot.toLowerCase()); if (p) openPilot(p.id); }
   });

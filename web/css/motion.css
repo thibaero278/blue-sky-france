@@ -53,18 +53,25 @@
 .nav { transition: box-shadow .3s ease, background .3s ease, border-color .3s ease; }
 .navwrap.scrolled .nav { background: rgba(251,250,247,.96); box-shadow: 0 14px 34px -20px rgba(19,33,58,.45); }
 .links a { transition: color .2s ease, background .2s ease; }
-.links.open { animation: menu-in .28s var(--ease-out) both; transform-origin: top center; }
-.links.open a { animation: rise .35s var(--ease-out) both; }
+/* Menu ☰ : part du bouton (en haut à droite), 200 ms ; se referme vers lui en 160 ms */
+.links.open { animation: menu-in .2s var(--ease-out) both; transform-origin: top right; }
+.links.open.leaving { animation: menu-out .16s cubic-bezier(.4, 0, 1, 1) both; }
+.links.open a { animation: rise .25s var(--ease-out) both; }
 .links.open a:nth-child(2) { animation-delay: .03s; } .links.open a:nth-child(3) { animation-delay: .06s; }
 .links.open a:nth-child(4) { animation-delay: .09s; } .links.open a:nth-child(5) { animation-delay: .12s; }
-@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
-.menubtn { transition: background .2s, transform .2s; }
-.menubtn:active { transform: scale(.92); }
+.links.open a:nth-child(6) { animation-delay: .15s; } .links.open a:nth-child(7) { animation-delay: .18s; }
+.links.open.leaving a { animation: none; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.95); } }
+@keyframes menu-out { to { opacity: 0; transform: scale(.95); } }
+.menubtn { transition: background .2s, transform .2s var(--ease-out); }
 
 /* ---------- boutons et liens ---------- */
 .btn, .copy, .pill { transition: background .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease, transform .25s var(--ease-out); }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -14px rgba(19,33,58,.6); }
-.btn:active, .copy:active, .filters button:active, .seg button:active, .tabs button:active { transform: scale(.97); transition-duration: .08s; }
+.btn:active, .copy:active, .filters button:active, .seg button:active, .tabs button:active, .menubtn:active, .xbtn:active,
+.podium:active, .now-card:active, .live-chip:active, .gallery button:active, .thumbs button:active, .p:active, .focus button:active,
+.lightbox .ctl button:active, .lightbox .close:active { transform: scale(.97); transition-duration: .08s; }
+.xbtn, .p, .live-chip, .gallery button, .focus button, .lightbox .ctl button, .lightbox .close { transition: background .2s ease, transform .2s var(--ease-out); }
 .btn.muted:hover { transform: none; box-shadow: none; }
 .arr { display: inline-block; transition: transform .3s var(--ease-out); }
 a:hover .arr, button:hover .arr, .teaser:hover .arr, .now-card:hover .arr { transform: translateX(4px); }
@@ -81,6 +88,7 @@ a:hover .arr, button:hover .arr, .teaser:hover .arr, .now-card:hover .arr { tran
 /* ---------- cartes ---------- */
 .now-card, .podium, .staff, .feature, .grade-card, .kpi, .event, .top3 { transition: transform .35s var(--ease-out), box-shadow .35s var(--ease-out), border-color .25s ease, background .25s ease; }
 .now-card:hover, .podium:hover { transform: translateY(-3px); box-shadow: var(--lift); }
+.now-card:active, .podium:active { transform: translateY(-3px) scale(.97); transition-duration: .08s; }
 .now-card.dark:hover { box-shadow: 0 22px 44px -24px rgba(19,33,58,.7); }
 .feature:hover, .staff:hover, .grade-card:hover, .event:hover { border-color: #d3cdbf; }
 .teaser { transition: box-shadow .4s var(--ease-out); }
@@ -115,11 +123,18 @@ a:hover .arr, button:hover .arr, .teaser:hover .arr, .now-card:hover .arr { tran
 .tr .n { transition: color .3s ease; }
 .podium-swap > * { animation: rise .5s var(--ease-out) both; }
 .podium-swap > :nth-child(2) { animation-delay: .06s; } .podium-swap > :nth-child(3) { animation-delay: .12s; }
-.overlay { animation: fade-in .25s ease both; }
-.drawer { animation: drawer-in .45s var(--ease-out) both; }
-.drawer .stat-grid > div { animation: rise .5s var(--ease-out) both; }
-.drawer .stat-grid > :nth-child(n+4) { animation-delay: .05s; } .drawer .stat-grid > :nth-child(n+7) { animation-delay: .1s; }
-.closing .overlay { animation: fade-out .22s ease both; }
+/* Classement : les lignes arrivent l'une après l'autre (30 ms), une fois, quand le tableau devient visible */
+.st-in .tr.row { animation: rise .4s var(--ease-out) both; animation-delay: calc(min(var(--i, 20), 20) * 30ms); }
+/* Fondu enchaîné local (BSMotion.swap) : la page ne bouge pas, seul l'élément change ; sortie plus courte */
+.vt-local::view-transition-old(root), .vt-local::view-transition-new(root) { animation: none; }
+::view-transition-old(bs-swap) { animation: fade-out .16s ease-in both; }
+::view-transition-new(bs-swap) { animation: fade-in .2s var(--ease-out) both; }
+::view-transition-group(bs-swap) { animation-duration: .2s; animation-timing-function: var(--ease-out); }
+.overlay { animation: fade-in .25s var(--ease-out) both; }
+.drawer { animation: drawer-in .3s var(--ease-out) both; }
+.drawer .stat-grid > div { animation: rise .4s var(--ease-out) both; }
+.drawer .stat-grid > :nth-child(n+4) { animation-delay: .03s; } .drawer .stat-grid > :nth-child(n+7) { animation-delay: .06s; }
+.closing .overlay { animation: fade-out .2s ease-in both; }
 .closing .drawer { animation: drawer-out .24s cubic-bezier(.4, 0, 1, 1) both; }
 @keyframes drawer-in { from { transform: translateX(48px); opacity: 0; } }
 @keyframes drawer-out { to { transform: translateX(48px); opacity: 0; } }
@@ -132,11 +147,18 @@ a:hover .arr, button:hover .arr, .teaser:hover .arr, .now-card:hover .arr { tran
 .gallery button:hover span { transform: translateY(-2px); }
 .motion img.lazy { opacity: 0; }
 .motion img.lazy.loaded { opacity: 1; }
-.gallery.swap > button { animation: rise .5s var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 10) * 35ms); }
-.lightbox:not([hidden]) { animation: fade-in .25s ease both; }
+.gallery.swap > button { animation: rise .5s var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 10) * 30ms); }
+.lightbox:not([hidden]) { animation: fade-in .25s var(--ease-out) both; }
+.lightbox.leaving { animation: fade-out .2s ease-in both; }
+.lightbox.leaving img { animation: zoom-out .2s ease-in both; }
 .lightbox img.show { animation: zoom-in .45s var(--ease-out) both; }
-@keyframes zoom-in { from { opacity: 0; transform: scale(.97); } }
-.focus.show { animation: rise .35s var(--ease-out) both; }
+@keyframes zoom-in { from { opacity: 0; transform: scale(.95); } }
+@keyframes zoom-out { to { opacity: 0; transform: scale(.95); } }
+/* Fiche d'un avion sur la carte : sort de son coin (bas gauche) à 0,95, repart vers lui plus vite */
+.focus.show { animation: pop-in .25s var(--ease-out) both; transform-origin: bottom left; }
+.focus.show.leaving { animation: pop-out .2s cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes pop-in { from { opacity: 0; transform: scale(.95); } }
+@keyframes pop-out { to { opacity: 0; transform: scale(.95); } }
 .p { transition: background .2s ease; }
 
 /* ---------- moins d'animations demandé par le système ---------- */

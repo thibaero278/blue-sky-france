@@ -209,8 +209,13 @@
   }
   function renderFocus() {
     const p = units.find(x => x.key === selected);
-    $('focus').classList.toggle('show', !!p);
-    if (!p) return;
+    const f = $('focus');
+    if (!p) {
+      if (f.classList.contains('show') && !f.classList.contains('leaving'))
+        window.BSMotion ? BSMotion.leave(f, () => { if (!units.some(x => x.key === selected)) f.classList.remove('show'); }) : f.classList.remove('show');
+      return;
+    }
+    f.classList.remove('leaving'); f.classList.add('show');
     const kind = p.ship ? SHIP_NAMES[p.ship] : ROLES[p.role];
     const side = p.ai ? (enemy(p) ? (p.ship ? 'Ennemi · ' : 'IA ennemie · ') : (p.ship ? 'Ami · ' : 'IA amie · ')) + kind + ' · ' : '';
     $('fCs').textContent = p.ai ? (enemy(p) ? 'Inconnu' : p.callsign || kind) : [p.callsign].concat(p.crew || []).map(short).join(' + ');
@@ -249,7 +254,7 @@
     const b = e.target.closest('button'); if (!b) return;
     filter = b.dataset.f;
     $('tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    renderList();
+    window.BSMotion ? BSMotion.swap($('plist'), renderList) : renderList();
   });
   $('closeFocus').onclick = () => select(null, false);
   $('followBtn').onclick = () => { follow = !follow; renderFocus(); };

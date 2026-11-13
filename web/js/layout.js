@@ -26,15 +26,18 @@
       <div class="navright">
         <a class="pill" href="carte.html" id="navPill"><span class="dot"></span><span id="navPillTxt">Serveur DCS</span></a>
         <a class="btn sm" href="${esc(C.discordInvite)}" target="_blank" rel="noopener"><span class="cta-long">Rejoindre le Discord</span><span class="cta-short">Discord</span></a>
-        <button class="menubtn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+        <button class="menubtn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span class="xf" aria-hidden="true"><span>☰</span><span>✕</span></span></button>
       </div>
     </nav>`;
   document.body.prepend(nav);
   const links = nav.querySelector('#navLinks'), btn = nav.querySelector('#menuBtn');
   btn.addEventListener('click', () => {
-    const open = links.classList.toggle('open');
-    btn.textContent = open ? '✕' : '☰';
+    const open = !links.classList.contains('open') || links.classList.contains('leaving');
+    btn.firstChild.classList.toggle('x', open);
     btn.setAttribute('aria-expanded', open);
+    if (open) { links.classList.remove('leaving'); links.classList.add('open'); }
+    else if (window.BSMotion) BSMotion.leave(links, () => { if (btn.getAttribute('aria-expanded') === 'false') links.classList.remove('open'); }, 160);
+    else links.classList.remove('open');
   });
 
   let serverUp = true;   // tant qu'on ne sait pas : rythme normal

@@ -9,7 +9,7 @@
   // Éléments qui apparaissent en douceur quand on arrive dessus
   const REVEAL = [
     '.sec-head', '.section > .h2', '.grid-auto > *', '.tiers', '.teaser', '.cta-box', '.recruit', '.join-banner',
-    '.event', '.gallery > button', '.livery-photo', '.table', '.changelog > div', '.dc-card', '.mapcard', '.side > .card',
+    '.event', '.gallery > button', '.livery-photo', '.changelog > div', '.dc-card', '.mapcard', '.side > .card',
     'section.wrap > .card', 'section.wrap > div > .card', '[data-reveal]'
   ].join(',');
 
@@ -191,7 +191,30 @@
     el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
   }
 
-  window.BSMotion = { reduced, count, onVisible, flip, replay, scan };
+  // Sortie animée (classe .leaving, plus courte que l'entrée), puis done()
+  function leave(el, done, ms = 200) {
+    if (reduced) return done();
+    el.classList.add('leaving');
+    setTimeout(() => { el.classList.remove('leaving'); done(); }, ms);
+  }
+
+  // Fondu enchaîné : l'ancien contenu de el s'efface pendant que le nouveau arrive (View Transitions, sinon direct)
+  function swap(el, update) {
+    if (reduced || !document.startViewTransition) return update();
+    root.classList.add('vt-local'); el.style.viewTransitionName = 'bs-swap';
+    const t = document.startViewTransition(update);
+    t.ready.catch(() => {});  // deux clics rapides : la première transition est sautée, ce n'est pas une erreur
+    t.finished.finally(() => { root.classList.remove('vt-local'); el.style.viewTransitionName = ''; });
+  }
+
+  // Lignes qui arrivent l'une après l'autre (30 ms d'écart, --i posé sur chaque ligne) quand el devient visible
+  function stagger(el) {
+    if (reduced) return;
+    // rien n'est masqué d'avance : si l'observateur ne se déclenche jamais, les lignes restent simplement visibles
+    onVisible(el, () => { el.classList.add('st-in'); setTimeout(() => el.classList.remove('st-in'), 1400); }, 0.1);
+  }
+
+  window.BSMotion = { reduced, count, onVisible, flip, replay, scan, leave, swap, stagger };
   scan(document.body);
   mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   onScroll();
