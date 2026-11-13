@@ -4,7 +4,7 @@
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
   let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0, framed = false;
 
-  const map = L.map('map', { minZoom: 6, maxZoom: 18, zoomSnap: 0.5, preferCanvas: true }).setView([42.95, 42.2], 7);
+  const map = L.map('map', { minZoom: 5, maxZoom: 18, zoomSnap: 0.5, preferCanvas: true }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
   // CARTO testé le 06/11 : tuiles raster désormais sous clé API (filigrane « API KEY REQUIRED »), donc on reste sur OSM
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19, keepBuffer: 4, updateWhenZooming: false }).addTo(map);
@@ -285,6 +285,16 @@
       .map(([k, v], i) => '<div' + (i === 4 ? ' style="grid-column:span 2"' : '') + '><span class="label">' + k + '</span><span class="v">' + esc(v ?? '—') + '</span></div>').join('');
   }
 
+  // Premières vraies positions : on montre toute la carte DCS où sont les unités (le relais ne dit pas laquelle).
+  // Syrie = Chypre, Liban, Israël, nord de la Jordanie, sud de la Turquie. Caucase : vue par défaut, rien à faire.
+  const THEATRES = [[[31, 31.5], [38, 41.5]]];
+  function frame() {
+    const lat = units.reduce((s, p) => s + p.lat, 0) / units.length, lon = units.reduce((s, p) => s + p.lon, 0) / units.length;
+    const t = THEATRES.find(([[s, w], [n, e]]) => lat >= s && lat <= n && lon >= w && lon <= e);
+    if (t) map.fitBounds(t);
+    else if (lat < 40 || lat > 47 || lon < 35 || lon > 48) map.fitBounds(units.map(p => [p.lat, p.lon]), { padding: [60, 60], maxZoom: 7 });  // autre carte
+  }
+
   function load() {
     return loadLive().then(d => {
       demo = d.demo; offline = !!d.offline;
@@ -301,8 +311,7 @@
         : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les ' + delay / 1000 + ' s'
         : 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions';
       sync((d.players || []).concat(d.ai || []));
-      // premières vraies positions : on cadre sur les unités, quelle que soit la carte DCS (Caucase, Syrie…)
-      if (!framed && !demo && units.length) { framed = true; map.fitBounds(units.map(p => [p.lat, p.lon]), { padding: [60, 60], maxZoom: 8 }); }
+      if (!framed && !demo && units.length) { framed = true; frame(); }
       if (++polls % 6 === 0) fetchTrail();  // trajectoire du sélectionné relue toutes les 30 s
       after();
     });
