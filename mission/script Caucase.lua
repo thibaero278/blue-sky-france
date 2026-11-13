@@ -27,6 +27,7 @@ local POINTS = {
     SHIP        = 8,
     GROUND      = 2,
     AIR_DEFENCE = 5,
+    LOCOMOTIVE  = 3,
     STATIC      = 1,
 }
 
@@ -373,7 +374,8 @@ end
 
 -- Valide les kills/points d'un vol dans le total.
 -- elapsed (atterrissage uniquement) : ajoute au temps de vol complete.
-local function CommitFlightKills(playerName, f, elapsed)
+-- divisor (atterrissage hors aeroport, 13/11) : les points du vol sont divises, f.offFieldLoss = points perdus
+local function CommitFlightKills(playerName, f, elapsed, divisor)
     if not f then return end
     local s = InitPlayer(playerName)
     local oldIndex = GetRank(s.points)
@@ -382,6 +384,10 @@ local function CommitFlightKills(playerName, f, elapsed)
     s.airmer = s.airmer + f.airmer
     -- temps de vol : 1 pt / 5 min, seulement a l'atterrissage (elapsed absent = kill valide hors atterrissage)
     if elapsed then f.timePts = math.floor(elapsed / TIME_PTS_S); f.points = f.points + f.timePts end
+    if divisor and f.points > 0 then
+        f.offFieldLoss = f.points - math.floor(f.points / divisor)
+        f.points = f.points - f.offFieldLoss
+    end
     s.points = s.points + f.points
     -- records : le plus de kills valides sur un seul vol, air-air d'un cote, air-sol (bateaux compris) de l'autre
     SetRecord(playerName, s, "maxKillsFlightAA", f.airair)
@@ -405,6 +411,7 @@ local function FlightSummary(f, elapsed)
            "\nKills A/S ce vol : " .. f.airsol ..
            "\nKills A/M ce vol : " .. f.airmer ..
            "\nScore de ce vol : " .. f.points .. ((f.timePts or 0) > 0 and (" (dont " .. f.timePts .. " pour le temps de vol)") or "") ..
+           (f.offFieldLoss and ("\nPose hors aeroport : points divises par " .. OFFFIELD_DIVISOR .. " (-" .. f.offFieldLoss .. ")") or "") ..
            "\nTemps de vol : " .. FormatFlightTime(elapsed) ..
            (f.refuelTime > 0 and ("\nRavitaillement : " .. FormatFlightTime(f.refuelTime)) or "") ..
            (f.bsTime and ("\nMode Blue Sky : +" .. FormatFlightTime(f.bsTime) .. " (termine, a reactiver au sol)") or "")
@@ -508,7 +515,7 @@ function ScoreMenuHandler:OnEventBirth(EventData)
 
         if GroupPlayerName(group) then
             local groupName = group:GetName()
-            for _, menus in ipairs({ PlayerScoreMenus, PlayerBSMenus, PlayerMissionMenus, PlayerCodeMenus }) do
+            for _, menus in ipairs({ PlayerScoreMenus, PlayerBSMenus, PlayerDebugMenus, PlayerMissionMenus, PlayerCodeMenus }) do
                 if groupName and menus[groupName] then
                     menus[groupName]:Remove()
                     menus[groupName] = nil
@@ -688,16 +695,35 @@ function CarrierHandler:OnEventLand(EventData)
     local dcsUnit = EventData.IniDCSUnit
     if not playerName or not dcsUnit then return end
 
+    local base, onField = LandPlace(dcsUnit, EventData.Place)
     for i, name in ipairs(Crew(dcsUnit:getName(), playerName)) do
         local elapsed, f = CloseFlight(name)
         -- Pas de vol en cours : faux Land envoye par DCS au spawn (pont du PA en multi), on ignore
-        if elapsed then LandFlight(name, f, elapsed, EventData, dcsUnit, i == 1) end
+        if elapsed then LandFlight(name, f, elapsed, base, onField, dcsUnit, i == 1) end
     end
 end
 
+-- ATTERRISSAGE HORS AEROPORT (13/11) : points du vol divises par OFFFIELD_DIVISOR si pose ni sur une base
+-- (aeroport, FARP, navire : Place de DCS), ni sur une piste, ni a moins de LAND_FIELD_M du centre d'une base.
+OFFFIELD_DIVISOR = 2
+LAND_FIELD_M = 3000
+
+-- Renvoie le nom du lieu (base la plus proche) et true si le poser compte comme sur un aeroport
+function LandPlace(dcsUnit, place)
+    if place and place.isExist and place:isExist() then return place:getName(), true end
+    local p = dcsUnit:getPoint()
+    local best, bestD
+    for _, ab in ipairs(world.getAirbases() or {}) do
+        local q = ab:getPoint()
+        local d = math.sqrt((q.x - p.x) ^ 2 + (q.z - p.z) ^ 2)
+        if not bestD or d < bestD then best, bestD = ab:getName(), d end
+    end
+    local runway = land.getSurfaceType({ x = p.x, y = p.z }) == land.SurfaceType.RUNWAY
+    return best or "terrain", runway or (bestD ~= nil and bestD < LAND_FIELD_M)
+end
+
 -- Atterrissage d'un membre de l'equipage (sound : son joue une seule fois par avion)
-function LandFlight(playerName, f, elapsed, EventData, dcsUnit, sound)
-    local base = tostring(EventData.PlaceName)
+function LandFlight(playerName, f, elapsed, base, onField, dcsUnit, sound)
     local unitID = dcsUnit:getID()
     local s = InitPlayer(playerName)
     local carrier = CARRIERS[base]
@@ -705,10 +731,11 @@ function LandFlight(playerName, f, elapsed, EventData, dcsUnit, sound)
 
     -- Base terrestre : on valide tout de suite
     if not carrier then
-        CommitFlightKills(playerName, f, elapsed)
+        CommitFlightKills(playerName, f, elapsed, not onField and OFFFIELD_DIVISOR or nil)
         s.landings = s.landings + 1
         SaveScores()
-        MessageToPlayer(unitID, "Bienvenue a " .. base .. ", " .. playerName ..
+        MessageToPlayer(unitID, (onField and ("Bienvenue a " .. base) or ("Pose hors aeroport (pres de " .. base .. ")")) ..
+            ", " .. playerName ..
             "\nAtterrissages total : " .. s.landings .. FlightSummary(f, elapsed), 10)
         Sound("PA.ogg")
         return
@@ -964,8 +991,15 @@ local function ClassifyKill(EventData)
         return "airair", POINTS.HELICOPTER, "AIR KILL CONFIRMED", "HELICO"
     elseif cat == Unit.Category.SHIP then
         return "airmer", POINTS.SHIP, "SEA KILL CONFIRMED", nil
-    elseif cat == Unit.Category.GROUND_UNIT or cat == Unit.Category.STRUCTURE then
-        local typeName = string.lower(EventData.TgtTypeName or "")
+    end
+    local typeName = string.lower(EventData.TgtTypeName or "")
+    -- trains (13/11) : DCS n'a pas de categorie d'unite train, on les reconnait aussi par leur groupe
+    local dcsTgt = EventData.TgtDCSUnit
+    local ok, train = pcall(function() return dcsTgt:getGroup():getCategory() == Group.Category.TRAIN end)
+    if cat == Unit.Category.GROUND_UNIT or cat == Unit.Category.STRUCTURE or (ok and train) then
+        if typeName:find("locomotive") or typeName == "es44ah" or typeName == "drg_class_86" then
+            return "airsol", POINTS.LOCOMOTIVE, "LOCOMOTIVE DESTROYED", typeName
+        end
         if IsAirDefence(typeName) then
             return "airsol", POINTS.AIR_DEFENCE, "AIR DEFENCE DESTROYED", typeName
         end
@@ -1208,6 +1242,32 @@ end
 function ActivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, true) end
 function DeactivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, false) end
 
+-- DEBUG (13/11) : atterrissage non detecte par DCS -> le joueur le fait revalider au sol, presque arrete.
+-- Un vol encore actif au sol = Land manque (sinon CloseFlight l'aurait deja ferme).
+LAND_CHECK_MAX_MPS = 3 -- ~10 km/h
+PlayerDebugMenus = PlayerDebugMenus or {}
+
+function DebugRevalidateLanding(GroupObject)
+    ForEachGroupPlayer(GroupObject, function(id, name, u)
+        local f = Flights[name]
+        if not (f and f.active) then
+            MessageToPlayer(id, "DEBUG : aucun vol en cours a valider (" .. name .. ").", 8)
+            return
+        end
+        local v = u:getVelocity()
+        local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+        if u:inAir() or speed > LAND_CHECK_MAX_MPS then
+            MessageToPlayer(id, "DEBUG : refuse, il faut etre pose et quasi arrete (moins de " ..
+                math.floor(LAND_CHECK_MAX_MPS * 3.6) .. " km/h).", 8)
+            return
+        end
+        local base, onField = LandPlace(u)
+        local elapsed, fl = CloseFlight(name)
+        env.info("BlueSky DEBUG : atterrissage revalide pour " .. name .. " a " .. base)
+        if elapsed then LandFlight(name, fl, elapsed, base, onField, u, name == u:getPlayerName()) end
+    end)
+end
+
 ------------------------------------------------------------
 -- MENU F10 STATISTIQUES (un par groupe ; "Mes scores" et l'echelle sont envoyes a chaque joueur)
 -- Sous-menu GRADES (ROOKIE/INTERMEDIATE/EXPERT) retire le 03/11 : ne servait a rien. s.grade reste dans Scores.lua.
@@ -1234,8 +1294,12 @@ function AddScoreMenuForGroup(GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Activer (au sol)", bs, ActivateBlueSky, GroupObject)
     MENU_GROUP_COMMAND:New(GroupObject, "Desactiver", bs, DeactivateBlueSky, GroupObject)
 
+    local dbg = MENU_GROUP:New(GroupObject, "DEBUG")
+    MENU_GROUP_COMMAND:New(GroupObject, "Revalider l'atterrissage", dbg, DebugRevalidateLanding, GroupObject)
+
     PlayerScoreMenus[groupName] = root
     PlayerBSMenus[groupName] = bs
+    PlayerDebugMenus[groupName] = dbg
     AddMissionMenusForGroup(GroupObject, groupName)
 end
 
@@ -1272,11 +1336,15 @@ local HOSTILES = {
     { menu = "Su27",  prefix = "27-" },
 }
 HostileGroups = {}
+DestroyWatch = {} -- groupes HOST A/A + zone CAP : detruits s'ils entrent dans une zone "Destroy cap" (13/11)
 
 local function SpawnHostile(template)
     -- ZONE:New sur une zone quad = cercle de 3 km au centre (comportement d'origine, garde tel quel)
     local group = GetSpawner(template, ZONE:New("Spawn Air")):Spawn()
-    if group then HostileGroups[#HostileGroups + 1] = group end
+    if group then
+        HostileGroups[#HostileGroups + 1] = group
+        DestroyWatch[#DestroyWatch + 1] = group
+    end
 end
 
 -- Detruit TOUS les hostiles spawnes (l'original ne detruisait que le dernier de chaque)
@@ -2521,7 +2589,7 @@ end, nil, timer.getTime() + 5)
 -- Vague suivante : quand tous ses avions sont abattus, poses, a court de carburant ou sans missile (EniWaveOver).
 -- En route tant que F10 SPAWN > Zone CAP est actif ou qu'une mission CAP est en cours.
 ------------------------------------------------------------
-local CAP_GROUPS = { "Mig 21 Cap", "jf17 cap", "mig29 cap", "su27 cap", "mig31 cap", "su34 cap", "su30 cap", "su33 cap", "f14 cap", "M2000 Cap" }
+local CAP_GROUPS = { "Mig 21 Cap", "jf17 cap", "mig29 cap", "su27 cap", "mig31 cap", "su34 cap", "su30 cap", "su33 cap", "F14 cap", "M2000 Cap" }
 local CAP_LABEL = "CAP"
 local CAP_GOAL, CAP_BONUS = 5, 30 -- avions abattus par les membres, points par membre
 local CAP_SPEED = 240             -- m/s : les vitesses de l'editeur (jusqu'a 833 m/s) videraient les reservoirs
@@ -2560,6 +2628,7 @@ local function CapSpawn(now)
     local g = GetSpawner(name):InitSpeedMps(CAP_SPEED):SpawnFromVec3({ x = d.x, y = alt, z = d.y })
     if not g then return end
     HostileGroups[#HostileGroups + 1] = g -- efface aussi par "Clear hostile"
+    DestroyWatch[#DestroyWatch + 1] = g
     g:OptionROEWeaponFree()
     CapWave = { groups = { g }, group = g, t0 = now, alt = alt }
     CapRoute(CapWave, { x = d.x, z = d.y }, true)
@@ -2658,6 +2727,41 @@ end
 for _, name in ipairs(CAP_GROUPS) do
     if not Group.getByName(name) then env.warning("BLUESKY : groupe absent de la mission : " .. name) end
 end
+
+-- ZONES DESTROY CAP (13/11) : un avion HOST A/A ou zone CAP qui entre dans une de ces zones est supprime, sans points.
+-- Zones = bandes de ~3 km de large : verifie toutes les 2 s (a 300 m/s, 600 m parcourus entre deux passages).
+local DESTROY_ZONES = {}
+for _, name in ipairs({ "Destroy cap", "Destroy cap-2" }) do
+    local z = ZONE:FindByName(name)
+    if z then DESTROY_ZONES[#DESTROY_ZONES + 1] = z else env.warning("BLUESKY : zone absente de la mission : " .. name) end
+end
+
+local function DestroyTick()
+    local keep = {}
+    for _, g in ipairs(DestroyWatch) do
+        local dcs = g:GetDCSObject()
+        if dcs and dcs:isExist() then
+            for _, u in ipairs(dcs:getUnits()) do
+                local p = u:getPoint()
+                for _, z in ipairs(DESTROY_ZONES) do
+                    if z:IsVec2InZone({ x = p.x, y = p.z }) then
+                        env.info("BLUESKY : Destroy cap : " .. u:getName() .. " supprime dans " .. z:GetName())
+                        u:destroy() -- suppression simple : pas d'evenement de kill, donc aucun point
+                        break
+                    end
+                end
+            end
+            if dcs:isExist() and dcs:getSize() > 0 then keep[#keep + 1] = g end
+        end
+    end
+    DestroyWatch = keep
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(DestroyTick)
+    if not ok then env.warning("BLUESKY : Destroy cap : " .. tostring(err)) end
+    return timer.getTime() + 2
+end, nil, timer.getTime() + 2)
 
 ------------------------------------------------------------
 -- MENUS F10 MISSIONS + CODE : par groupe (et pas par coalition) pour savoir qui lance et qui rejoint

@@ -1,4 +1,4 @@
-# PASSATION — Projet site Blue Sky (DCS)
+﻿# PASSATION — Projet site Blue Sky (DCS)
 
 _Dernière mise à jour : 11/11/2026 nuit (stats x2 : fusion des pseudos refaite, envoi du total découpé sous 8 Ko, stats remises d'après le fichier de Weefe, garde-fou records ; voir la dernière section)_
 
@@ -1061,6 +1061,10 @@ Thibaud en LIVE pendant le codage : **rien injecté dans la .miz**, seul `site\m
 - **Classement** : 20 lignes, la 21e dépasse en fondu (masque CSS `.table.fold`), bouton « Afficher plus ▾ » / « Afficher moins ▴ » sous le tableau, dépliage animé (max-height + masque qui glisse, 0,7 s). Une recherche montre tous les résultats ; changer de tri replie. Testé en local (ordinateur et mobile 375 px). style.css → v11, classements.js → v17.
 - **108 pts de Dex en un vol** : impossible avec le barème (record de Dex : 9 kills air-sol en un vol, 67 min max → ~78 pts au plus). Erreur de lecture probable (total lu). Il n'existe pas de journal des points par vol. Renommages : site seulement, pas Discord.
 
+## 13/11/2026 : carte live hors Caucase + règles d'animation
+- **Carte live** : plus de limite de déplacement (`setMaxBounds` retiré), dézoom jusqu'au niveau 5. Aux premières vraies positions, si les unités sont en Syrie, la carte montre toute la carte DCS Syrie (Chypre, Liban, Israël, nord de la Jordanie, sud de la Turquie : `THEATRES` dans `carte.js`) ; Caucase = vue d'avant ; autre carte = cadrage sur les unités. Le relais ne dit pas quelle carte tourne : c'est déduit de la position. Restent écrits « Caucase » en dur : « Serveur Foothold · Caucase », « Météo · Caucase », et seuls les aérodromes du Caucase sont dessinés. Testé en local avec de fausses positions, pas pendant une vraie mission.
+- **Animations** (liste de règles de Thibaud, les ✅ seulement) : appui à 0,97 sur tous les boutons et cartes cliquables ; menu ☰ en 200 ms depuis le coin du bouton à l'échelle 0,95, refermé vers lui en 160 ms ; ☰/✕ et « Afficher plus / moins » en fondu enchaîné avec échelle et flou (classe `.xf` dans style.css, `.x` = second état) ; lignes du classement décalées de 30 ms à l'arrivée (`BSMotion.stagger`, rien n'est masqué d'avance) ; onglets Tous / En vol / IA de la carte en fondu enchaîné (`BSMotion.swap`, View Transitions locale) ; sorties ~20 % plus courtes (tiroir pilote 300 → 240 ms, visionneuse photo, fiche avion de la carte qui sort de son coin à 0,95). Écartés volontairement : étirement de 12 %, trajectoires en courbe ; pas faits : pulsation de réussite, élastique, layout ID. Versions : style.css v12, motion.css v2, motion.js v7, layout.js v9, classements.js v18, carte.js v20, aerobatics.js v7.
+
 ## 12/11/2026 soir : mission Syrie « Chemical Silent » (codé, injecté, PAS testé en jeu)
 
 Mission à part (pas la carte multi) : 3 Hornets SEAD + 2 F-117 IA, nuit, Truman. Tout est dans `serveur BS\missions\chemical-silent\` :
@@ -1079,3 +1083,18 @@ scores Blue Sky (heures, records, sans points) : plus tard.
 **13/11, stats de Chemical Silent :** le script de la mission n'écrivait pas de `Scores.lua` → le vol du 12/11 (serveur de Weefe, mission 56 en base) n'avait rien rapporté. Vols repris du `debrief.log` de Thibaud (recoupé avec `statistics` de DCSServerBot) et ajoutés à la main dans `bluesky_scores` sur R2D2, **sans points** : Breakdown +1 vol, 5 557 s, +1 appontage, +1 kill air-sol (Flap Lid) ; Branch +1 vol, 6 054 s, +1 appontage, record vol le plus long 6 054 s (12/11) ; WaveOff (Dex) +1 vol, 3 896 s, +1 atterrissage (Beyrouth), +1 kill air-sol (Fan Song). Altitude / vitesse / ravitaillement : pas de trace (pas de Tacview, aucun ravitaillement dans le journal). Sauvegardes : `~/backups/bluesky-bot/dcsserverbot-avant-chemical-silent-2026-11-13.dump`, `mission/bakup/scores-R2D2_2026-11-13_avant-chemical-silent.txt`. Bot R2D2 relancé (aucune mission en cours) ; le site se mettra à jour à la prochaine lecture d'un `Scores.lua` (prochain serveur en ligne).
 - Mission jouée **une seule fois**, pas de branchement continu au site (décision de Thibaud le 13/11) : la partie stats ajoutée au script a été retirée, .miz réinjectée et redéposée sans elle.
 - Bug de script vu en vol : en caméra F11, les 3 sites (SA-2, SA-3, SA-10) étaient détruits, mais le départ des F-117 n'a jamais eu lieu ; l'équipage a considéré la mission réussie. Côté serveur, le journal n'a enregistré ni coup ni destruction sur le radar du SA-3 (`SA3 shr`), d'où le blocage du déclencheur (il attend les 3 radars). Pas corrigé : la mission ne sera pas relancée.
+## 13/11 — Zones « Destroy cap »
+- Thibaud a posé 2 zones quad `Destroy cap` et `Destroy cap-2` (bandes de ~3 km). Script : liste `DestroyWatch` (groupes
+  HOST A/A AERA + zone CAP), vérifiée toutes les 2 s ; un avion qui entre dans une zone est supprimé (`unit:destroy()`, aucun point).
+  Spawn ENI non concerné.
+- Correction : `"f14 cap"` → `"F14 cap"` dans `CAP_GROUPS` (nom réel du groupe, la F14 ne spawnait jamais).
+- Menu SPAWN → HOST A/A AERA (Mig21/Mig29/Su27, 4 groupes chacun + Clear hostile) toujours présent dans le script ;
+  Thibaud ne le voit plus en jeu : à revérifier avec le dcs.log d'une partie (aucune partie dans le log du 13/11).
+- Injecté le 13/11 à 16 h 18, DCS fermé (sauvegarde `bakup\…_2026-11-13_16-18-22.miz.bak`), kneeboard intact. Pas testé en jeu.
+- 13/11 (suite) : **poser hors aéroport = points du vol ÷ 2** (`OFFFIELD_DIVISOR`). Compte comme aéroport : Place donnée par DCS
+  (aéroport, FARP, navire), sol de type piste, ou moins de 3 km (`LAND_FIELD_M`) du centre d'une base. Kills comptés, missions
+  à code non touchées. Message « Pose hors aeroport (pres de X) » + ligne « points divises par 2 (-N) ».
+- 13/11 : **F10 > DEBUG > Revalider l'atterrissage** : si un vol est encore actif, joueur au sol et < 10 km/h (`LAND_CHECK_MAX_MPS`),
+  l'atterrissage est validé comme un vrai (même règle hors aéroport, PA compris). Test hors jeu `tools/test_atterrissage.py`
+  (+ Destroy cap) ; `test_missions_code.py` adapté. Injecté à 16 h 31, DCS fermé (`bakup\…_2026-11-13_16-31-23.miz.bak`). Pas testé en jeu.
+- Train : idée retenue par Thibaud. Décidé : mission à code (MISSIONS > AIR-SOL), bonus au prorata comme les convois ; en attente du groupe train posé par Thibaud. Points déjà injectés : wagon = véhicule (2 pts), loco 3 pts (`POINTS.LOCOMOTIVE`).

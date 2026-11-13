@@ -19,7 +19,7 @@ world = { getAirbases = function() return STATICS end }  -- derricks = heliports
 env = { warning = function(m) error(m) end, info = function() end }
 ADMIRAL = {}
 Group = { getByName = function() return ADMIRAL end }
-UNITS, STATICS, SENT, GMSG, PlayerLife, Flights, AWARD = {}, {}, {}, {}, {}, {}, {}
+UNITS, STATICS, SENT, GMSG, PlayerLife, Flights, AWARD, DestroyWatch = {}, {}, {}, {}, {}, {}, {}, {}
 function SaveScores() end
 function NewFlight() return { points = 0 } end
 function CommitFlightKills(name, f) AWARD[name] = (AWARD[name] or 0) + f.points end
@@ -63,7 +63,7 @@ ICPT_LABEL = "INTERCEPTION"
 function IcptEnd() Ops[ICPT_LABEL] = nil; Icpt = nil end
 ''' + cut('local OP_CODE_LEN', '-- INTERCEPTION (08/11)') +
     cut('local NAVAL_HOST', '-- MISSIONS STRIKE') +
-    cut('local OP_IDLE_S', '-- MENUS F10 MISSIONS + CODE') +
+    cut('local OP_IDLE_S', '-- ZONES DESTROY CAP') +
     cut('-- Appele par le KillHandler', 'local function IcptTick') + '''
 _G.STRIKES, _G.StrikeTick, _G.OpStart, _G.OpReward, _G.CapTick = STRIKES, StrikeTick, OpStart, OpReward, CapTick
 _G.OpVoice, _G.BASE_DEFS, _G.CONVOY_DEFS, _G.NORTH_DEF, _G.NOT_BASE = OpVoice, BASE_DEFS, CONVOY_DEFS, NORTH_DEF, NOT_BASE
