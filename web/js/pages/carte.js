@@ -2,13 +2,13 @@
   const { C, esc, fmt, insignia, airfields, loadLive, loadTrails, loadStats, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
   // units : joueurs + IA en vol ; une unité = { key, ai, callsign?, aircraft, role, side, air, lat, lon, hdg, alt, spd, freq?, tacan?, trail }
-  let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0;
+  let units = [], selected = null, follow = false, filter = 'all', demo = true, offline = false, missionT0 = null, upT0 = null, polls = 0, framed = false;
 
   const map = L.map('map', { minZoom: 6, maxZoom: 18, zoomSnap: 0.5, preferCanvas: true }).setView([42.95, 42.2], 7);
   map.zoomControl.setPosition('topright');
   // CARTO testé le 06/11 : tuiles raster désormais sous clé API (filigrane « API KEY REQUIRED »), donc on reste sur OSM
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19, keepBuffer: 4, updateWhenZooming: false }).addTo(map);
-  map.setMaxBounds([[39.5, 34.5], [47.5, 48.5]]);
+  // pas de limite de déplacement : une mission peut se jouer hors Caucase (Syrie le 12/11)
   const grid = { color: '#2a5ca8', weight: 1, opacity: 0.18, dashArray: '4 6', interactive: false };
   for (let lat = 41; lat <= 46; lat++) L.polyline([[lat, 35], [lat, 48]], grid).addTo(map);
   for (let lon = 36; lon <= 47; lon++) L.polyline([[40, lon], [47, lon]], grid).addTo(map);
@@ -301,6 +301,8 @@
         : !demo ? 'Positions envoyées par le bot du serveur DCS · mises à jour toutes les ' + delay / 1000 + ' s'
         : 'Données de démonstration · le serveur DCS n\'exporte pas encore les positions';
       sync((d.players || []).concat(d.ai || []));
+      // premières vraies positions : on cadre sur les unités, quelle que soit la carte DCS (Caucase, Syrie…)
+      if (!framed && !demo && units.length) { framed = true; map.fitBounds(units.map(p => [p.lat, p.lon]), { padding: [60, 60], maxZoom: 8 }); }
       if (++polls % 6 === 0) fetchTrail();  // trajectoire du sélectionné relue toutes les 30 s
       after();
     });
