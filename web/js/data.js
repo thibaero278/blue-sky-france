@@ -49,7 +49,8 @@
     },
     countdown: ms => {
       if (ms <= 0) return 'En cours';
-      const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+      // heures cumulées (33:22:55 et pas 09:22:55) pour éviter de lire « J-1 » comme « la veille »
+      const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
       return (d ? 'J-' + d + ' · ' : '') + pad(h) + ':' + pad(m) + ':' + pad(s % 60);
     },
     missionClock: t => { const d = new Date(t + 6 * 3600e3 + 17 * 60e3); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); },
