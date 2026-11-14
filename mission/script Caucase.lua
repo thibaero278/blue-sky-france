@@ -1356,6 +1356,7 @@ end
 -- TANKERS
 local TANKERS = {
     { label = "S3-B",        template = "S3B" },
+    { label = "A-6",         template = "A6" }, -- 14/11 : ajoute par Thibaud dans l'editeur (Phoenix 1-1)
     { label = "KC-135 MPRS", template = "MPRS" },
     { label = "KC-135",      template = "KC135" },
     { label = "KC-130",      template = "KC130" },
@@ -1376,17 +1377,82 @@ for i = 1, CROIX_STATIC_COUNT do
 end
 CroixGroups, CroixStatics = {}, {}
 
+-- Reset facon "Zone Alpha" de Weefe (14/11) : tout retirer, nettoyer epaves/crateres, puis respawn aux positions ME.
+local CROIX_JUNK_MARGIN = 500 -- m ajoutes autour des templates pour le nettoyage
+local CroixBusy = false
+local CroixJunkVolume = nil
+
+-- Pas de zone a dessiner dans l'editeur : cercle calcule sur les statics, les chars et leurs waypoints
+local function GetCroixJunkVolume()
+    if CroixJunkVolume then return CroixJunkVolume end
+    local pts = {}
+    for i = 1, CROIX_STATIC_COUNT do
+        local t = _DATABASE:GetStaticUnitTemplate("s-croix-" .. i)
+        if t then pts[#pts + 1] = { x = t.x, y = t.y } end
+    end
+    for i = 1, CROIX_GROUP_COUNT do
+        local g = _DATABASE:GetGroupTemplate("croix-" .. i)
+        if g then
+            for _, u in ipairs(g.units or {}) do pts[#pts + 1] = { x = u.x, y = u.y } end
+            for _, p in ipairs((g.route and g.route.points) or {}) do pts[#pts + 1] = { x = p.x, y = p.y } end
+        end
+    end
+    if #pts == 0 then return nil end
+    local cx, cy = 0, 0
+    for _, p in ipairs(pts) do cx, cy = cx + p.x, cy + p.y end
+    cx, cy = cx / #pts, cy / #pts
+    local r = 0
+    for _, p in ipairs(pts) do r = math.max(r, math.sqrt((p.x - cx) ^ 2 + (p.y - cy) ^ 2)) end
+    CroixJunkVolume = {
+        id = world.VolumeType.SPHERE,
+        params = { point = { x = cx, y = land.getHeight({ x = cx, y = cy }), z = cy }, radius = r + CROIX_JUNK_MARGIN },
+    }
+    env.info(string.format("[CROIX] zone de nettoyage : rayon %d m", r + CROIX_JUNK_MARGIN))
+    return CroixJunkVolume
+end
+
 function Croix()
+    if CroixBusy then
+        trigger.action.outTextForCoalition(coalition.side.BLUE, "Croix : reset deja en cours.", 5)
+        return
+    end
+    CroixBusy = true
+    trigger.action.outTextForCoalition(coalition.side.BLUE, "Croix : nettoyage et reconstruction en cours...", 8)
+
+    -- 1. retirer les survivants (spawns precedents + statics d'origine de l'editeur)
     DestroyAll(CroixStatics)
     DestroyAll(CroixGroups)
     CroixStatics, CroixGroups = {}, {}
-
-    for i = 1, CROIX_GROUP_COUNT do
-        CroixGroups[#CroixGroups + 1] = GetSpawner("croix-" .. i):Spawn()
-    end
     for i = 1, CROIX_STATIC_COUNT do
-        CroixStatics[#CroixStatics + 1] = CroixStaticSpawners[i]:Spawn()
+        local s = StaticObject.getByName("s-croix-" .. i)
+        if s and s:isExist() then s:destroy() end
     end
+
+    -- 2. apres 1 s : epaves, crateres, debris de la zone
+    timer.scheduleFunction(function()
+        local ok, err = pcall(function()
+            local vol = GetCroixJunkVolume()
+            if vol then env.info("[CROIX] junk retire : " .. tostring(world.removeJunk(vol))) end
+        end)
+        if not ok then env.info("[CROIX] ERREUR nettoyage : " .. tostring(err)) end
+
+        -- 3. apres 2 s de plus : respawn aux positions et routes de l'editeur
+        timer.scheduleFunction(function()
+            local ok2, err2 = pcall(function()
+                for i = 1, CROIX_GROUP_COUNT do
+                    CroixGroups[#CroixGroups + 1] = GetSpawner("croix-" .. i):Spawn()
+                end
+                for i = 1, CROIX_STATIC_COUNT do
+                    CroixStatics[#CroixStatics + 1] = CroixStaticSpawners[i]:Spawn()
+                end
+            end)
+            CroixBusy = false
+            if not ok2 then env.info("[CROIX] ERREUR respawn : " .. tostring(err2)) end
+            trigger.action.outTextForCoalition(coalition.side.BLUE, string.format(
+                "Croix : %d/%d groupes, %d/%d statics recrees.",
+                #CroixGroups, CROIX_GROUP_COUNT, #CroixStatics, CROIX_STATIC_COUNT), 12)
+        end, nil, timer.getTime() + 2)
+    end, nil, timer.getTime() + 1)
 end
 
 -- AIR-SOL : Convoi aleatoire

@@ -71,7 +71,22 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     détruit tous les hostiles, « Reset Croix » détruit aussi les anciens groupes, tracking d'armes
     limité aux joueurs + plus de fuite mémoire, plus de message parasite aux décollages IA,
     keyword SAM « tor » remplacé par « tor 9a331 » (attrapait « tractor »), menus générés par boucles.
+  - 14/11 : « Reset Croix » refait sur le modèle « Zone Alpha » de Weefe : retire les 6 groupes `croix-N` et les
+    12 statics `s-croix-N` (y compris ceux d'origine de l'éditeur), `world.removeJunk` (épaves, cratères) après 1 s
+    sur un cercle calculé depuis les templates + waypoints (+ 500 m, rayon dans dcs.log `[CROIX]`), respawn après 2 s,
+    verrou anti double-clic. Pas encore testé en jeu. Sauvegarde : `bakup\script Caucase_2026-11-14_avant-reset-croix.lua`.
+    Injecté le 14/11 à 3 h 56, DCS fermé, dans `Saved Games\...\Blue sky multi\…DAY…miz` (seule l'entrée script change,
+    88 entrées ; sauvegarde `Blue sky multi\bakup\…_2026-11-14_03-56-19.miz.bak`), script recopié à côté.
+    .miz déposée pour Weefe dans `partage/fichiers/` (md5 44339ece…, HTTP OK ; ancienne dans
+    `~/backups/mission-weefe-avant-2026-11-14-croix.miz`). MAJ du bot : rien de neuf, `partage/maj` identique à la source.
   - ⚠️ Weefe doit **réintégrer le .lua dans la .miz** (trigger DO SCRIPT FILE, après Moose.lua).
+  - 14/11 soir : Thibaud a ajouté dans l'éditeur deux tankers de PA en activation tardive : **S3B** (Navy One 1-1,
+    241.00, TACAN 3Y TKR ; avant 250.00 / 73Y) et **A6** (A-6E, Phoenix 1-1, 242.00, TACAN 6Y TKR). Script : ligne
+    `{ label = "A-6", template = "A6" }` dans `TANKERS` (sinon jamais spawné). Kneeboard : page 01 à jour, page 02
+    (menu TANKERS). Une page « Carte » a été faite puis **retirée à la demande de Thibaud** (25 pages, comme avant ;
+    le HTML de la carte reste dans `bakup\` si besoin : à refaire depuis cette session). Injecté à 20 h 26 dans la
+    .miz de Saved Games (sauvegarde `bakup\…_2026-11-14_20-26-19.miz.bak`), script recopié à côté. **Pas testé en jeu**,
+    pas déposé pour Weefe.
 
 - 18/10/2026 : fichiers renommés par Thibaud → **`script Caucase.lua`** (actif) et `Script caucase ORIGINAL.lua`.
   v2 **testée en jeu par Thibaud : tout marche**.
