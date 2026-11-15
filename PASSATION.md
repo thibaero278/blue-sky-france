@@ -1,6 +1,6 @@
 ﻿# PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 11/11/2026 nuit (stats x2 : fusion des pseudos refaite, envoi du total découpé sous 8 Ko, stats remises d'après le fichier de Weefe, garde-fou records ; voir la dernière section)_
+_Dernière mise à jour : 15/11/2026 (outillage Claude Code : CLAUDE.md racine, `injecter_script.ps1`, skill `/ship-mission`, hooks, `APRES-MAJ-DCS.cmd` ; voir la dernière section)_
 
 > **09/11, panne « plus rien ne se rafraîchit » :** depuis le 06/11 23 h 33, 5 lignes de `commands.py` sur R2D2 avaient perdu leur « r » final
 > (`BlueSkyEventListene`), plugin `bluesky` non chargé. Probable `sed 's/\r$//'` au backslash mangé par PowerShell : déployer avec `scp` seul.
@@ -16,11 +16,11 @@ _Dernière mise à jour : 11/11/2026 nuit (stats x2 : fusion des pseudos refaite
 > `/marker` et `/webadmin` ajoutées à `hide_commands` dans la source du plugin, pas encore déployé.
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
-> `CLAUDE.md` : version maître dans `Bureau thibaud\Claude code\MD\CLAUDE.md`, la modifier puis la recopier ici.
+> `CLAUDE.md` : plus de version maître recopiée depuis le 15/11. Consignes du projet dans `site\CLAUDE.md` (site, bot) et `serveur BS\CLAUDE.md` (mission, déploiement) ; consignes générales dans `~/.claude/CLAUDE.md`.
 
 ## Contexte
 - Communauté DCS francophone **Blue Sky France** (~140 membres), fondée par Thibaud.
-- Serveurs multi : le MSI de Thibaud (« Blue sky ») et le PC de **Weefe** (admin BS, « Weefe le GOAT »),
+- Serveurs multi : le MSI de Thibaud (« Blue sky ») et le PC de **Weefe** (admin BS, « Blue Sky France », appelé « Weefe le GOAT » jusqu'au 11/11),
   agents du bot DCSServerBot dont **R2D2** (serveur maison de Thibaud) est le maître (voir `bot BS\README.md`).
 - Mission : `Blue Sky Multi-joueur DAY_Caucasus.miz` (Caucase).
 - Script : `mission\script Caucase.lua` (basé sur **MOOSE** ; s'appelait `multi jours thib.lua` jusqu'au 18/10).
@@ -85,8 +85,9 @@ Un site Blue Sky (fait : GitHub Pages, https://thibaero278.github.io/blue-sky-fr
     `{ label = "A-6", template = "A6" }` dans `TANKERS` (sinon jamais spawné). Kneeboard : page 01 à jour, page 02
     (menu TANKERS). Une page « Carte » a été faite puis **retirée à la demande de Thibaud** (25 pages, comme avant ;
     le HTML de la carte reste dans `bakup\` si besoin : à refaire depuis cette session). Injecté à 20 h 26 dans la
-    .miz de Saved Games (sauvegarde `bakup\…_2026-11-14_20-26-19.miz.bak`), script recopié à côté. **Pas testé en jeu**,
-    pas déposé pour Weefe.
+    .miz de Saved Games (sauvegarde `bakup\…_2026-11-14_20-26-19.miz.bak`), script recopié à côté. **Pas testé en jeu**.
+    Poussé sur GitHub (commit 79fd32c, avec le Reset Croix de la nuit). .miz déposée pour Weefe à 20 h 52 dans
+    `partage/fichiers/` (md5 4f401015…, HTTP 200 ; ancienne dans `~/backups/mission-weefe-avant-2026-11-14-tankers.miz`).
 
 - 18/10/2026 : fichiers renommés par Thibaud → **`script Caucase.lua`** (actif) et `Script caucase ORIGINAL.lua`.
   v2 **testée en jeu par Thibaud : tout marche**.
@@ -1113,3 +1114,12 @@ scores Blue Sky (heures, records, sans points) : plus tard.
   l'atterrissage est validé comme un vrai (même règle hors aéroport, PA compris). Test hors jeu `tools/test_atterrissage.py`
   (+ Destroy cap) ; `test_missions_code.py` adapté. Injecté à 16 h 31, DCS fermé (`bakup\…_2026-11-13_16-31-23.miz.bak`). Pas testé en jeu.
 - Train : idée retenue par Thibaud. Décidé : mission à code (MISSIONS > AIR-SOL), bonus au prorata comme les convois ; en attente du groupe train posé par Thibaud. Points déjà injectés : wagon = véhicule (2 pts), loco 3 pts (`POINTS.LOCOMOTIVE`).
+
+## 15/11/2026 : outillage Claude Code appliqué depuis le rapport /insights (rien de changé dans la mission ni le site)
+- **`serveur BS\CLAUDE.md`** (racine, nouveau) : langue, workflow .miz (DCS fermé vérifié, sauvegarde, tests, checklist en jeu, éditeur qui efface), déploiement (git WSL + gh, scp vers R2D2, Code.gs à recoller), règles de jugement (stats extrêmes vraies, tracer avant de corriger, questions avant une feature floue).
+- **`site\mission\injecter_script.ps1`** (nouveau) : remplace `l10n/DEFAULT/script Caucase.lua` dans la .miz DAY de Saved Games (le nom interne n'est plus `multi jours thib.lua`), refuse si DCS tourne, sauvegarde horodatée dans `bakup\`, relit l'archive et compare à la source, recopie le .lua à côté. Testé sur une copie de la vraie .miz : 88 entrées, identique. La .miz de `site\mission\` est une vieille copie (37 entrées).
+- **Skill `/ship-mission`** (`serveur BS\.claude\skills\ship-mission\SKILL.md`) : DCS fermé → tests `site/tools/test_*.py` → injection → git → scp R2D2 → passation → checklist en jeu.
+- **Hooks** (`serveur BS\.claude\settings.json` et `site\.claude\settings.local.json`, ignoré par git ; scripts dans `serveur BS\.claude\hooks\`) : toute commande PowerShell/Bash contenant `.miz` est refusée si `Get-Process DCS*` répond ; après une modif de `script Caucase.lua`, les 7 tests lupa sont relancés (1 s) et l'échec remonte à Claude. Testés avec du JSON simulé.
+- **`APRES-MAJ-DCS.cmd`** (racine) : se relance en admin et lance `claude -p` pour revérifier `MissionScripting.lua` (io, lfs, require, package commentés ; os reste bloqué). Pas lancé en réel.
+- Encodage : les `.ps1` avec accents sont en UTF-8 **avec BOM** (sinon PowerShell 5.1 affiche du charabia).
+- Non fait (chantiers du rapport « à l'horizon ») : harness complet qui rejoue des scénarios, pipeline de release en une commande avec changelog Discord, agents parallèles par couche.
