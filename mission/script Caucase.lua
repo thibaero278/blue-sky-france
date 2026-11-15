@@ -1371,9 +1371,13 @@ end
 local CROIX_GROUP_COUNT = 6
 local CROIX_STATIC_COUNT = 12
 
+-- Une statique absente de la .miz (renommee, supprimee) faisait planter tout le chargement (13/11 : plus de SPAWN,
+-- TANKERS, MISSIONS, CODE). Protege : avertissement dans dcs.log, le Reset Croix la saute.
 local CroixStaticSpawners = {}
 for i = 1, CROIX_STATIC_COUNT do
-    CroixStaticSpawners[i] = SPAWNSTATIC:NewFromStatic("s-croix-" .. i, country.id.RUSSIA)
+    local ok, sp = pcall(SPAWNSTATIC.NewFromStatic, SPAWNSTATIC, "s-croix-" .. i, country.id.RUSSIA)
+    if ok then CroixStaticSpawners[i] = sp
+    else env.warning("[CROIX] statique s-croix-" .. i .. " absente de la mission, ignoree : " .. tostring(sp)) end
 end
 CroixGroups, CroixStatics = {}, {}
 
@@ -1443,7 +1447,7 @@ function Croix()
                     CroixGroups[#CroixGroups + 1] = GetSpawner("croix-" .. i):Spawn()
                 end
                 for i = 1, CROIX_STATIC_COUNT do
-                    CroixStatics[#CroixStatics + 1] = CroixStaticSpawners[i]:Spawn()
+                    if CroixStaticSpawners[i] then CroixStatics[#CroixStatics + 1] = CroixStaticSpawners[i]:Spawn() end
                 end
             end)
             CroixBusy = false
@@ -1456,7 +1460,7 @@ function Croix()
 end
 
 -- AIR-SOL : Convoi aleatoire
-local CONVOIS = { "conv-1", "conv-2", "conv-3", "conv-4", "conv-5", "conv-6", "conv-7", "conv-8" }
+local CONVOIS = { "conv-1", "conv-2", "conv-3", "conv-4", "conv-5" } -- 15/11 : la .miz n'a pas conv-6 a conv-8 (3 clics sur 8 ne faisaient rien)
 
 function Convoi()
     GetSpawner(CONVOIS[math.random(#CONVOIS)]):Spawn()
@@ -2655,7 +2659,7 @@ end, nil, timer.getTime() + 5)
 -- Vague suivante : quand tous ses avions sont abattus, poses, a court de carburant ou sans missile (EniWaveOver).
 -- En route tant que F10 SPAWN > Zone CAP est actif ou qu'une mission CAP est en cours.
 ------------------------------------------------------------
-local CAP_GROUPS = { "Mig 21 Cap", "jf17 cap", "mig29 cap", "su27 cap", "mig31 cap", "su34 cap", "su30 cap", "su33 cap", "F14 cap", "M2000 Cap" }
+local CAP_GROUPS = { "Mig 21 Cap", "jf17 cap", "mig29 cap", "su27 cap", "mig31 cap", "su34 cap", "su30 cap", "su33 cap", "f14 cap", "M2000 Cap" } -- 15/11 : "f14 cap" = nom du GROUPE dans la .miz ("F14 cap" = son unite)
 local CAP_LABEL = "CAP"
 local CAP_GOAL, CAP_BONUS = 5, 30 -- avions abattus par les membres, points par membre
 local CAP_SPEED = 240             -- m/s : les vitesses de l'editeur (jusqu'a 833 m/s) videraient les reservoirs
