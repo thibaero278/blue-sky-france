@@ -18,8 +18,8 @@ _Dernière mise à jour : 15/11/2026 (outillage Claude Code : CLAUDE.md racine, 
 > **15/11 soir, Xerion revient en « Smokey | BlueSky 1-3 » :** Weefe a renommé la clé à la main dans son Scores.lua → R2D2 avait
 > deux fiches de 32 pts (doublon). Fiche `Xerion I Smokey` supprimée de `bluesky_scores` (sauvegarde `~/backups/scores_avant-smokey_2026-11-15_2113*.tsv`),
 > alias `'Xerion I Smokey': 'Smokey | BlueSky 1-3'` ajouté dans `config/plugins/bluesky.yaml` (ancien dans `~/backups/`) et dans `pilotAliases` du site.
-> ⚠️ **Bot R2D2 pas encore relancé** (serveur de Weefe en marche) : tant qu'il ne l'est pas, l'ancienne fiche reste en mémoire (site/classement) et l'alias n'est pas lu.
-> `docker compose restart bot` quand aucune mission ne tourne, puis vérifier une seule fiche Smokey à 32 pts.
+> Bot R2D2 relancé à 21 h 21 (demande de Thibaud, serveur de Weefe en marche) : démarrage sans erreur, une seule fiche Smokey à 32 pts.
+> À vérifier : statut du serveur de Weefe (peut rester « Shutdown » jusqu'au prochain chargement de mission) et classement du site.
 
 > À lire en début de session. Mis à jour par Claude Code à chaque changement.
 > `CLAUDE.md` : plus de version maître recopiée depuis le 15/11. Consignes du projet dans `site\CLAUDE.md` (site, bot) et `serveur BS\CLAUDE.md` (mission, déploiement) ; consignes générales dans `~/.claude/CLAUDE.md`.
