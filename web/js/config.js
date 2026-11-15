@@ -13,7 +13,7 @@ window.BS_CONFIG = {
   pilotAliases: {
     'Breakdown': ['Breakdown 1-1 | Thibaud', '[ BS ]Thibaud | Breakdown', 'Breakdown | BlueSky 1-1'],
     'Branch': ['Branch 1-1 | Weefe', 'Branch | BlueSky 1-2'],
-    'Smokey': ['Xerion I Smokey'],
+    'Smokey': ['Xerion I Smokey', 'Smokey | BlueSky 1-3'],
     'Redman': ['Redman 1-1 | Titirex'],
     'Lixx': ['Napster 1-1 | Lixx', 'Napster1-1 | Lixx'],
     'WaveOff': ['WAVE OFF 1-1 l DEX', 'DEX WAVE OFF 1-1', 'WaveOff | BlueSky 1-4'],
