@@ -415,6 +415,12 @@ assert ev('PUB.members.Alpha') is True   # le lanceur reste membre ; les autres 
 lua.execute('GMSG = {}; PRIV = OpStart("TEST PRIVE", "b", grp("L2", "Bravo"))')
 assert ev('#ALL') == 1 and 'Tes equipiers' in ev('GMSG.L2')   # les autres missions : groupe du lanceur
 assert re.search(r'Icpt\.op = OpStart\(ICPT_LABEL, [^\n]*, true\)', src)   # l'interception utilise bien le mode public
+# 17/11 : la voix du SCRAMBLE part a tout le serveur (outSound), pas seulement au lanceur
+launch = src[src.index('function IcptLaunch'):src.index('function IcptCall')]
+assert 'VoiceAll(def.voice.alert)' in launch and 'OpVoice(Icpt.op, def.voice.alert)' not in launch
+lua.execute('VOIX = { c01 = { "c01_scramble_tu95.ogg", 6.6 } }\n' + cut('-- Annonce a tout le serveur', '-- Anti-triche') +
+            '\nVoiceAll("c01")\nFake.runUntil(Fake.now + 1)')
+assert ev('Fake.sounds[#Fake.sounds].kind') == 'all' and ev('Fake.sounds[#Fake.sounds].file') == 'c01_scramble_tu95.ogg'
 
 # aucun avertissement ni erreur dans le dcs.log (avant : env.warning faisait planter le test)
 assert ev('(function() for _, l in ipairs(Fake.log) do if l.level ~= "info" then return l.text end end end)()') is None

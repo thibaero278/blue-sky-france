@@ -247,6 +247,9 @@ local function Better(field, a, b) -- a bat b ?
     return a > b
 end
 
+local RecordSoundAt = 0
+local RECORD_SOUND_S = 14 -- duree de PA.ogg (13,4 s)
+
 function SetRecord(playerName, s, field, value)
     value = math.floor(value or 0)
     if not Better(field, value, s[field] or 0) then return end
@@ -259,6 +262,11 @@ function SetRecord(playerName, s, field, value)
         local label, fmt = RECORDS[field][1], RECORDS[field][2]
         MESSAGE:New("*** RECORD BATTU ***\n\n" .. label .. " : " .. playerName .. "\n" .. fmt(value) ..
             "\n(ancien : " .. fmt(best) .. (holder ~= playerName and (" par " .. holder) or "") .. ")", 12):ToAll()
+        -- 17/11 : son de l'atterrissage a tout le serveur ; un seul a la fois (plusieurs records tombent ensemble en fin de vol)
+        if timer.getTime() >= RecordSoundAt then
+            RecordSoundAt = timer.getTime() + RECORD_SOUND_S
+            trigger.action.outSound("PA.ogg")
+        end
     end
 end
 
@@ -494,6 +502,8 @@ function ScoreMenuHandler:OnEventBirth(EventData)
                 local u = Unit.getByName(unitName)
                 if u and u:isExist() and u:getPlayerName() == playerName then
                     trigger.action.outSoundForUnit(id, "c00_accueil.ogg")
+                    -- 17/11 : encore coupee chez Weefe et ses joueurs, cause inconnue : reperer l'heure dans le dcs.log
+                    env.info(string.format("BLUESKY : voix d'accueil lancee pour %s (unite %d) a t=%.1f", playerName, id, timer.getTime()))
                 else
                     WelcomeVoiced[playerName] = nil -- avion quitte avant : la voix passera a la prochaine apparition
                 end
@@ -2271,7 +2281,7 @@ function IcptLaunch(group)
     local hdg, who = 0, "le lanceur"
     ForEachGroupPlayer(group, function(_, name, pu) hdg, who = Bearing(pu:getPoint(), p), name end)
     Icpt.op = OpStart(ICPT_LABEL, string.format(def.alert, hdg, who), group, nil, nil, true)
-    OpVoice(Icpt.op, def.voice.alert)
+    VoiceAll(def.voice.alert) -- 17/11 : le SCRAMBLE s'entend sur tout le serveur, comme son message ; la suite reste aux membres
     if def.init then def.init(def) end
     IcptFly({ Wp(p.x, p.z, def.alt, def.speed), Wp(def.mid.x, def.mid.z, def.alt, def.speed),
               Wp(t.x, t.z, def.alt, def.speed) })
