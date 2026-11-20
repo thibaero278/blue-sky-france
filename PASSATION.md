@@ -1,6 +1,6 @@
 ﻿# PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 20/11/2026 (multiplicateur de série, voir la dernière section)_
+_Dernière mise à jour : 20/11/2026 (série : bonus sur les points de combat seulement, livré, voir la dernière section)_
 
 > **09/11, panne « plus rien ne se rafraîchit » :** depuis le 06/11 23 h 33, 5 lignes de `commands.py` sur R2D2 avaient perdu leur « r » final
 > (`BlueSkyEventListene`), plugin `bluesky` non chargé. Probable `sed 's/\r$//'` au backslash mangé par PowerShell : déployer avec `scp` seul.
@@ -1180,7 +1180,7 @@ scores Blue Sky (heures, records, sans points) : plus tard.
 
 ## 20/11/2026 : multiplicateur de série (codé, injecté, poussé, envoyé à Weefe, PAS testé en jeu)
 - **Règle (choix de Thibaud du 20/11)** : vol valable = au moins 5 min ou 1 kill, posé sur une base (aéroport, FARP, PA), **puis moteur coupé**
-  (événement EngineShutdown au sol) → série +1. Multiplicateur des points du vol = 1 + 0,5 × série, plafond ×3 : vol 1 ×1, vol 2 ×1,5,
+  (événement EngineShutdown au sol) → série +1. Multiplicateur des points du vol (de combat seulement depuis la passe casseur, voir plus bas) = 1 + 0,5 × série, plafond ×3 : vol 1 ×1, vol 2 ×1,5,
   vol 3 ×2, vol 4 ×2,5, vol 5 ×3 (le multiplicateur s'applique au vol qui se pose, la série monte après, au moteur coupé).
   Pose hors aéroport ou train cassé sur PA = vol neutre (pas de bonus, série inchangée). Vol trop court = neutre. Redécoller sans couper = pas compté.
   **Remise à zéro** : mort, crash, éjection, slot quitté en vol (pilote ou place d'équipage). Fin de mission : rien ne change.
@@ -1207,3 +1207,15 @@ scores Blue Sky (heures, records, sans points) : plus tard.
 - Règle de Thibaud : rayon extérieur = rayon intérieur + padding quand un élément arrondi est posé dans le coin d'un autre. Détecteur JS passé sur toutes les pages (1280 et 390 px de large).
 - `web/css/style.css` (v13, appelée par les 12 pages) : barre de nav padding 8 partout (logo concentrique), `.seg` 23 px (`.mono-seg` 20 px) au lieu de 999 (faux quand il passe sur deux lignes sur mobile), `.live-chip` 29 px + badge EN DIRECT sans retour à la ligne, `.grade-card` 29 px padding 16, vignettes de la galerie 22 px, légende et fiche avion de la carte 9 px (24 de la carte − 15 de retrait).
 - Laissés exprès : bouton « S'inscrire » de l'encart Prochain vol (padding 22-36 px, il faudrait un rayon de 41-55 px), boutons pilule de la fiche avion (la fiche suit le coin de la carte). Rien de commité ni poussé.
+
+## 20/11/2026 : passe « casseur » sur la série, puis bonus sur les points de combat seulement (injecté, poussé, envoyé à Weefe, PAS testé en jeu)
+- Question de Thibaud, à poser avant chaque mise en ligne : « si j'étais un joueur qui voulait casser cette fonction, je ferais quoi ? ». Ajoutée au skill `/ship-mission` (nouvelle étape 3, les suivantes décalées) et à la mémoire de Claude Code.
+- Attaques rejouées sur le vrai script dans le faux DCS (scénarios dans le scratchpad de la session, pas dans `tools\scenarios\` : ils prouvent des trous) :
+  - **Marche, trou de la règle et pas du code** : 4 micro-vols de 40 s avec 1 kill chacun → ×3 ; 4 tours de piste de 5 min sans tirer → ×3 ; à ×3 les points de temps sont triplés (1 h de pilote auto = 36 pts au lieu de 12). Mêmes 4 kills et même heure de vol : **50 pts en trichant, 20 en un vol honnête**.
+  - **Marche, deux serveurs ouverts en même temps** : la série vit dans la mémoire de chaque mission (R2D2 ne l'envoie qu'au lancement). Mort sur le MSI, puis vol à ×3 chez Weefe : la fusion (`scores.merge`, « dernière valeur gagne ») efface la mort (série 0 → 5). À l'inverse, un joueur honnête retombe de 4 à 1 sans mourir.
+  - **Bloqué** : coupures moteur à répétition (un seul cran), slot quitté en vol (série à 0), pseudo piégé (`%q` dans Scores.lua, `esc()` sur le site).
+  - **Dépend de ce que DCS envoie (checklist en jeu)** : Alt+F4 en vol (si DCS n'envoie rien, la série reste) ; rebond à l'atterrissage (si DCS envoie décollage + atterrissage, le cran est perdu et 2 vols / 2 atterrissages comptés).
+- **Choix de Thibaud (20/11, 4 h) : B seulement.** Le multiplicateur ne touche plus que les points de combat (kills, missions), plus ceux du temps de vol (`CommitFlightKills` : `combat = f.points - f.timePts`). 1 h de pilote auto à ×3 = 12 pts au lieu de 36 (attaque rejouée : 26 pts au lieu de 50). **A refusé** (vol valable = 5 min **et** des points de combat) : micro-vols d'1 kill et tours de piste de 5 min montent toujours à ×3, c'est voulu. Deux serveurs : pas traité.
+- Test `serie_multiplicateur` adapté (vol 2 : kill de 2 pts à ×1,5 → +1 ; vol 4 à ×2 sans bonus sur le temps ; total 11) et vérifié en échec sur l'ancien script. `run_tests.py` 9/9. Sauvegarde : `mission\bakup\script Caucase_2026-11-20_avant-serie-combat.lua`.
+- **Livré** : injecté le 20/11 à 4 h 08, DCS fermé (88 entrées, sauvegarde `Blue sky multi\bakup\…_2026-11-20_04-08-03.miz.bak`, script recopié à côté) ; commit 872cb03 poussé ; .miz déposée pour Weefe à 4 h 09 (md5 `187a2b5e937465a95a8dcdd77a097d25` des deux côtés, 16 725 435 octets ; ancienne dans `~/backups/mission-weefe-avant-2026-11-20-serie-combat.miz`). Bot : rien de neuf. Weefe : **FICHIERS** puis lancer la nouvelle .miz.
+- **Checklist en jeu** (ce qui change) : vol avec un kill à ×1,5 ou plus → « Serie : x1,5 (+N pts) », N calculé sur le kill seulement ; vol sans kill à ×2 ou plus → « Serie : x2 » sans « (+… pts) ». Encore à voir depuis la livraison de la nuit : EngineShutdown bien reçu (F-18 puis hélico), deux moteurs = un seul cran. Casseur : Alt+F4 en vol puis retour → série à 0 attendue ; un rebond à l'atterrissage donne-t-il deux « DECOLLAGE DETECTE » dans le `dcs.log` ?
