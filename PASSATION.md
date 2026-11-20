@@ -1202,3 +1202,8 @@ scores Blue Sky (heures, records, sans points) : plus tard.
   identique à la .miz du MSI d'avant ce soir : seul le script change) est dans `~/backups/mission-weefe-avant-2026-11-20-serie.miz`, remise depuis le
   `.miz.bak` local (le `cp` sur R2D2 avait échoué : guillemets mangés par PowerShell → ssh ; utiliser des guillemets doubles autour de toute la commande).
   Bot : rien de neuf. Weefe : **FICHIERS / MAJ** dans BLUE-SKY-CONTROL, puis lancer la nouvelle .miz.
+
+## 20/11/2026 : arrondis emboîtés du site (pas poussé)
+- Règle de Thibaud : rayon extérieur = rayon intérieur + padding quand un élément arrondi est posé dans le coin d'un autre. Détecteur JS passé sur toutes les pages (1280 et 390 px de large).
+- `web/css/style.css` (v13, appelée par les 12 pages) : barre de nav padding 8 partout (logo concentrique), `.seg` 23 px (`.mono-seg` 20 px) au lieu de 999 (faux quand il passe sur deux lignes sur mobile), `.live-chip` 29 px + badge EN DIRECT sans retour à la ligne, `.grade-card` 29 px padding 16, vignettes de la galerie 22 px, légende et fiche avion de la carte 9 px (24 de la carte − 15 de retrait).
+- Laissés exprès : bouton « S'inscrire » de l'encart Prochain vol (padding 22-36 px, il faudrait un rayon de 41-55 px), boutons pilule de la fiche avion (la fiche suit le coin de la carte). Rien de commité ni poussé.
