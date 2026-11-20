@@ -59,7 +59,7 @@ Airbase = { Category = { AIRDROME = 0, HELIPAD = 1, SHIP = 2 } }
 Weapon = { Category = { SHELL = 0, MISSILE = 1, ROCKET = 2, BOMB = 3 } }
 land = { SurfaceType = { LAND = 1, SHALLOW_WATER = 2, WATER = 3, ROAD = 4, RUNWAY = 5 } }
 local EVENT_IDS = { Shot = 1, Hit = 2, Takeoff = 3, Land = 4, Crash = 5, Ejection = 6, Refueling = 7, Dead = 8,
-    PilotDead = 9, MissionEnd = 12, RefuelingStop = 14, Birth = 15, PlayerEnterUnit = 20, PlayerLeaveUnit = 21,
+    PilotDead = 9, MissionEnd = 12, RefuelingStop = 14, Birth = 15, EngineShutdown = 19, PlayerEnterUnit = 20, PlayerLeaveUnit = 21,
     Kill = 28, UnitLost = 30 }
 world = { event = {}, VolumeType = { SEGMENT = 0, BOX = 1, SPHERE = 2, PYRAMID = 3 } }
 EVENTS = {}

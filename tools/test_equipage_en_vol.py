@@ -22,6 +22,7 @@ function SaveScores() end
 function MessageToPlayer() end
 function StartFlight(n) Flights[n] = { active = true } end
 function CloseFlight(n) CrewUnit[n] = nil; local f = Flights[n]; Flights[n] = nil; return f and f.active end
+function ResetStreak() end
 ''' + cut('local function Crew(', 'local function EventUnitName') +
     cut('local function StartCrewFlight', '-- Valide les kills') +
     cut('local function CheckAirbornePlayers', 'timer.scheduleFunction(function()\n    local ok, err = pcall(CheckAirbornePlayers)') + '''

@@ -1,6 +1,6 @@
 ﻿# PASSATION — Projet site Blue Sky (DCS)
 
-_Dernière mise à jour : 15/11/2026 (outillage Claude Code : CLAUDE.md racine, `injecter_script.ps1`, skill `/ship-mission`, hooks, `APRES-MAJ-DCS.cmd` ; voir la dernière section)_
+_Dernière mise à jour : 20/11/2026 (multiplicateur de série, voir la dernière section)_
 
 > **09/11, panne « plus rien ne se rafraîchit » :** depuis le 06/11 23 h 33, 5 lignes de `commands.py` sur R2D2 avaient perdu leur « r » final
 > (`BlueSkyEventListene`), plugin `bluesky` non chargé. Probable `sed 's/\r$//'` au backslash mangé par PowerShell : déployer avec `scp` seul.
@@ -13,7 +13,7 @@ _Dernière mise à jour : 15/11/2026 (outillage Claude Code : CLAUDE.md racine, 
 > **09/11, plan de mise à jour vers DCSServerBot 3.0.5.2 :** `bot BS\PLAN-MAJ-3.0.5.md`, rien d'appliqué. ⚠️ Une fois le maître à jour, un agent resté en 3.0.4.27
 > lance `update.py` seul, même avec `--noupdate`, et perd ses patchs : tout passer dans la même soirée, agents en STOP.
 > Banc d'essai fait le 09/11 (`serveur BS\banc-3.0.5.2`) : tous les contrôles OK, sans démarrage réel du bot (pas de base, Discord ni DCS). Paquet + `MAJ-MOTEUR.cmd` / `RETOUR-MOTEUR.cmd` prêts dans `banc-3.0.5.2\livraison\maj`, répétés sur copie ; image Docker testée sur R2D2. Paquet et scripts envoyés dans `partage/maj/` le 09/11. **R2D2 passé en 3.0.5.2 le 09/11 à 16 h 35** (base v3.23, plugin chargé, pas d'erreur) ; MSI et Weefe passés en 3.0.5.2 le 09/11, agents connectés. SRS, carte live et `/classement` validés le 09/11 ; reste à tester une mission sur le MSI et les autres commandes (voir la recette du plan).
-> `/marker` et `/webadmin` ajoutées à `hide_commands` dans la source du plugin, pas encore déployé.
+> `/marker` et `/webadmin` ajoutées à `hide_commands` : **déployé** (vérifié le 20/11 : `commands.py` de R2D2 identique à la source, md5 `fde2df04…`, posé le 11/11, monté dans le conteneur, bot relancé le 18/11, 0 erreur depuis).
 
 > **15/11 soir, Xerion revient en « Smokey | BlueSky 1-3 » :** Weefe a renommé la clé à la main dans son Scores.lua → R2D2 avait
 > deux fiches de 32 pts (doublon). Fiche `Xerion I Smokey` supprimée de `bluesky_scores` (sauvegarde `~/backups/scores_avant-smokey_2026-11-15_2113*.tsv`),
@@ -1172,3 +1172,28 @@ scores Blue Sky (heures, records, sans points) : plus tard.
 - **Record du serveur battu** : en plus du message à tous, `PA.ogg` (son de l'atterrissage) à **tout le serveur**, en vol ou au sol ; un seul son par tranche de 14 s (plusieurs records tombent ensemble en fin de vol). Test `tools/test_records_son.py`.
 - **Voix d'accueil encore coupée** (Weefe, chez lui et ses joueurs, vers « kneeboard ») : cause **inconnue**. Vérifié : `c00_accueil.ogg` de la .miz = celui de `validees` (md5 13d0f2aa…), entier (7,03 s, finit sur « Bon vol »), même format que les voix qui passent (vorbis 24 kHz mono) ; aucun autre son au spawn dans les déclencheurs de la .miz. Ajout d'une ligne `BLUESKY : voix d'accueil lancee pour …` dans le `dcs.log` pour dater la coupure. À vérifier aussi : Weefe tourne-t-il bien sur la .miz du 15/11 ou plus (délai 10 s) ?
 - **Livré le 17/11 à 21 h 16** : injecté DCS fermé (88 entrées, sauvegarde `Blue sky multi\bakup\…_2026-11-17_21-16-24.miz.bak`, script d'avant `mission\bakup\script Caucase_2026-11-17_avant-voix-serveur-records.lua`), commit 0bec5bd poussé, .miz déposée pour Weefe (md5 `0caf86b4f549321f45c12c5af78a61e1` des deux côtés, ancienne : `~/backups/mission-weefe-avant-2026-11-17-scramble-records.miz`). Weefe : FICHIERS puis nouvelle .miz. Pas testé en jeu.
+
+## 20/11/2026 : point d'étape
+- `/marker` et `/webadmin` masqués : déjà en place sur R2D2 (voir l'encadré du 09/11 en haut), rien à redéployer.
+- **Dit par Thibaud** : Spawn ENI, renforts, voix (dont les 36 de Dawn Sentinel) et les autres systèmes de longue date marchent en jeu. Ne plus les présenter comme « pas testés » ni proposer de les retester ; une checklist en jeu reste utile seulement pour ce qui vient d'être modifié.
+- Mémoire de Claude Code nettoyée (fiches périmées corrigées : Blue Sky Ops et livrées sont en ligne depuis le 06/11).
+
+## 20/11/2026 : multiplicateur de série (codé, injecté dans la .miz du MSI, PAS testé en jeu, pas poussé, pas envoyé à Weefe)
+- **Règle (choix de Thibaud du 20/11)** : vol valable = au moins 5 min ou 1 kill, posé sur une base (aéroport, FARP, PA), **puis moteur coupé**
+  (événement EngineShutdown au sol) → série +1. Multiplicateur des points du vol = 1 + 0,5 × série, plafond ×3 : vol 1 ×1, vol 2 ×1,5,
+  vol 3 ×2, vol 4 ×2,5, vol 5 ×3 (le multiplicateur s'applique au vol qui se pose, la série monte après, au moteur coupé).
+  Pose hors aéroport ou train cassé sur PA = vol neutre (pas de bonus, série inchangée). Vol trop court = neutre. Redécoller sans couper = pas compté.
+  **Remise à zéro** : mort, crash, éjection, slot quitté en vol (pilote ou place d'équipage). Fin de mission : rien ne change.
+- Affichage : seulement le message d'atterrissage (« Serie : x1,5 (+2 pts) » + « Coupe le moteur pour valider… ») et un message au moteur coupé ;
+  « Serie perdue. » dans le message de mort. Pas sur le site ni dans F10 (choix de Thibaud).
+- Stockage : `serie` dans Scores.lua, **en chaîne** (`serie = "2"`) : `scores.py` (merge) garde alors la dernière valeur au lieu d'additionner
+  les gains (un compteur qui baisse n'enlève jamais rien sur R2D2). Vérifié avec `merge` et `parse_scores` : rien à changer au bot ni à `Code.gs`
+  (colonnes fixes, `serie` ignorée).
+- Script : `STREAK_*`, `StreakMult`, `ResetStreak`, `LandStreak`, `StreakBonusLine`, `StreakHandler` (globales : le bloc principal était à 200 locales,
+  limite de Lua 5.1, une locale de plus faisait planter le chargement). `CommitFlightKills` prend un 5e argument `mult`.
+- Tests : scénario `tools/scenarios/serie_multiplicateur.lua` ; faux DCS : `EngineShutdown = 19` (fakedcs.lua), action `shutdown` (scenario.lua) ;
+  stubs ajoutés dans `test_atterrissage.py` / `test_equipage_en_vol.py`. 9/9 OK.
+- Sauvegardes : `mission/bakup/script Caucase_2026-11-20_avant-serie.lua` ; .miz `Blue sky multi\bakup\…_2026-11-20_03-21-21.miz.bak`.
+  Injecté le 20/11 à 3 h 21, DCS fermé (88 entrées, script identique à la source).
+- **À tester en jeu** : vérifier que DCS envoie bien EngineShutdown pour un joueur (F-18, puis hélico) ; deux moteurs = un seul +1 ; pas de « Serie perdue »
+  en quittant le slot au sol après un vol (DCS envoie Dead en quittant le slot : protégé par `life.dead`, comme le compteur de morts).

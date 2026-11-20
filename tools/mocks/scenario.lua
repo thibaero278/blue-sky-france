@@ -115,6 +115,9 @@ function A.land(a)
     F.event("Land", { initiator = u, place = (ab and a.place ~= false) and ab or nil })
 end
 
+-- { player } : moteur coupé (série, 20/11)
+function A.shutdown(a) F.event("EngineShutdown", { initiator = unitOf(a.player) }) end
+
 -- { player } : il quitte son avion (changement de slot, déco) ; l'avion disparaît, DCS envoie aussi Dead
 function A.leave(a)
     local u = unitOf(a.player)

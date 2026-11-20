@@ -65,6 +65,13 @@ local SCORE_FIELDS = {
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
 
 local TIME_PTS_S = 300 -- 1 point de score par tranche de 5 min de vol
+
+-- SERIE (20/11) : chaque vol valable (>= STREAK_MIN_S ou 1 kill, pose propre, puis moteur coupe) ajoute STREAK_STEP
+-- au multiplicateur des points du vol suivant : x1, x1,5, x2, x2,5, x3 (plafond, 5e vol). Remise a zero : mort, crash,
+-- ejection, slot quitte en vol. Pose hors aeroport / train casse sur PA : vol neutre (pas de bonus, serie inchangee).
+-- s.serie est une chaine : le bot (scores.py, merge) garde la derniere valeur au lieu d'additionner les gains.
+STREAK_STEP, STREAK_MAX, STREAK_MIN_S = 0.5, 3, 300
+StreakPending = {} -- pilote -> true : vol valable pose, attend la coupure moteur
 local TRACK_INTERVAL = 0.05
 local IP_DISTANCE = 50
 
@@ -89,8 +96,21 @@ function InitPlayer(playerName)
         s[field] = s[field] or 0
     end
     s.grade = s.grade or "ROOKIE"
+    s.serie = tostring(s.serie or "0")
     Scores[playerName] = s
     return s
+end
+
+function StreakMult(s) return math.min(STREAK_MAX, 1 + STREAK_STEP * (tonumber(s.serie) or 0)) end
+function MultText(m) return (string.format("x%g", m):gsub("%.", ",")) end
+
+-- Serie perdue : renvoie true s'il y en avait une
+function ResetStreak(playerName)
+    StreakPending[playerName] = nil
+    local s = InitPlayer(playerName)
+    local had = (tonumber(s.serie) or 0) > 0
+    s.serie = "0"
+    return had
 end
 
 -- Grade (RANKS) correspondant a un total de points : index, palier, palier suivant
@@ -141,6 +161,7 @@ function SaveScores()
             out[#out + 1] = string.format("        %s = %d,\n", field, math.floor(s[field] or 0))
         end
         out[#out + 1] = string.format("        grade = %q,\n", s.grade or "ROOKIE")
+        out[#out + 1] = string.format("        serie = %q,\n", tostring(s.serie or "0"))
         local _, rank = GetRank(s.points)
         out[#out + 1] = string.format("        rang = %q,\n", rank.name)
         out[#out + 1] = "    },\n"
@@ -303,6 +324,7 @@ local function StartFlight(playerName)
     f.active = true
     f.startTime = timer.getTime()
     Flights[playerName] = f
+    StreakPending[playerName] = nil -- redecolle sans couper le moteur : vol precedent pas compte dans la serie
 end
 
 -- Termine un contact ravitaillement en cours, renvoie sa duree
@@ -383,7 +405,8 @@ end
 -- Valide les kills/points d'un vol dans le total.
 -- elapsed (atterrissage uniquement) : ajoute au temps de vol complete.
 -- divisor (atterrissage hors aeroport, 13/11) : les points du vol sont divises, f.offFieldLoss = points perdus
-local function CommitFlightKills(playerName, f, elapsed, divisor)
+-- mult (atterrissage propre) : multiplicateur de serie, f.streakBonus = points gagnes
+local function CommitFlightKills(playerName, f, elapsed, divisor, mult)
     if not f then return end
     local s = InitPlayer(playerName)
     local oldIndex = GetRank(s.points)
@@ -395,6 +418,10 @@ local function CommitFlightKills(playerName, f, elapsed, divisor)
     if divisor and f.points > 0 then
         f.offFieldLoss = f.points - math.floor(f.points / divisor)
         f.points = f.points - f.offFieldLoss
+    end
+    if mult and mult > 1 and f.points > 0 then
+        f.streakBonus = math.floor(f.points * (mult - 1))
+        f.points = f.points + f.streakBonus
     end
     s.points = s.points + f.points
     -- records : le plus de kills valides sur un seul vol, air-air d'un cote, air-sol (bateaux compris) de l'autre
@@ -422,7 +449,30 @@ local function FlightSummary(f, elapsed)
            (f.offFieldLoss and ("\nPose hors aeroport : points divises par " .. OFFFIELD_DIVISOR .. " (-" .. f.offFieldLoss .. ")") or "") ..
            "\nTemps de vol : " .. FormatFlightTime(elapsed) ..
            (f.refuelTime > 0 and ("\nRavitaillement : " .. FormatFlightTime(f.refuelTime)) or "") ..
-           (f.bsTime and ("\nMode Blue Sky : +" .. FormatFlightTime(f.bsTime) .. " (termine, a reactiver au sol)") or "")
+           (f.bsTime and ("\nMode Blue Sky : +" .. FormatFlightTime(f.bsTime) .. " (termine, a reactiver au sol)") or "") ..
+           (f.streakLine or "")
+end
+
+-- Serie a l'atterrissage : multiplicateur a appliquer (nil si pose rate) et ligne du message (dans f.streakLine)
+function LandStreak(playerName, f, elapsed, clean)
+    local s = InitPlayer(playerName)
+    if not clean then
+        f.streakLine = "\nSerie : pose rate, vol neutre (" .. s.serie .. " vol(s), " .. MultText(StreakMult(s)) .. ")"
+        return nil
+    end
+    local mult = StreakMult(s)
+    local valid = elapsed >= STREAK_MIN_S or (f.airair + f.airsol + f.airmer) > 0
+    StreakPending[playerName] = valid or nil
+    local nextMult = MultText(math.min(STREAK_MAX, mult + STREAK_STEP))
+    f.streakLine = "\nSerie : " .. MultText(mult) ..
+        (valid and ("\nCoupe le moteur pour valider ce vol dans la serie (prochain vol " .. nextMult .. ")")
+               or "\nVol trop court pour la serie (5 min ou 1 kill)")
+    return mult
+end
+
+-- Affiche le bonus de serie, une fois les points calcules
+function StreakBonusLine(f)
+    if (f.streakBonus or 0) > 0 then f.streakLine = f.streakLine:gsub("^(\nSerie : x[%d,]+)", "%1 (+" .. f.streakBonus .. " pts)") end
 end
 
 ------------------------------------------------------------
@@ -614,7 +664,7 @@ local function CheckAirbornePlayers()
         for _, n in ipairs(BSCrew[unitName] or {}) do
             if n == c then still = true end
         end
-        if not still and CloseFlight(c) then SaveScores() end
+        if not still and CloseFlight(c) then ResetStreak(c); SaveScores() end
     end
 end
 
@@ -741,7 +791,8 @@ function LandFlight(playerName, f, elapsed, base, onField, dcsUnit, sound)
 
     -- Base terrestre : on valide tout de suite
     if not carrier then
-        CommitFlightKills(playerName, f, elapsed, not onField and OFFFIELD_DIVISOR or nil)
+        CommitFlightKills(playerName, f, elapsed, not onField and OFFFIELD_DIVISOR or nil, LandStreak(playerName, f, elapsed, onField))
+        StreakBonusLine(f)
         s.landings = s.landings + 1
         SaveScores()
         MessageToPlayer(unitID, (onField and ("Bienvenue a " .. base) or ("Pose hors aeroport (pres de " .. base .. ")")) ..
@@ -757,9 +808,11 @@ function LandFlight(playerName, f, elapsed, base, onField, dcsUnit, sound)
         -- Mort entre-temps (crash sur le pont) : rien n'est valide
         if life and life.dead then return nil end
 
-        CommitFlightKills(playerName, f, elapsed)
+        local troll = IsGearStateSuspicious(dcsUnit)
+        CommitFlightKills(playerName, f, elapsed, nil, LandStreak(playerName, f, elapsed, not troll))
+        StreakBonusLine(f)
 
-        if IsGearStateSuspicious(dcsUnit) then
+        if troll then
             SaveScores()
             MessageToPlayer(unitID, TROLL_MESSAGES[math.random(#TROLL_MESSAGES)] .. FlightSummary(f, elapsed), 10)
             Sound("troll.ogg")
@@ -799,12 +852,13 @@ local function OnPlayerDeath(EventData)
             local elapsed = CloseFlight(playerName) -- temps ajoute, kills du vol jetes
             local s = InitPlayer(playerName)
             s.deaths = s.deaths + 1
+            local lost = ResetStreak(playerName)
             SaveScores()
 
             trigger.action.outText(
                 playerName .. " est tombe au combat (morts : " .. s.deaths .. ")" ..
                 (elapsed and ("\nTemps de vol ajoute : " .. FormatFlightTime(elapsed)) or "") ..
-                "\nKills et points de ce vol perdus.", 8)
+                "\nKills et points de ce vol perdus." .. (lost and "\nSerie perdue." or ""), 8)
         end
     end
     -- Pas de troll.ogg ici : reserve au train casse sur PA (DCS envoie aussi Dead en quittant le slot)
@@ -823,13 +877,32 @@ function LifeHandler:OnEventPlayerLeaveUnit(EventData)
 
     -- l'equipage descend avec le pilote (DCS vide l'avion)
     for _, playerName in ipairs(Crew(EventUnitName(EventData), pilot)) do
-        if CloseFlight(playerName) then SaveScores() end
+        if CloseFlight(playerName) then ResetStreak(playerName); SaveScores() end
         -- Vie terminee : DCS envoie ensuite Dead/PilotDead pour l'avion retire (briefing, respawn),
         -- a ignorer jusqu'au prochain Birth (sinon troll.ogg + mort comptee a tort)
         if PlayerLife[playerName] then PlayerLife[playerName].dead = true else PlayerLife[playerName] = { dead = true } end
     end
     -- L'avion abandonne ne doit plus etre attribue au pilote
     if EventData.IniUnitName and UnitPlayer[EventData.IniUnitName] == pilot then UnitPlayer[EventData.IniUnitName] = nil end
+end
+
+-- Moteur coupe au sol apres un vol valable : +1 a la serie
+StreakHandler = EVENTHANDLER:New()
+StreakHandler:HandleEvent(EVENTS.EngineShutdown)
+
+function StreakHandler:OnEventEngineShutdown(EventData)
+    local pilot, u = EventData.IniPlayerName, EventData.IniDCSUnit
+    if not pilot or not u or not u:isExist() or u:inAir() then return end
+    for _, name in ipairs(Crew(u:getName(), pilot)) do
+        if StreakPending[name] then
+            StreakPending[name] = nil
+            local s = InitPlayer(name)
+            s.serie = tostring((tonumber(s.serie) or 0) + 1)
+            SaveScores()
+            MessageToPlayer(u:getID(), "Serie validee, " .. name .. " : " .. s.serie .. " vol(s) d'affilee, prochain vol " ..
+                MultText(StreakMult(s)), 8)
+        end
+    end
 end
 
 -- Fin de mission : temps de vol des pilotes en l'air ajoute

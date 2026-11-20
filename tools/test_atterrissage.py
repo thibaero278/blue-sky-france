@@ -15,9 +15,12 @@ Fake.now = 100
 AB = Fake.addAirbase({ name = "Kobuleti", x = 0, z = 0, runway = 0 })
 TIME_PTS_S, CARRIERS, STATS, SENT = 300, {}, {}, {}
 function InitPlayer(n) STATS[n] = STATS[n] or { points = 0, airair = 0, airsol = 0, airmer = 0, landings = 0,
-    completedFlightTime = 0 } return STATS[n] end
+    completedFlightTime = 0, serie = "0" } return STATS[n] end
 function GetRank() return 1, { name = "x" } end
 function SetRecord() end
+StreakPending, STREAK_MIN_S, STREAK_STEP, STREAK_MAX = {}, 300, 0.5, 3
+function StreakMult() return 1 end
+function MultText(m) return "x" .. m end
 function SaveScores() end
 function FormatFlightTime(t) return tostring(t) end
 function NewFlight() return { points = 0, airair = 0, airsol = 0, airmer = 0, refuelTime = 0 } end
