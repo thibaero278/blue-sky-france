@@ -67,7 +67,8 @@ local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
 local TIME_PTS_S = 300 -- 1 point de score par tranche de 5 min de vol
 
 -- SERIE (20/11) : chaque vol valable (>= STREAK_MIN_S ou 1 kill, pose propre, puis moteur coupe) ajoute STREAK_STEP
--- au multiplicateur des points du vol suivant : x1, x1,5, x2, x2,5, x3 (plafond, 5e vol). Remise a zero : mort, crash,
+-- au multiplicateur du vol suivant : x1, x1,5, x2, x2,5, x3 (plafond, 5e vol), sur les points de combat (kills, missions)
+-- seulement, pas sur ceux du temps de vol (20/11 : un vol AFK a x3 rapportait triple). Remise a zero : mort, crash,
 -- ejection, slot quitte en vol. Pose hors aeroport / train casse sur PA : vol neutre (pas de bonus, serie inchangee).
 -- s.serie est une chaine : le bot (scores.py, merge) garde la derniere valeur au lieu d'additionner les gains.
 STREAK_STEP, STREAK_MAX, STREAK_MIN_S = 0.5, 3, 300
@@ -405,7 +406,8 @@ end
 -- Valide les kills/points d'un vol dans le total.
 -- elapsed (atterrissage uniquement) : ajoute au temps de vol complete.
 -- divisor (atterrissage hors aeroport, 13/11) : les points du vol sont divises, f.offFieldLoss = points perdus
--- mult (atterrissage propre) : multiplicateur de serie, f.streakBonus = points gagnes
+-- mult (atterrissage propre) : multiplicateur de serie, sur les points de combat seulement (pas le temps de vol),
+-- f.streakBonus = points gagnes
 local function CommitFlightKills(playerName, f, elapsed, divisor, mult)
     if not f then return end
     local s = InitPlayer(playerName)
@@ -419,8 +421,9 @@ local function CommitFlightKills(playerName, f, elapsed, divisor, mult)
         f.offFieldLoss = f.points - math.floor(f.points / divisor)
         f.points = f.points - f.offFieldLoss
     end
-    if mult and mult > 1 and f.points > 0 then
-        f.streakBonus = math.floor(f.points * (mult - 1))
+    local combat = f.points - (f.timePts or 0)
+    if mult and mult > 1 and combat > 0 then
+        f.streakBonus = math.floor(combat * (mult - 1))
         f.points = f.points + f.streakBonus
     end
     s.points = s.points + f.points
