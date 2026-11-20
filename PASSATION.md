@@ -1178,7 +1178,7 @@ scores Blue Sky (heures, records, sans points) : plus tard.
 - **Dit par Thibaud** : Spawn ENI, renforts, voix (dont les 36 de Dawn Sentinel) et les autres systèmes de longue date marchent en jeu. Ne plus les présenter comme « pas testés » ni proposer de les retester ; une checklist en jeu reste utile seulement pour ce qui vient d'être modifié.
 - Mémoire de Claude Code nettoyée (fiches périmées corrigées : Blue Sky Ops et livrées sont en ligne depuis le 06/11).
 
-## 20/11/2026 : multiplicateur de série (codé, injecté dans la .miz du MSI, PAS testé en jeu, pas poussé, pas envoyé à Weefe)
+## 20/11/2026 : multiplicateur de série (codé, injecté, poussé, envoyé à Weefe, PAS testé en jeu)
 - **Règle (choix de Thibaud du 20/11)** : vol valable = au moins 5 min ou 1 kill, posé sur une base (aéroport, FARP, PA), **puis moteur coupé**
   (événement EngineShutdown au sol) → série +1. Multiplicateur des points du vol = 1 + 0,5 × série, plafond ×3 : vol 1 ×1, vol 2 ×1,5,
   vol 3 ×2, vol 4 ×2,5, vol 5 ×3 (le multiplicateur s'applique au vol qui se pose, la série monte après, au moteur coupé).
@@ -1197,3 +1197,8 @@ scores Blue Sky (heures, records, sans points) : plus tard.
   Injecté le 20/11 à 3 h 21, DCS fermé (88 entrées, script identique à la source).
 - **À tester en jeu** : vérifier que DCS envoie bien EngineShutdown pour un joueur (F-18, puis hélico) ; deux moteurs = un seul +1 ; pas de « Serie perdue »
   en quittant le slot au sol après un vol (DCS envoie Dead en quittant le slot : protégé par `life.dead`, comme le compteur de morts).
+- **Livré le 20/11 vers 3 h 30** : commit 55b3883 poussé sur `main` (auteur `thibaero278` passé en `-c user.name/user.email` : le git de WSL n'a pas d'identité).
+  .miz du MSI déposée pour Weefe dans `partage/fichiers/` (md5 aaa52a26…, HTTP 200 sur le port 8099, 16 725 368 octets). L'ancienne (md5 0caf86b4…,
+  identique à la .miz du MSI d'avant ce soir : seul le script change) est dans `~/backups/mission-weefe-avant-2026-11-20-serie.miz`, remise depuis le
+  `.miz.bak` local (le `cp` sur R2D2 avait échoué : guillemets mangés par PowerShell → ssh ; utiliser des guillemets doubles autour de toute la commande).
+  Bot : rien de neuf. Weefe : **FICHIERS / MAJ** dans BLUE-SKY-CONTROL, puis lancer la nouvelle .miz.
