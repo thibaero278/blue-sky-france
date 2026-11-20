@@ -97,9 +97,11 @@ Le plugin lit `Scores.lua` et les positions des joueurs sur chaque serveur DCS, 
 - **Scores fusionnés** (depuis le 03/11/2026, v1.5) : le total de chaque pilote est dans la base de R2D2 ; chaque lecture
   d'un `Scores.lua` y ajoute ce que ce serveur a gagné depuis la lecture d'avant (un serveur jamais lu : maximum par stat).
   Le total est renvoyé à la mission à son lancement. Supprimer un pilote : voir `site\CONFORMITE.md` § 5.
-- **Pseudos regroupés par UCID** (03/11/2026) : les pseudos d'un même compte DCS (tables `players` / `players_hist`)
-  comptent pour un seul pilote, affiché sous son pseudo actuel (site, Discord, jeu). L'hôte est ajouté à `players` par le plugin
-  (DCSServerBot l'ignore). La table `bluesky_scores` reste par pseudo.
+- **Pseudos regroupés** (03/11/2026, revu le 20/11) : seuls les alias manuels de `bluesky.yaml` (« ancien : actuel ») fusionnent
+  deux pseudos. Un changement de pseudo vu par l'UCID (tables `players` / `players_hist`) est seulement **signalé** au staff
+  (journal + salon d'audit de DCSServerBot) : prendre une fois le pseudo d'un autre suffisait à voler ses stats. Un pseudo
+  porté par plusieurs comptes DCS est signalé aussi (usurpation). L'hôte est ajouté à `players` par le plugin (DCSServerBot
+  l'ignore). La table `bluesky_scores` reste par pseudo.
 - **Mode Blue Sky** (03/11/2026) : activé au sol dans le menu F10 de la mission, il ajoute le temps du vol à `bsFlightTime`
   (heures Blue Sky : site, `/pilote`, `/classement`) et donne l'icône F-18 Blue Sky sur la carte (`bs` dans `lua/mission.lua`).
 - **Multi-équipage** (04/11/2026) : `lua/commands.lua` envoie à la mission les places 2+ de chaque avion (`bsSetCrew`) ;

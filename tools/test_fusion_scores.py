@@ -26,6 +26,12 @@ ALIAS = sc.resolve({'DEX WAVE OFF 1-1': 'WaveOff | BlueSky 1-4', 'Branch 1-1 | W
 assert ALIAS['Branch'] == 'Branch | BlueSky 1-2', ALIAS          # chaîne suivie
 assert sc.resolve({'a': 'b', 'b': 'a'}) == {}   # boucle (erreur de config) : ignorée, pas de blocage
 
+# 0. Passe casseur du 20/11 : historique UCID (ucid, pseudo actuel, pseudo déjà porté)
+rows = [('X', 'Pirate', 'Vieux Pilote'),       # X a pris une fois le pseudo d'un ancien, puis repris le sien
+        ('T', 'Breakdown | BlueSky 1-1', None), ('Y', 'Breakdown | BlueSky 1-1', None)]  # usurpateur sous le pseudo de Thibaud
+assert sc.resolve(sc.aliases(rows)) == {'Vieux Pilote': 'Pirate'}   # alias trouvé : commands.py le signale sans fusionner
+assert sc.shared_names(rows) == {'Breakdown | BlueSky 1-1': {'T', 'Y'}}   # pseudo à deux comptes : signalé au staff
+
 # 1. Consolidation : ancien + nouveau pseudo rangés à part → additionnés UNE fois, ancien effacé
 total = {'Branch 1-1 | Weefe': P(524, 80), 'Branch | BlueSky 1-2': P(10, 2), 'DEX WAVE OFF 1-1': P(364, 110)}
 total = sc.group(total, ALIAS)

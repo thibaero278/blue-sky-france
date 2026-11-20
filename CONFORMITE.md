@@ -54,7 +54,8 @@ atterrissages, vol en cours et trajectoire sur la carte, stockage chez le fondat
 
 ## 5. Procédure pour une demande de suppression (délai : 1 mois, RGPD art. 12.3)
 1. E-mail reçu / ligne « A traiter » dans l'onglet Demandes.
-2. Vérifier que c'est bien la personne (pseudo Discord cohérent, ou connexion au serveur avec ce pseudo).
+2. Vérifier que c'est bien la personne : **MP Discord au compte indiqué, et attendre sa confirmation avant d'effacer**.
+   Les deux pseudos sont publics : n'importe qui peut remplir le formulaire au nom d'un autre (passe casseur du 20/11).
 3. Sur Discord (rôle DCS Admin) : **`/supprimer_pilote pseudo`** (depuis le 03/11/2026). Le bot efface d'un coup **tous
    les pseudos du même UCID** du total (R2D2) et republie le site. Les `Scores.lua` des serveurs (MSI, Weefe) qui les
    contiennent encore sont ignorés pour ces pseudos, puis nettoyés automatiquement au prochain lancement de mission.

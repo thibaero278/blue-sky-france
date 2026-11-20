@@ -145,11 +145,8 @@ def resolve(alias: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def aliases(rows: list[tuple[str, str, str]]) -> dict[str, str]:
-    """rows = (ucid, pseudo actuel, pseudo déjà utilisé) → {pseudo: pseudo actuel du même compte DCS}.
-
-    Un pseudo porté par plusieurs UCID (ou dont le pseudo actuel l'est) est ambigu : on n'y touche pas.
-    """
+def _owners(rows: list[tuple[str, str, str]]) -> tuple[dict[str, set[str]], dict[str, str]]:
+    """({pseudo: UCID qui l'ont porté}, {UCID: pseudo actuel})."""
     ucids: dict[str, set[str]] = {}
     current: dict[str, str] = {}
     for ucid, now, name in rows:
@@ -159,6 +156,20 @@ def aliases(rows: list[tuple[str, str, str]]) -> dict[str, str]:
         for n in (now, name):
             if n:
                 ucids.setdefault(n, set()).add(ucid)
+    return ucids, current
+
+
+def shared_names(rows: list[tuple[str, str, str]]) -> dict[str, set[str]]:
+    """Pseudos portés par plusieurs comptes DCS : leurs stats se mélangent (usurpation possible), à signaler."""
+    return {n: u for n, u in _owners(rows)[0].items() if len(u) > 1}
+
+
+def aliases(rows: list[tuple[str, str, str]]) -> dict[str, str]:
+    """rows = (ucid, pseudo actuel, pseudo déjà utilisé) → {pseudo: pseudo actuel du même compte DCS}.
+
+    Un pseudo porté par plusieurs UCID (ou dont le pseudo actuel l'est) est ambigu : on n'y touche pas.
+    """
+    ucids, current = _owners(rows)
     out = {}
     for name, owners in ucids.items():
         if len(owners) == 1:

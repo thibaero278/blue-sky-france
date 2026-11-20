@@ -33,6 +33,10 @@ const HEADERS = ['Pilote', 'Niveau', 'Points', 'Heures totales (s)', 'Heures com
   'Kill air-sol le plus loin (m)', 'Kill air-sol le plus proche (m)', 'Date kill air-sol le plus loin', 'Date kill air-sol le plus proche',
   'Max kills air-air en un vol', 'Max kills air-sol en un vol', 'Date max kills air-air', 'Date max kills air-sol'];
 
+// « = + - @ » en tête de cellule : Sheets lirait une formule (pseudo DCS « =Demandes!C2 » → une demande RGPD
+// affichée sur le site, tag « =JTF= » → #ERROR!). L'apostrophe force le texte, getValues la retire.
+const cell_ = v => typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
+
 function sheet_(name, headers) {
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName(name);
@@ -52,7 +56,7 @@ function doPost(e) {
 
   if (d.type === 'scores' || d.type === 'stats') {
     const sh = sheet_('Pilotes', HEADERS);
-    const rows = (d.pilots || []).map(p => COLS.map(c => p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : 0)));
+    const rows = (d.pilots || []).map(p => COLS.map(c => cell_(p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : 0))));
     rows.sort((a, b) => b[2] - a[2]);
     sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);  // en-tetes a jour si une colonne a ete ajoutee
     if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLS.length).clearContent();
@@ -61,9 +65,9 @@ function doPost(e) {
     const srv = sheet_('Serveur', ['Cle', 'Valeur']);
     srv.getRange(2, 1, 4, 2).setValues([
       ['Derniere mise a jour', new Date()],
-      ['Serveur', d.server || ''],
-      ['Mission', d.mission || ''],
-      ['En ligne', (d.online || []).map(o => o.name).join(', ')],
+      ['Serveur', cell_(d.server || '')],
+      ['Mission', cell_(d.mission || '')],
+      ['En ligne', cell_((d.online || []).map(o => o.name).join(', '))],
     ]);
     CacheService.getScriptCache().remove('JSON');
     return text_('ok');
@@ -103,23 +107,26 @@ function doPost(e) {
   // Missions publiees depuis Discord (clic droit « Publier sur le site ») : une propriete par mission
   // (MISSION_<id evenement>, 9 ko max chacune) + la liste MISSIONS. Les missions retirees sont effacees.
   if (d.type === 'missions') {
-    const props = PropertiesService.getScriptProperties();
+    const props = PropertiesService.getScriptProperties(), cache = CacheService.getScriptCache();
     const ids = [];
     (d.missions || []).forEach(m => {
       if (!/^\d+$/.test(String(m.id))) return;
-      props.setProperty('MISSION_' + m.id, JSON.stringify(shrinkMission_(m)));
+      const json = JSON.stringify(shrinkMission_(m));
+      props.setProperty('MISSION_' + m.id, json);
+      cache.put('MISSION_' + m.id, json, CACHE_S);  // lu par mission_() sans toucher au quota Properties
       ids.push(String(m.id));
     });
     Object.keys(props.getProperties())
       .filter(k => k.indexOf('MISSION_') === 0 && ids.indexOf(k.slice(8)) < 0)
-      .forEach(k => props.deleteProperty(k));
+      .forEach(k => { props.deleteProperty(k); cache.remove(k); });
     props.setProperty('MISSIONS', JSON.stringify(ids));
+    cache.put('MISSIONS', JSON.stringify(ids), CACHE_S);
     return text_('ok');
   }
 
   if (d.type === 'changelog') {
     sheet_('Changelog', ['Date', 'Fichier', 'Version', 'Hash', 'Notes'])
-      .appendRow([new Date(), d.file || '', d.version || '', d.hash || '', d.notes || '']);
+      .appendRow([new Date(), d.file || '', d.version || '', d.hash || '', d.notes || ''].map(cell_));
     CacheService.getScriptCache().remove('JSON');
     return text_('ok');
   }
@@ -131,12 +138,16 @@ function doGet(e) {
   const fmt = e && e.parameter.format;
   if (fmt === 'mission') {
     const id = String(e.parameter.id || '');
-    const json = /^\d+$/.test(id) && PropertiesService.getScriptProperties().getProperty('MISSION_' + id);
+    const json = /^\d+$/.test(id) && mission_(id);
     return ContentService.createTextOutput(json || '{"error":"not found"}').setMimeType(ContentService.MimeType.JSON);
   }
   const cache = CacheService.getScriptCache();
   if (fmt === 'live') {
-    const live = cache.get('LIVE') || PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}';
+    let live = cache.get('LIVE');
+    if (!live) {  // serveur éteint depuis plus de 6 h : une lecture du secours, remise en cache (pas une par visite)
+      live = PropertiesService.getScriptProperties().getProperty('LIVE') || '{"players":[]}';
+      cache.put('LIVE', live, CACHE_S);
+    }
     return ContentService.createTextOutput(live).setMimeType(ContentService.MimeType.JSON);
   }
   if (fmt === 'trails') {
@@ -151,6 +162,23 @@ function doGet(e) {
     return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
   }
   return text_('Relais Blue Sky France : https://thibaero278.github.io/blue-sky-france/');
+}
+
+// Briefing publié : cache d'abord ; Properties seulement pour un id de la liste MISSIONS, une fois par 6 h
+// (une boucle de GET sur des id au hasard épuisait le quota Properties de la journée, 20/11)
+function mission_(id) {
+  const cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
+  const hit = cache.get('MISSION_' + id);
+  if (hit) return hit;
+  let ids = cache.get('MISSIONS');
+  if (!ids) {
+    ids = props.getProperty('MISSIONS') || '[]';
+    cache.put('MISSIONS', ids, CACHE_S);
+  }
+  if (JSON.parse(ids).indexOf(id) < 0) return null;
+  const json = props.getProperty('MISSION_' + id);
+  if (json) cache.put('MISSION_' + id, json, CACHE_S);
+  return json;
 }
 
 function getData_() {
@@ -200,10 +228,8 @@ function suppression_(d) {
   const n = Number(cache.get('suppr') || 0);
   if (n >= 30) return text_('busy');
   cache.put('suppr', String(n + 1), 3600);
-  // « = + - @ » en tete de cellule seraient lus comme une formule par Sheets
-  const cell = s => /^[=+\-@]/.test(s) ? "'" + s : s;
   sheet_('Demandes', ['Date', 'Pseudo en jeu', 'Pseudo Discord', 'Message', 'Statut'])
-    .appendRow([new Date(), cell(pseudo), cell(discord), cell(message), 'A traiter']);
+    .appendRow([new Date(), cell_(pseudo), cell_(discord), cell_(message), 'A traiter']);
   try {
     MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Blue Sky : demande de suppression de stats',
       'Pseudo en jeu : ' + pseudo + '\nPseudo Discord : ' + discord + '\nMessage : ' + message +

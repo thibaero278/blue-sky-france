@@ -26,9 +26,9 @@
   // Stats du pilote cliqué (classement), en passant par les alias de pseudo de config.js
   let pilots = [];
   loadStats().then(s => (pilots = s.pilots || []));
-  const alias = {};
-  Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.concat(cs).forEach(n => (alias[n.toLowerCase()] = cs)));
-  const short = cs => alias[String(cs).toLowerCase()] || cs;  // pseudo court de config.js (« Breakdown »), sinon celui du jeu
+  const alias = Object.create(null);  // pseudos exacts seulement, comme le classement (data.js, mergePilots)
+  Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.forEach(n => (alias[n] = cs)));
+  const short = cs => alias[cs] || cs;  // pseudo court de config.js (« Breakdown »), sinon celui du jeu
   const statsOf = cs => pilots.find(x => x.callsign === short(cs));
   const ROLES = { awacs: 'AWACS', tanker: 'Ravitailleur', heli: 'Hélicoptère', heavy: 'Avion lourd', jet: 'Chasseur' };
 

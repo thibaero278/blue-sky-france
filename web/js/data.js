@@ -117,15 +117,17 @@
 
   // Regroupe les pseudos d'une même personne (C.pilotAliases) et retire les pseudos génériques (C.ignorePilots)
   function mergePilots(list) {
-    const alias = {};
-    Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.concat(cs).forEach(n => (alias[n.toLowerCase()] = cs)));
+    // pseudos exacts de config.js seulement : « BREAKDOWN » ou « Breakdown » tout court sont d'autres joueurs (20/11)
+    const alias = Object.create(null);
+    Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.forEach(n => (alias[n] = cs)));
     const ignore = new Set((C.ignorePilots || []).map(n => n.toLowerCase()));
     const out = new Map();
     list.forEach(p => {
       if (p.name == null || p.name === '' || ignore.has(String(p.name).toLowerCase())) return;
-      const cs = alias[String(p.name).toLowerCase()] || String(p.name);
-      const cur = out.get(cs);
-      if (!cur) { out.set(cs, { ...p, name: cs }); return; }
+      const name = String(p.name), cs = alias[name];
+      const key = cs ? '\u0000' + cs : name;  // groupe d'alias à part : un joueur nommé comme son nom affiché n'y entre pas
+      const cur = out.get(key);
+      if (!cur) { out.set(key, { ...p, name: cs || name }); return; }
       Object.entries(p).forEach(([k, v]) => {
         if (typeof v !== 'number') { if (cur[k] == null || cur[k] === 'ROOKIE') cur[k] = v; return; }
         // shortcut: la date d'un record suit le premier pseudo, pas forcément celui qui détient le record
@@ -323,9 +325,9 @@
   function loadServer() {
     return serverP || (serverP = loadLive().then(l => {
       if (l.error || l.offline) return { demo: false, up: false, online: [], mission: '', clock: null };
-      const alias = {};  // pseudo court de config.js (« Breakdown ») plutôt que le pseudo complet du jeu
-      Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.forEach(n => (alias[n.toLowerCase()] = cs)));
-      const online = [...new Set((l.online || (l.players || []).map(p => p.callsign)).filter(Boolean).map(n => alias[n.toLowerCase()] || n))];
+      const alias = Object.create(null);  // pseudo court de config.js (« Breakdown ») pour le pseudo exact du jeu
+      Object.entries(C.pilotAliases || {}).forEach(([cs, names]) => names.forEach(n => (alias[n] = cs)));
+      const online = [...new Set((l.online || (l.players || []).map(p => p.callsign)).filter(Boolean).map(n => alias[n] || n))];
       const clock = l.missionTime != null ? { t: l.missionTime, at: Date.now() } : null;
       return { demo: !!l.demo, up: true, online, mission: l.mission || '', clock };
     }));

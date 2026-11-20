@@ -45,8 +45,9 @@ DEFAULTS = {
     'site_url': 'https://thibaero278.github.io/blue-sky-france/',
     'discord_invite': 'https://discord.gg/zVEsRbm8h2',
     'relay': {'url': '', 'token': ''},
-    # Pseudos d'un même pilote que l'UCID ne relie pas (pseudo d'avant le bot, nom porté par plusieurs comptes) :
-    # « ancien pseudo: pseudo actuel ». Prioritaire sur l'UCID. Les stats de l'ancien sont versées dans l'actuel.
+    # Seuls pseudos fusionnés : « ancien pseudo: pseudo actuel », les stats de l'ancien sont versées dans l'actuel.
+    # Un changement de pseudo vu par l'UCID est seulement signalé au staff (prendre une fois le pseudo d'un autre
+    # suffisait à voler ses stats, 20/11) : l'ajouter ici s'il est légitime. Jamais d'alias d'un seul mot (« Branch »).
     'aliases': {},
     # Rôles Discord affichés dans « L'équipe » du site (noms ou IDs, du plus haut au plus bas).
     # Vide = automatique : rôles affichés à part dans la liste des membres, avec droits de modération.
@@ -95,7 +96,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         # (bluesky_scores_base) : ce qu'un serveur a gagné depuis sa dernière lecture s'ajoute au total.
         self._total: dict[str, dict] = {}
         self._base: dict[str, dict] = {}
-        self._alias: dict[str, str] = {}  # pseudo → pseudo actuel du même UCID (tables players de DCSServerBot)
+        self._alias: dict[str, str] = {}  # ancien pseudo → pseudo actuel : alias manuels de bluesky.yaml, seuls fusionnés
+        self._ucid_alias: dict[str, str] = {}  # même chose d'après l'historique UCID : signalé au staff, jamais fusionné seul
+        self._reported: set = set()  # alertes déjà envoyées au staff
         self._hosts: dict[str, tuple[str, str]] = {}  # hôte déjà enregistré, par serveur : (ucid, pseudo)
         self._scores_loaded = asyncio.Event()
         self._scores_lock = asyncio.Lock()
@@ -161,17 +164,35 @@ class BlueSky(Plugin[BlueSkyEventListener]):
         await self.load_aliases()
 
     async def load_aliases(self) -> None:
+        """Seuls les alias manuels de bluesky.yaml fusionnent. L'historique UCID ne fait que signaler : un joueur
+        qui prend une fois le pseudo d'un autre y range ce pseudo sous son propre UCID (vol de stats, 20/11)."""
         async with self.apool.connection() as conn:
             cursor = await conn.execute('SELECT p.ucid, p.name, h.name FROM players p '
                                         'LEFT JOIN players_hist h ON h.ucid = p.ucid')
-            alias = sc.aliases(await cursor.fetchall())
-        alias.update({str(k): str(v) for k, v in (self.cfg().get('aliases') or {}).items()})
-        self._alias = sc.resolve(alias)
+            rows = await cursor.fetchall()
+        self._alias = sc.resolve({str(k): str(v) for k, v in (self.cfg().get('aliases') or {}).items()})
+        self._ucid_alias = sc.resolve(sc.aliases(rows))
+        for name, owners in sc.shared_names(rows).items():
+            if name in self._total and (name, len(owners)) not in self._reported:
+                self._reported.add((name, len(owners)))
+                await self.report(f'⚠️ Le pseudo « {name} » est utilisé par {len(owners)} comptes DCS : leurs stats se '
+                                  f'mélangent sur sa fiche (usurpation possible). Vérifier avec /info ou /find.')
+
+    async def report(self, message: str) -> None:
+        """Alerte pour le staff : journal du bot et salon d'audit de DCSServerBot (channels: audit de bot.yaml)."""
+        self.log.warning('BlueSky: ' + message)
+        await self.bot.audit(message)
 
     async def consolidate(self) -> None:
         """Verse dans le pseudo actuel les stats d'un ancien pseudo encore rangé à part dans le total
-        (alias apparu depuis : changement de pseudo, alias manuel), et efface l'ancien. Une seule fois :
-        ensuite ses gains arrivent directement sur le pseudo actuel (merge)."""
+        (alias manuel ajouté depuis), et efface l'ancien. Une seule fois : ensuite ses gains arrivent
+        directement sur le pseudo actuel (merge). Un alias trouvé par l'UCID est seulement signalé."""
+        for n, target in self._ucid_alias.items():
+            if n in self._total and n not in self._alias and (n, target) not in self._reported:
+                self._reported.add((n, target))
+                await self.report(f'Le pseudo « {n} » ({self._total[n].get("points", 0)} pts) a été porté par le compte '
+                                  f'DCS de « {target} ». Pas fusionné (vol de stats possible) : si c\'est bien la même '
+                                  f'personne, ajouter \'{n}\': \'{target}\' dans aliases de bluesky.yaml.')
         old = [n for n in self._total if n in self._alias]
         if not old:
             return
@@ -650,7 +671,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             if key == 'no':  # absents : seulement le nombre, pas de noms sur le site
                 out[key] = answer.vote_count
                 continue
-            out[key] = [guild.get_member(u.id) or u async for u in answer.voters()]
+            out[key] = [m async for u in answer.voters() if (m := guild.get_member(u.id))]  # parti ou banni : plus publié
         return out
 
     @staticmethod
@@ -826,7 +847,7 @@ class BlueSky(Plugin[BlueSkyEventListener]):
                 + (f'👥 Places : {slots} · le staff choisit parmi les ✅ Présent, les autres sont en liste d\'attente\n'
                    if slots else '👥 Places illimitées : tous les ✅ Présent participent\n')
                 + f'📄 Briefing : {message.jump_url}\n🌐 Sur le site : {self.cfg()["site_url"]}evenements.html',
-                poll=poll)
+                poll=poll, allowed_mentions=discord.AllowedMentions.none())  # nom d'événement « @everyone » : ne sonne pas
         async with self.apool.connection() as conn:
             await conn.execute("""
                 INSERT INTO bluesky_missions (event_id, channel_id, message_id, poll_channel_id, poll_message_id, start_time, slots)
@@ -947,7 +968,8 @@ class BlueSky(Plugin[BlueSkyEventListener]):
     @app_commands.autocomplete(pseudo=pilot_autocomplete)
     async def supprimer_pilote(self, interaction: discord.Interaction, pseudo: str):
         key = self._alias.get(pseudo, pseudo)
-        names = [n for n in self._total if self._alias.get(n, n) == key]
+        # RGPD : aussi les pseudos du même compte DCS d'après l'UCID ; la question oui/non les liste tous
+        names = [n for n in self._total if key in (self._alias.get(n, n), self._ucid_alias.get(n))]
         if not names:
             # noinspection PyUnresolvedReferences
             await interaction.response.send_message(f'Aucun pilote « {pseudo} » dans les scores.', ephemeral=True)
@@ -1027,7 +1049,9 @@ class BlueSky(Plugin[BlueSkyEventListener]):
             lines.append(f'**{server.display_name}** — {mission} — {len(players)} joueur(s)')
             lines += [f'• {p.name} ({p.unit_type})' for p in players]
         # noinspection PyUnresolvedReferences
-        await interaction.response.send_message('\n'.join(lines) or 'Aucun serveur DCS.')
+        # pseudo DCS « @everyone » ou « <@id> » : affiché, ne fait sonner personne
+        await interaction.response.send_message('\n'.join(lines) or 'Aucun serveur DCS.',
+                                                allowed_mentions=discord.AllowedMentions.none())
 
 
 class EventPicker(discord.ui.View):
