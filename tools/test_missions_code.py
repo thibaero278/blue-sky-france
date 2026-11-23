@@ -298,6 +298,7 @@ function credit(o, who) OpCredit({ TgtUnitName = o:getName() }, { who }) end
 # renforts, convois et unites inactives ne comptent jamais dans une base ; hors rayon non plus
 assert ev('NOT_BASE["renfort"]') and ev('NOT_BASE["Gudauta convoie"]') and ev('NOT_BASE["convoie-1"]')
 assert ev('CampaignStage') == 1
+lua.execute('ORIG_STATICS = coalition.getStaticObjects; coalition.getStaticObjects = function() return {} end')  # 23/11 : structures comptees, aucune ici
 ev('StrikeLaunch(leader, BASE_DEFS[1])')
 assert ev('Ops["Base Gudauta"].left') == 2
 ev(f'enter(wing, Ops["Base Gudauta"].code)')
@@ -308,12 +309,14 @@ lua.execute('REFRESH = 0; StrikeDead[G1.units[2]:getName()] = true'); ev('Strike
 assert ev('Ops["Base Gudauta"]') is None and ev('AWARD.Alpha') == 30 and ev('AWARD.Bravo') is None
 assert 'Aucune cible detruite, pas de bonus : Bravo' in ev('SENT[#SENT].text')
 assert ev('CampaignStage') == 2 and 'Gudauta est tombee' in ev('ALL[1]') and 'Sochi' in ev('ALL[1]') and ev('REFRESH') == 1
+assert 'Gudauta est neutre (blanche)' in ev('ALL[2]') and ev('BaseState.Gudauta') == 'white'  # 23/11 : a capturer
 # relancer Gudauta : detruite, la campagne ne recule pas
 ev('StrikeLaunch(leader, BASE_DEFS[1])'); assert 'deja detruit' in ev('GMSG.L') and ev('CampaignStage') == 2
 # Sochi videe sans mission : son lancement ouvre Anapa ; Anapa vide : victoire
 lua.execute('StrikeDead[SO.units[1]:getName()] = true'); ev('StrikeLaunch(leader, BASE_DEFS[2])')
-assert ev('CampaignStage') == 3 and 'Anapa' in ev('ALL[2]')
-ev('StrikeLaunch(leader, BASE_DEFS[3])'); assert ev('CampaignStage') == 4 and 'victoire' in ev('ALL[3]')
+assert ev('CampaignStage') == 3 and 'Anapa' in ev('ALL[3]')
+ev('StrikeLaunch(leader, BASE_DEFS[3])'); assert ev('CampaignStage') == 4 and 'victoire' in ev('ALL[5]')
+lua.execute('coalition.getStaticObjects = ORIG_STATICS')
 
 # Convoi de renfort : aucune cible tant qu'il n'est pas active
 assert ev('#CONVOY_DEFS[1].targets()') == 0
@@ -354,6 +357,8 @@ lua.execute('''
 PlayerMissionMenus, PlayerCodeMenus = {}, {}
 function leader:GetDCSObject() return { getCoalition = function() return 2 end } end
 function texts(m) local t = {} for _, i in ipairs(m.children) do t[#t + 1] = i.text end return table.concat(t, "|") end
+CAMPAIGN = { { base = 'Gudauta' }, { base = 'Sochi' }, { base = 'Anapa' } }  -- 23/11 : menu CAPTURE
+PRICES = { cargo = 60, helo = 40, cap = 40 }
 ''' + cut('-- BASES et CONVOIS changent', '------------------------------------------------------------\n-- MENUS F10 COALITION BLEUE') + '''
 _G.PlayerDynMenus = PlayerDynMenus
 CampaignStage = 1
@@ -364,7 +369,7 @@ AddMissionMenusForGroup(leader, "L")
 ''')
 assert ev('texts(PlayerDynMenus.L.bases)') == 'Base Gudauta'
 assert ev('texts(PlayerDynMenus.L.convois)') == 'Convoi nord'
-assert ev('texts(PlayerDynMenus.L.root)') == 'BASES|CONVOIS|STRIKE|NAVAL|AIR|Rappel de mes missions'
+assert ev('texts(PlayerDynMenus.L.root)') == 'BASES|CONVOIS|STRIKE|NAVAL|AIR|CAPTURE|Rappel de mes missions'
 assert ev('texts(PlayerDynMenus.L.root.children[3])') == 'Petrol Strike|Factory Strike'
 assert ev('texts(PlayerDynMenus.L.root.children[4])') == 'HOST Naval AERA'
 assert ev('#PlayerCodeMenus.L.children') == 9 and ev('#PlayerCodeMenus.L.children[4].children') == 9 and ev('PlayerCodeMenus.L.children[4].children[7].text') == '47'

@@ -16,6 +16,7 @@ lua = fakedcs.runtime()
 lua.execute('''
 function FormatFlightTime(s) return tostring(s) end
 Scores = { A = { maxSpeed = 300, maxAltitude = 9000 }, B = { maxSpeed = 100 } }
+PlayerType = {}
 ''' + code + '''
 _G.SetRecord = SetRecord
 function pa() local n = 0 for _, s in ipairs(Fake.sounds) do if s.kind == "all" and s.file == "PA.ogg" then n = n + 1 end end return n end

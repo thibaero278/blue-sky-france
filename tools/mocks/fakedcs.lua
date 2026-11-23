@@ -102,6 +102,9 @@ function Obj:getDrawArgumentValue() return self.gear or 1 end
 function Obj:getTarget() return self.target end
 function Obj:getCallsign() return self.name end
 function Obj:destroy() self.exists = false end -- comme DCS : aucun événement
+-- aérodromes (23/11, capture) : couleur imposée par le script, capture native de DCS coupée
+function Obj:setCoalition(side) self.coal = side end
+function Obj:autoCapture(on) self.auto = on end
 
 local Grp = {}
 Grp.__index = Grp
@@ -217,6 +220,21 @@ function coalition.getStaticObjects(side)
     local list = {}
     for _, s in ipairs(F.staticList) do if s.exists and s.coal == side then list[#list + 1] = s end end
     return list
+end
+-- Groupe créé par le script (23/11 : troupes, transports et CAP achetés) : pays bleu (USA) ou rouge, unités à leur position
+-- ; DCS envoie Birth pour chaque unité. Garde les données reçues dans Fake.added (vérifications des scénarios).
+F.added = {}
+local KIND_OF = { [0] = "AIRPLANE", [1] = "HELICOPTER", [2] = "GROUND", [3] = "SHIP" }
+function coalition.addGroup(countryId, cat, data)
+    assert(type(data.name) == "string" and data.units and #data.units > 0, "addGroup : nom et unités obligatoires")
+    for _, u in ipairs(data.units) do assert(u.name and u.type and u.x and u.y, "addGroup : unité sans nom, type ou position") end
+    F.added[#F.added + 1] = { country = countryId, cat = cat, data = data }
+    local units = {}
+    for i, u in ipairs(data.units) do units[i] = { name = u.name, type = u.type, x = u.x, z = u.y } end
+    local g = F.addGroup({ name = data.name, kind = KIND_OF[cat], coal = countryId == country.id.USA and 2 or 1,
+        alt = data.units[1].alt, speed = data.units[1].speed, units = units })
+    for _, u in ipairs(g.units) do F.event("Birth", { initiator = u }) end
+    return g
 end
 function coalition.getGroups(side, cat)
     local list = {}

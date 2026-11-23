@@ -71,6 +71,7 @@ end)()''') == 350000
 # mode Blue Sky : un faux Land au sol (pas de vol actif) ne le coupe pas ; la fin d'un vrai vol le compte puis le coupe
 close = src[src.index('local function CloseFlight'):src.index('-- MULTI-EQUIPAGE')].rsplit('---', 1)[0]
 lua.execute('''
+AutoBSUnit = {}
 FlightClosedAt, CrewUnit, BSMode, Flights, S = {}, {}, { P = true }, {}, { totalFlightTime = 0, bsFlightTime = 0, flights = 0 }
 function StopRefuel() end
 function InitPlayer() return S end

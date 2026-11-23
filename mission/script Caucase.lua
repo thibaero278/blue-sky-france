@@ -59,7 +59,8 @@ local SCORE_FIELDS = {
     "teamkills", "deaths", "flights",
     "maxFlightTime", "totalFlightTime", "completedFlightTime", "refuelTime",
     "bsFlightTime", "maxRefuel", "maxKillsFlightAA", "maxKillsFlightAS", "maxKillDistance", "minKillDistance", "maxAltitude", "maxSpeed",
-    "maxKillDistanceAS", "minKillDistanceAS", -- kills air-sol (bateaux compris) ; maxKillDistance / minKillDistance = air-air
+    "maxKillDistanceAS", "minKillDistanceAS", -- kills air-sol
+    "creditsSpent", -- 23/11 : credits depenses (credits = points - creditsSpent) (bateaux compris) ; maxKillDistance / minKillDistance = air-air
 }
 
 local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
@@ -85,6 +86,9 @@ RefuelStart = {}          -- debut du contact ravitaillement par pilote
 UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite est deja morte)
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
 BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
+PlayerType = {}           -- pilote -> type de son avion (annonce des records, 23/11)
+AutoBSUnit = {}           -- pilote -> unite d'un slot Blue Sky (mode Blue Sky permanent, 23/11)
+BS_AUTO_PREFIX = "Aerobatics Team" -- groupes de la .miz : "Aerobatics Team" et "Aerobatics Team 2" (Mozdok, 8 places)
 WelcomeVoiced = {}        -- pilote -> true : voix d'accueil deja jouee depuis le lancement de la mission
 WELCOME_VOICE_DELAY_S = 10 -- s apres l'apparition avant la voix d'accueil (cockpit charge chez le joueur)
 BSCrew = {}               -- unite -> places 2, 3... occupees (pseudos), envoye toutes les 5 s par le bot (mission.lua)
@@ -282,7 +286,8 @@ function SetRecord(playerName, s, field, value)
     s[field] = value
     if best > 0 and Better(field, value, best) then
         local label, fmt = RECORDS[field][1], RECORDS[field][2]
-        MESSAGE:New("*** RECORD BATTU ***\n\n" .. label .. " : " .. playerName .. "\n" .. fmt(value) ..
+        local plane = PlayerType[playerName] -- 23/11 : avion du record
+        MESSAGE:New("*** RECORD BATTU ***\n\n" .. label .. " : " .. playerName .. (plane and (" (" .. plane .. ")") or "") .. "\n" .. fmt(value) ..
             "\n(ancien : " .. fmt(best) .. (holder ~= playerName and (" par " .. holder) or "") .. ")", 12):ToAll()
         -- 17/11 : son de l'atterrissage a tout le serveur ; un seul a la fois (plusieurs records tombent ensemble en fin de vol)
         if timer.getTime() >= RecordSoundAt then
@@ -359,6 +364,12 @@ local function CloseFlight(playerName)
     -- Apres le test du vol actif : un faux Land au sol (pont du PA) coupait le mode avant le decollage.
     local bs = BSMode[playerName]
     BSMode[playerName] = nil
+    -- slot Blue Sky (23/11) : le mode reprend tout seul tant que le pilote reste dans l'avion
+    local auto = AutoBSUnit[playerName]
+    local au = auto and Unit.getByName(auto)
+    if au and au:isExist() and au:getPlayerName() == playerName and not (PlayerLife[playerName] and PlayerLife[playerName].dead) then
+        BSMode[playerName] = true
+    end
 
     local elapsed = timer.getTime() - f.startTime
     local s = InitPlayer(playerName)
@@ -396,9 +407,17 @@ local function EventUnitName(EventData)
     return EventData.IniUnitName or EventData.IniDCSUnitName
 end
 
+-- Nom d'avion lisible ("F/A-18C Lot 20" plutot que "FA-18C_hornet") pour les annonces
+function UnitLabel(u)
+    local ok, d = pcall(u.getDesc, u)
+    return (ok and d and d.displayName) or u:getTypeName()
+end
+
 local function StartCrewFlight(name, unitName)
     StartFlight(name)
     CrewUnit[name] = unitName
+    local cu = Unit.getByName(unitName)
+    if cu then PlayerType[name] = UnitLabel(cu) end
     PlayerLife[name] = { dead = false }
     env.info("BlueSky equipage : vol demarre pour " .. name .. " dans " .. tostring(unitName))
 end
@@ -525,10 +544,28 @@ function ScoreMenuHandler:OnEventBirth(EventData)
     local playerName = EventData.IniPlayerName or dcsUnit:getPlayerName()
     if playerName then
         UnitPlayer[dcsUnit:getName()] = playerName
+        -- 23/11 : vol encore ouvert (aucune sortie recue, ex. plantage du client) : compte comme un slot quitte en vol
+        if Flights[playerName] and Flights[playerName].active then
+            env.info("BLUESKY : vol reste ouvert ferme a la reapparition de " .. playerName)
+            CloseFlight(playerName)
+            ResetStreak(playerName)
+            SaveScores()
+        end
+        PlayerType[playerName] = UnitLabel(dcsUnit)
+        Troops[dcsUnit:getName()] = nil -- avion neuf : pas de troupes a bord
         PlayerLife[playerName] = { dead = false }
         RefuelStart[playerName] = nil
         Flights[playerName] = nil
         BSMode[playerName] = nil -- a reactiver a chaque apparition
+        -- slots Blue Sky de Mozdok (groupes "Aerobatics Team...") : mode Blue Sky actif d'office, de l'apparition a la sortie de l'avion
+        AutoBSUnit[playerName] = nil
+        local g = dcsUnit:getGroup()
+        if g and g:getName():sub(1, #BS_AUTO_PREFIX) == BS_AUTO_PREFIX then
+            AutoBSUnit[playerName] = dcsUnit:getName()
+            BSMode[playerName] = true
+            MessageToPlayer(dcsUnit:getID(), "SLOT BLUE SKY : mode Blue Sky actif d'office.\n" ..
+                "Tous tes vols dans cet avion comptent dans tes heures Blue Sky.", 12)
+        end
         InitPlayer(playerName)
         -- Slot en vol (air start) : pas d'event decollage, on lance le timer ici
         if dcsUnit:inAir() then
@@ -683,6 +720,9 @@ timer.scheduleFunction(CheckAirbornePlayers, nil, timer.getTime() + 5)
 -- si elle est tenue au moins RECORD_HOLD_S, c.-à-d. le minimum des relevés de la dernière seconde.
 RECORD_SAMPLE_S = 0.5
 RECORD_HOLD_S = 1
+-- 23/11 : Joker a ~4150 km/h pendant plus d'1 s (coupure reseau, 15/11) : au-dela, c'est le reseau, pas l'avion.
+-- Plus rapide des avions joueurs : ~Mach 2,5 en altitude (~740 m/s) ; 850 m/s = 3060 km/h
+RECORD_SPEED_MAX = 850
 
 -- Valeur tenue pendant RECORD_HOLD_S d'après l'historique h (relevés { t, v }), ou nil si trop court
 function HeldValue(h, now, value)
@@ -710,7 +750,8 @@ local function SampleFlights()
                         if f.sampleAt and now - f.sampleAt > RECORD_SAMPLE_S * 2.5 then f.altHist, f.spdHist = nil, nil end
                         f.sampleAt = now
                         f.altHist, f.spdHist = f.altHist or {}, f.spdHist or {}
-                        local heldAlt, heldSpd = HeldValue(f.altHist, now, alt), HeldValue(f.spdHist, now, speed)
+                        local heldAlt, heldSpd = HeldValue(f.altHist, now, alt), nil
+                        if speed > RECORD_SPEED_MAX then f.spdHist = {} else heldSpd = HeldValue(f.spdHist, now, speed) end
                         if heldAlt then f.maxAlt = math.max(f.maxAlt or 0, heldAlt) end
                         if heldSpd then f.maxSpeed = math.max(f.maxSpeed or 0, heldSpd) end
                     end
@@ -1220,7 +1261,8 @@ local function PlayerScoresText(playerName)
         "VOL LE PLUS LONG : " .. FormatFlightTime(s.maxFlightTime) .. "\n" ..
         "RAVITAILLEMENT   : " .. FormatFlightTime(s.refuelTime) .. "\n" ..
         "HEURES BLUE SKY  : " .. FormatFlightTimeLong(s.bsFlightTime) ..
-        "  (mode " .. (BSMode[playerName] and "ACTIF" or "inactif") .. ")"
+        "  (mode " .. (BSMode[playerName] and "ACTIF" or "inactif") .. ")\n" ..
+        "CREDITS          : " .. Credits(playerName) .. "  (1 point = 1 credit, F10 > MISSIONS > CAPTURE)"
     return txt
 end
 
@@ -1588,7 +1630,11 @@ function OnGroundTargetKilled(obj)
             end
             env.info("BLUESKY : premier kill a " .. base.name .. ", renforts actives")
             -- les convois en route apparaissent dans F10 > MISSIONS > CONVOIS (2 s : laisser l'activation se faire)
-            timer.scheduleFunction(function() RefreshMissionMenus() end, nil, timer.getTime() + 2)
+            local groups = base.groups
+            timer.scheduleFunction(function()
+                RefreshMissionMenus()
+                ConvoyAnnounce(groups) -- 23/11 : convoi annonce a tout le serveur des qu'il part
+            end, nil, timer.getTime() + 2)
         end
     end
 end
@@ -1638,6 +1684,7 @@ end
 
 EniActive = false
 EniWave = nil -- { groups = { GROUP... }, t0 = temps du spawn }
+EniGroups = {} -- tous les groupes sortis par Spawn ENI (vagues finies comprises) : effaces a la desactivation (23/11)
 
 local function UnitSpent(u)
     if not u:isExist() or u:getLife() < 1 or not u:inAir() or u:getFuel() < ENI_FUEL_MIN then return true end
@@ -1671,7 +1718,10 @@ local function SpawnEniWave()
             groups[#groups + 1] = esc
         end
     end
-    for _, g in ipairs(groups) do HostileGroups[#HostileGroups + 1] = g end
+    for _, g in ipairs(groups) do
+        HostileGroups[#HostileGroups + 1] = g
+        EniGroups[#EniGroups + 1] = g
+    end
     EniWave = { groups = groups, t0 = timer.getTime() }
     env.info("BLUESKY : Spawn ENI : " .. table.concat(wave, " + "))
 end
@@ -1690,7 +1740,16 @@ end, nil, timer.getTime() + 30)
 
 function SetEniSpawn(on)
     EniActive = on
-    MESSAGE:New(on and "SPAWN ENI ACTIVE" or "SPAWN ENI DESACTIVE", 10):ToCoalition(coalition.side.BLUE)
+    local n = 0
+    if not on then
+        -- 23/11 : desactiver efface aussi les avions ENI encore la (vague en cours et anciennes vagues)
+        for _, g in ipairs(EniGroups) do
+            if g and g:IsAlive() then g:Destroy() n = n + 1 end
+        end
+        EniGroups, EniWave = {}, nil
+    end
+    MESSAGE:New(on and "SPAWN ENI ACTIVE" or ("SPAWN ENI DESACTIVE" .. (n > 0 and ("\n" .. n .. " groupe(s) ENI retire(s)") or "")), 10)
+        :ToCoalition(coalition.side.BLUE)
 end
 
 -- Noms de l'editeur a verifier dans dcs.log si un renfort ou une vague ne part pas
@@ -1782,23 +1841,31 @@ local VOIX = {
     c44 = { "c44_factory_ok.ogg", 3.8 },
 }
 
--- Joue une voix ou une liste de voix a la suite (DCS superpose deux sons lances ensemble), aux membres presents a ce moment-la
-local function OpVoice(op, voice)
-    if not voice then return end
-    local at = timer.getTime() + 0.5
+-- Joue une voix ou une liste de voix a la suite (DCS superpose deux sons lances ensemble), aux unites de units()
+-- au moment de chaque voix ; units = nil : tout le serveur. Renvoie l'heure de fin.
+function PlayVoices(voice, units, at)
+    at = at or timer.getTime() + 0.5
+    if not voice then return at end
     for _, key in ipairs(type(voice) == "table" and voice or { voice }) do
         local v = VOIX[key]
-        timer.scheduleFunction(function()
-            for _, u in ipairs(MemberUnits(op)) do trigger.action.outSoundForUnit(u:getID(), v[1]) end
-        end, nil, at)
-        at = at + v[2] + 0.5
+        if v then
+            timer.scheduleFunction(function()
+                if not units then trigger.action.outSound(v[1]) return end
+                for _, u in ipairs(units()) do trigger.action.outSoundForUnit(u:getID(), v[1]) end
+            end, nil, at)
+            at = at + v[2] + 0.5
+        end
     end
+    return at
 end
 
--- Annonce a tout le serveur (base tombee)
+-- aux membres presents a ce moment-la
+local function OpVoice(op, voice) PlayVoices(voice, function() return MemberUnits(op) end) end
+
+-- Annonce a tout le serveur (base tombee) ; deux annonces se suivent au lieu de se superposer (23/11 : convois)
+VoiceAllAt = 0
 local function VoiceAll(key)
-    local v = key and VOIX[key]
-    if v then timer.scheduleFunction(function() trigger.action.outSound(v[1]) end, nil, timer.getTime() + 0.5) end
+    VoiceAllAt = PlayVoices(key, nil, math.max(VoiceAllAt, timer.getTime() + 0.5))
 end
 
 -- Anti-triche : retient les membres venus sur zone, seuls eux auront le bonus (pas de tir de tres loin, pas de points sur le dos des autres)
@@ -1859,6 +1926,8 @@ local function OpJoin(op, group)
     OpMsg(op, table.concat(names, ", ") .. " a rejoint la mission " .. op.label .. ".", 10)
     for _, name in ipairs(names) do op.members[name] = true end
     GroupMsg(group, "MISSION REJOINTE\n\n" .. OpBrief(op), 30)
+    -- 23/11 : seul le lanceur entendait le briefing ; qui rejoint l'entend a son tour
+    PlayVoices(op.briefVoice, function() return GroupDCSUnits(group) end)
 end
 
 function CodeJoin(group, code)
@@ -2582,6 +2651,20 @@ local CONVOY_MISSIONS = {
       brief = "COMMANDEMENT : Contre-attaque russe : un convoi parti de Gudauta fait route vers Soukhoumi. Arretez-le." },
 }
 local CONVOY_BONUS = 20
+
+-- Renforts actives (premier kill pres d'une base) : chaque convoi qui part est annonce a tout le serveur, texte + voix
+function ConvoyAnnounce(groupNames)
+    local active = {}
+    for _, name in ipairs(groupNames) do active[name] = true end
+    for _, c in ipairs(CONVOY_MISSIONS) do
+        if active[c.group] then
+            MESSAGE:New(c.brief:gsub("^COMMANDEMENT : ", "COMMANDEMENT : Convoi repere ! ") ..
+                "\nMission : F10 > MISSIONS > CONVOIS > " .. c.label, 20):ToAll()
+            VoiceAll(c.voice)
+            env.info("BLUESKY : convoi annonce : " .. c.label)
+        end
+    end
+end
 -- Convoi nord : un tire au sort parmi les vivants (GCI-2 exclu : site radar, pas un convoi)
 local NORTH_CONVOYS = { "convoie-1", "convoie-2", "convoie-3", "convoie-4", "convoie-5", "convoie-6", "sochi convoie-1" }
 local NORTH_LABEL = "Convoi nord"
@@ -2618,10 +2701,19 @@ local function BaseTargets(baseName)
             end
         end
     end
+    -- 23/11 : les structures aussi (statiques rouges : avions gares, batiments poses dans l'editeur)
+    local nStatics = 0
+    for _, o in ipairs(coalition.getStaticObjects(coalition.side.RED) or {}) do
+        -- epave d'une structure deja detruite : vie a 0 mais toujours la (sinon cible eternelle, mission impossible a finir)
+        if TargetAlive(o) and (o:getLife() or 0) > 0 and Distance2D(o:getPoint(), center) <= BASE_RADIUS then
+            list[#list + 1] = o
+            nStatics = nStatics + 1
+        end
+    end
     local names = {}
     for name in pairs(groups) do names[#names + 1] = name end
     table.sort(names)
-    env.info("BLUESKY : base " .. baseName .. ", " .. #list .. " cibles, groupes : " .. table.concat(names, ", "))
+    env.info("BLUESKY : base " .. baseName .. ", " .. #list .. " cibles (" .. nStatics .. " structures), groupes : " .. table.concat(names, ", "))
     return list
 end
 
@@ -2648,6 +2740,7 @@ local function CampaignDone(stage)
                     or ("COMMANDEMENT : " .. name .. " est tombee. Le front russe est brise : victoire !"), 20):ToAll()
     VoiceAll(CAMPAIGN[stage].fallen)
     env.info("BLUESKY : campagne, " .. name .. " tombee")
+    BaseFallen(name) -- 23/11 : la base passe blanche, a capturer
 end
 
 local BASE_DEFS, CONVOY_DEFS = {}, {}
@@ -2697,7 +2790,8 @@ function StrikeLaunch(group, def)
     op.isTarget = function(unitName, groupName)
         return (unitName and op.names[unitName]) or (groupName and def.creditGroups and def.creditGroups[groupName]) or false
     end
-    OpVoice(op, def.voice and def.voice.brief)
+    op.briefVoice = def.voice and def.voice.brief
+    OpVoice(op, op.briefVoice)
 end
 
 local function OpIdleClose(op, now)
@@ -2738,6 +2832,338 @@ timer.scheduleFunction(function()
     end
     return timer.getTime() + 5
 end, nil, timer.getTime() + 5)
+
+------------------------------------------------------------
+-- CAPTURE DES BASES ET CREDITS (23/11)
+-- Base videe (mission BASES reussie) = blanche (neutre). Elle passe bleue quand un transport joueur y debarque des
+-- troupes embarquees sur une base bleue (F10 > MISSIONS > CAPTURE), ou quand un C-130 / helico IA achete s'y pose.
+-- La base suivante s'ouvre toujours a la destruction (choix de Thibaud du 23/11), la capture est un bonus.
+-- Credits par pilote = points valides - creditsSpent (1 point gagne = 1 credit ; acheter ne baisse jamais les points).
+-- creditsSpent est un compteur qui ne fait que monter : le bot (scores.py) l'additionne entre serveurs comme les kills.
+------------------------------------------------------------
+CAPTURE_RADIUS = 3000 -- m du centre de l'aerodrome pour embarquer / debarquer
+CAPTURE_BONUS = 20    -- points pour chaque membre d'equipage qui debarque les troupes
+TROOP_TYPES = { ["Mi-8MT"] = true, ["UH-1H"] = true, ["CH-47Fbl1"] = true, ["Mi-24P"] = true, ["UH-60L"] = true,
+                ["C-130J-30"] = true, ["Hercules"] = true }
+PRICES = { cargo = 60, helo = 40, cap = 40 }
+BUY_TIMEOUT_S = 2400  -- transport achete pas pose apres 40 min (coince, detourne) : retire, base de nouveau achetable
+BUY_CAP_S = 1800      -- duree de la patrouille CAP achetee
+BaseState = {}        -- base de la campagne -> "white" | "blue" (absent : rouge)
+Troops = {}           -- unite joueur -> true : troupes a bord
+BuyOrders = {}        -- unite IA achetee -> { base, buyer, kind, group }
+BuyBusy = {}          -- base -> true : un transport achete est deja en route
+CapBusy = {}          -- base -> true : une CAP achetee y tourne deja (pas 10 patrouilles empilees)
+BuyCount = 0
+CampaignAB = {}       -- base -> aerodrome DCS (false : introuvable)
+
+function Credits(name)
+    local s = Scores[name]
+    return s and math.max(0, math.floor((s.points or 0) - (s.creditsSpent or 0))) or 0
+end
+
+do
+    local BLUE_SIDE = coalition.side.BLUE
+
+    -- Aerodrome DCS le plus proche du centre de la base de la campagne (noms DCS : "Sochi-Adler", "Anapa-Vityazevo"...)
+    function BaseAirbase(name)
+        if CampaignAB[name] ~= nil then return CampaignAB[name] or nil end
+        local center
+        for _, b in ipairs(BASES) do if b.name == name then center = { x = b.x, z = b.y } end end
+        local best, bd
+        for _, ab in ipairs(center and world.getAirbases() or {}) do
+            if ab:getDesc().category == Airbase.Category.AIRDROME then
+                local d = Distance2D(ab:getPoint(), center)
+                if d < BASE_RADIUS and (not bd or d < bd) then best, bd = ab, d end
+            end
+        end
+        CampaignAB[name] = best or false
+        if not best then env.info("BLUESKY : capture : aerodrome introuvable pour " .. name) end
+        return best
+    end
+
+    local function SetBaseSide(name, side)
+        local ab = BaseAirbase(name)
+        if ab then
+            -- capture native de DCS coupee : c'est le script qui decide de la couleur
+            pcall(function() ab:autoCapture(false) end)
+            local ok, err = pcall(function() ab:setCoalition(side) end)
+            if not ok then env.warning("BLUESKY : capture : setCoalition " .. name .. " : " .. tostring(err)) end
+        end
+        BaseState[name] = (side == 0 and "white") or (side == BLUE_SIDE and "blue") or nil
+    end
+
+    for _, c in ipairs(CAMPAIGN) do
+        local ab = BaseAirbase(c.base)
+        if ab then pcall(function() ab:autoCapture(false) end) end
+    end
+
+    local function WhiteList()
+        local list = {}
+        for _, c in ipairs(CAMPAIGN) do if BaseState[c.base] == "white" then list[#list + 1] = c.base end end
+        return #list > 0 and table.concat(list, ", ") or "aucune pour l'instant (videz d'abord une base : F10 > MISSIONS > BASES)"
+    end
+
+    -- Appelee par CampaignDone : base videe, elle devient blanche
+    function BaseFallen(name)
+        SetBaseSide(name, 0)
+        MESSAGE:New("COMMANDEMENT : " .. name .. " est neutre (blanche). Capturez-la : debarquez des troupes avec un transport " ..
+            "(F10 > MISSIONS > CAPTURE), ou achetez un cargo IA avec vos credits.", 20):ToAll()
+        env.info("BLUESKY : capture, " .. name .. " blanche")
+    end
+
+    -- crew : equipage a recompenser (nil : achat, pas de bonus)
+    local function Capture(name, how, crew)
+        if BaseState[name] ~= "white" then return false end
+        SetBaseSide(name, BLUE_SIDE)
+        local paid = {}
+        for _, n in ipairs(crew or {}) do
+            AwardPoints(n, CAPTURE_BONUS)
+            paid[#paid + 1] = n
+        end
+        if #paid > 0 then SaveScores() end
+        MESSAGE:New("*** BASE CAPTUREE ***\n\n" .. name .. " est bleue (" .. how .. ")." ..
+            (#paid > 0 and ("\n+" .. CAPTURE_BONUS .. " pts pour " .. table.concat(paid, ", ") .. ".") or ""), 20):ToAll()
+        env.info("BLUESKY : capture, " .. name .. " bleue (" .. how .. ")")
+        return true
+    end
+
+    local function NearBase(u, side, kinds)
+        local p = u:getPoint()
+        for _, ab in ipairs(world.getAirbases() or {}) do
+            if ab:getCoalition() == side and kinds[ab:getDesc().category] and Distance2D(ab:getPoint(), p) <= CAPTURE_RADIUS then
+                return ab
+            end
+        end
+    end
+
+    local function WhiteBaseAt(u)
+        for _, c in ipairs(CAMPAIGN) do
+            local ab = BaseState[c.base] == "white" and BaseAirbase(c.base)
+            if ab and Distance2D(ab:getPoint(), u:getPoint()) <= CAPTURE_RADIUS then return c.base end
+        end
+    end
+
+    -- Appelle fn(unite, pilote) pour chaque avion du groupe qui a un joueur (le clic F10 vaut pour tout le groupe)
+    local function ForEachPlayerUnit(group, fn)
+        for _, u in ipairs(GroupDCSUnits(group)) do
+            local pilot = u:isExist() and u:getPlayerName()
+            if pilot then fn(u, pilot) end
+        end
+    end
+
+    local PICKUP = { [Airbase.Category.AIRDROME] = true, [Airbase.Category.HELIPAD] = true, [Airbase.Category.SHIP] = true }
+
+    function TroopsEmbark(group)
+        if not group or not group:IsAlive() then return end
+        ForEachPlayerUnit(group, function(u)
+            local why
+            if not TROOP_TYPES[u:getTypeName()] then why = "cet appareil ne transporte pas de troupes (Mi-8, UH-1, CH-47, Mi-24, C-130J)."
+            elseif u:inAir() then why = "pose-toi d'abord sur une base bleue (aerodrome, FARP ou PA)."
+            elseif Troops[u:getName()] then why = "troupes deja a bord."
+            elseif not NearBase(u, BLUE_SIDE, PICKUP) then why = "il faut etre pose sur une base bleue (aerodrome, FARP ou PA)."
+            end
+            if why then MessageToPlayer(u:getID(), "TROUPES : " .. why, 8) return end
+            Troops[u:getName()] = true
+            MessageToPlayer(u:getID(), "TROUPES A BORD.\nPose-toi sur une base blanche et debarque-les : F10 > MISSIONS > CAPTURE.\n" ..
+                "Bases a capturer : " .. WhiteList(), 12)
+        end)
+    end
+
+    function TroopsDrop(group)
+        if not group or not group:IsAlive() then return end
+        ForEachPlayerUnit(group, function(u, pilot)
+            local id = u:getID()
+            if not Troops[u:getName()] then MessageToPlayer(id, "TROUPES : aucune troupe a bord. Embarque-les sur une base bleue.", 8) return end
+            if u:inAir() then MessageToPlayer(id, "TROUPES : pose-toi d'abord.", 8) return end
+            local base = WhiteBaseAt(u)
+            if not base then MessageToPlayer(id, "TROUPES : pas de base blanche ici.\nBases a capturer : " .. WhiteList(), 10) return end
+            Troops[u:getName()] = nil
+            -- les troupes descendent a cote de l'appareil (elles restent sur la base)
+            local p = u:getPoint()
+            BuyCount = BuyCount + 1
+            pcall(coalition.addGroup, country.id.USA, Group.Category.GROUND, {
+                name = "TROUPES " .. base .. " " .. BuyCount, task = "Ground Nothing",
+                units = { { name = "TROUPES " .. base .. " " .. BuyCount .. "-1", type = "Soldier M4", x = p.x + 25, y = p.z, heading = 0, skill = "Average" },
+                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-2", type = "Soldier M4", x = p.x + 25, y = p.z + 4, heading = 0, skill = "Average" },
+                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-3", type = "Soldier M4", x = p.x + 29, y = p.z, heading = 0, skill = "Average" },
+                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-4", type = "Soldier M4", x = p.x + 29, y = p.z + 4, heading = 0, skill = "Average" } },
+            })
+            Capture(base, "troupes debarquees par " .. pilot, Crew(u:getName(), pilot))
+        end)
+    end
+
+    function ShowCredits(group)
+        if not group or not group:IsAlive() then return end
+        ForEachGroupPlayer(group, function(id, name)
+            MessageToPlayer(id, string.format("CREDITS de %s : %d\n1 point gagne = 1 credit (acheter ne baisse pas tes points).\n" ..
+                "C-130 IA %d - Helico IA %d - CAP alliee %d", name, Credits(name), PRICES.cargo, PRICES.helo, PRICES.cap), 12)
+        end)
+    end
+
+    -- Transport IA achete : apparait en vol a ~40 km au sud-est de la base (cote Soukhoumi), va s'y poser
+    local function SpawnTransport(baseName, buyer, heli)
+        if BaseState[baseName] ~= "white" then return false, baseName .. " n'est pas a capturer (" .. (BaseState[baseName] == "blue" and "deja bleue" or "videz-la d'abord") .. ")." end
+        if BuyBusy[baseName] then return false, "un transport est deja en route vers " .. baseName .. "." end
+        local ab = BaseAirbase(baseName)
+        if not ab then return false, "aerodrome de " .. baseName .. " introuvable." end
+        local p = ab:getPoint()
+        local sx, sz = p.x - 28000, p.z + 28000
+        local alt, speed = heli and 500 or 3000, heli and 60 or 140
+        BuyCount = BuyCount + 1
+        local name = (heli and "ACHAT HELICO " or "ACHAT CARGO ") .. BuyCount
+        local ok, g = pcall(coalition.addGroup, country.id.USA, heli and Group.Category.HELICOPTER or Group.Category.AIRPLANE, {
+            name = name, task = "Transport",
+            route = { points = {
+                { x = sx, y = sz, alt = alt, alt_type = "BARO", type = "Turning Point", action = "Turning Point", speed = speed },
+                { x = p.x, y = p.z, alt = p.y, alt_type = "BARO", type = "Land", action = "Landing", speed = speed, airdromeId = ab:getID() },
+            } },
+            units = { { name = name .. "-1", type = heli and "UH-60A" or "C-130", x = sx, y = sz, alt = alt, alt_type = "BARO",
+                        speed = speed, skill = "Excellent", heading = math.atan2(p.z - sz, p.x - sx),
+                        payload = { fuel = heli and 1100 or 20830, flare = 0, chaff = 0, gun = 100, pylons = {} } } },
+        })
+        if not ok or not g then
+            env.warning("BLUESKY : achat : " .. tostring(g))
+            return false, "le transport n'a pas pu apparaitre."
+        end
+        BuyBusy[baseName] = true
+        BuyOrders[name .. "-1"] = { base = baseName, buyer = buyer, kind = heli and "helico IA" or "C-130 IA", group = name }
+        timer.scheduleFunction(function()
+            local o = BuyOrders[name .. "-1"]
+            if not o then return end
+            BuyOrders[name .. "-1"], BuyBusy[baseName] = nil, nil
+            local gg = Group.getByName(name)
+            if gg then gg:destroy() end
+            MESSAGE:New("ACHAT : le " .. o.kind .. " de " .. buyer .. " n'a pas pu se poser a " .. baseName .. " (retire, credits perdus).", 12):ToCoalition(BLUE_SIDE)
+        end, nil, timer.getTime() + BUY_TIMEOUT_S)
+        return true, (heli and "helico IA" or "C-130 IA") .. " en route vers " .. baseName .. ", pose dans ~" .. (heli and 12 or 6) .. " min"
+    end
+
+    -- Emport repris d'une mission officielle de DCS (FC3-F15C-01) : 4 AIM-120C, 4 AIM-7M, 2 AIM-9M, 3 bidons
+    local F15_PYLONS = {
+        [1] = { CLSID = "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}" }, [2] = { CLSID = "{E1F29B21-F291-4589-9FD8-3272EEC69506}" },
+        [3] = { CLSID = "{6CEB49FC-DED8-4DED-B053-E1F033FF72D3}" }, [4] = { CLSID = "{C8E06185-7CD6-4C90-959F-044679E90751}" },
+        [5] = { CLSID = "{C8E06185-7CD6-4C90-959F-044679E90751}" }, [6] = { CLSID = "{E1F29B21-F291-4589-9FD8-3272EEC69506}" },
+        [7] = { CLSID = "{C8E06185-7CD6-4C90-959F-044679E90751}" }, [8] = { CLSID = "{C8E06185-7CD6-4C90-959F-044679E90751}" },
+        [9] = { CLSID = "{6CEB49FC-DED8-4DED-B053-E1F033FF72D3}" }, [10] = { CLSID = "{E1F29B21-F291-4589-9FD8-3272EEC69506}" },
+        [11] = { CLSID = "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}" },
+    }
+
+    -- CAP alliee achetee : 2 F-15C tournent BUY_CAP_S au-dessus de la base et engagent les avions a moins de 40 km
+    local function SpawnCap(baseName, buyer)
+        if CapBusy[baseName] then return false, "une CAP alliee tourne deja au-dessus de " .. baseName .. "." end
+        local ab = BaseAirbase(baseName)
+        if not ab then return false, "aerodrome de " .. baseName .. " introuvable." end
+        local p = ab:getPoint()
+        local sx, sz = p.x - 30000, p.z + 30000
+        BuyCount = BuyCount + 1
+        local name = "ACHAT CAP " .. BuyCount
+        local units = {}
+        for i = 1, 2 do
+            units[i] = { name = name .. "-" .. i, type = "F-15C", x = sx - 150 * (i - 1), y = sz + 150 * (i - 1), alt = 7000,
+                         alt_type = "BARO", speed = 220, skill = "Excellent", heading = math.atan2(p.z - sz, p.x - sx),
+                         payload = { fuel = 6103, flare = 60, chaff = 120, gun = 100, pylons = F15_PYLONS } }
+        end
+        local ok, g = pcall(coalition.addGroup, country.id.USA, Group.Category.AIRPLANE, {
+            name = name, task = "CAP",
+            route = { points = {
+                { x = sx, y = sz, alt = 7000, alt_type = "BARO", type = "Turning Point", action = "Turning Point", speed = 220 },
+                { x = p.x, y = p.z, alt = 7000, alt_type = "BARO", type = "Turning Point", action = "Turning Point", speed = 220,
+                  task = { id = "ComboTask", params = { tasks = {
+                      { number = 1, auto = false, enabled = true, id = "EngageTargets",
+                        params = { targetTypes = { "Air" }, priority = 0, maxDist = 40000, maxDistEnabled = true } },
+                      { number = 2, auto = false, enabled = true, id = "Orbit",
+                        params = { pattern = "Circle", altitude = 7000, speed = 220 } },
+                  } } } },
+            } },
+            units = units,
+        })
+        if not ok or not g then
+            env.warning("BLUESKY : achat CAP : " .. tostring(g))
+            return false, "la patrouille n'a pas pu apparaitre."
+        end
+        CapBusy[baseName] = true
+        timer.scheduleFunction(function()
+            CapBusy[baseName] = nil
+            local gg = Group.getByName(name)
+            if gg then
+                gg:destroy()
+                MESSAGE:New("ACHAT : la CAP alliee de " .. buyer .. " au-dessus de " .. baseName .. " rentre (fin des " .. math.floor(BUY_CAP_S / 60) .. " min).", 10):ToCoalition(BLUE_SIDE)
+            end
+        end, nil, timer.getTime() + BUY_CAP_S)
+        return true, "2 F-15C en CAP au-dessus de " .. baseName .. " pendant " .. math.floor(BUY_CAP_S / 60) .. " min"
+    end
+
+    local BUY_FN = {
+        cargo = function(base, buyer) return SpawnTransport(base, buyer, false) end,
+        helo = function(base, buyer) return SpawnTransport(base, buyer, true) end,
+        cap = SpawnCap,
+    }
+
+    -- Le clic F10 vaut pour tout le groupe et DCS ne dit pas qui a clique : chaque joueur du groupe (equipages compris)
+    -- paie sa part, arrondie au-dessus ; refuse si l'un n'a pas assez (passe casseur du 23/11 : avant, le plus riche payait
+    -- seul, un joueur a 0 credit depensait ceux de son equipier). Messages a tous les joueurs du groupe.
+    function Buy(group, what, baseName)
+        if not group or not group:IsAlive() then return end
+        local price, payers, ids = PRICES[what], {}, {}
+        ForEachGroupPlayer(group, function(id, name)
+            if not payers[name] then payers[#payers + 1] = name payers[name] = true end
+            ids[#ids + 1] = id
+        end)
+        if #payers == 0 then return end
+        local function tell(text, t) for _, id in ipairs(ids) do MessageToPlayer(id, text, t) end end
+        local share = math.ceil(price / #payers)
+        local short = {}
+        for _, name in ipairs(payers) do
+            if Credits(name) < share then short[#short + 1] = name .. " (" .. Credits(name) .. ")" end
+        end
+        if #short > 0 then
+            tell(string.format("ACHAT REFUSE : %d credits%s, pas assez pour %s.\n1 point gagne (valide a l'atterrissage) = 1 credit.",
+                price, #payers > 1 and (", soit " .. share .. " chacun") or "", table.concat(short, ", ")), 10)
+            return
+        end
+        local who = table.concat(payers, ", ")
+        local ok, done, info = pcall(BUY_FN[what], baseName, who)
+        if not ok then
+            env.warning("BLUESKY : achat : " .. tostring(done))
+            tell("ACHAT : erreur, rien n'a ete debite.", 8)
+            return
+        end
+        if not done then tell("ACHAT REFUSE : " .. info, 10) return end
+        local left = {}
+        for _, name in ipairs(payers) do
+            local sc = InitPlayer(name)
+            sc.creditsSpent = (sc.creditsSpent or 0) + share
+            left[#left + 1] = name .. " " .. Credits(name)
+        end
+        SaveScores()
+        MESSAGE:New(string.format("ACHAT : %s (%d credits%s) : %s.\nCredits restants : %s.", who, price,
+            #payers > 1 and (", " .. share .. " chacun") or "", info, table.concat(left, ", ")), 12):ToCoalition(BLUE_SIDE)
+    end
+
+    -- Transport IA pose : capture si c'est sur la base visee
+    local BuyHandler = {}
+    function BuyHandler:onEvent(event)
+        local u = event.initiator
+        local ok, name = pcall(function() return u and u:getName() end)
+        local o = ok and name and BuyOrders[name]
+        if not o then return end
+        if event.id == world.event.S_EVENT_LAND then
+            BuyOrders[name], BuyBusy[o.base] = nil, nil
+            local ab = BaseAirbase(o.base)
+            if ab and Distance2D(ab:getPoint(), u:getPoint()) <= CAPTURE_RADIUS then
+                Capture(o.base, o.kind .. " achete par " .. o.buyer)
+            else
+                MESSAGE:New("ACHAT : le " .. o.kind .. " de " .. o.buyer .. " s'est pose ailleurs qu'a " .. o.base .. ".", 10):ToCoalition(BLUE_SIDE)
+            end
+            local gname = o.group
+            timer.scheduleFunction(function() local g = Group.getByName(gname) if g then g:destroy() end end, nil, timer.getTime() + 120)
+        elseif event.id == world.event.S_EVENT_DEAD or event.id == world.event.S_EVENT_CRASH then
+            BuyOrders[name], BuyBusy[o.base] = nil, nil
+            MESSAGE:New("ACHAT : le " .. o.kind .. " de " .. o.buyer .. " a ete abattu avant d'arriver a " .. o.base .. ".", 10):ToCoalition(BLUE_SIDE)
+        end
+    end
+    world.addEventHandler(BuyHandler)
+end
 
 ------------------------------------------------------------
 -- ZONE CAP (10/11) : une vague = un groupe tire au sort dans CAP_GROUPS, qui patrouille au hasard dans la zone "spawn cap".
@@ -2854,6 +3280,7 @@ function CapLaunch(group)
         "Entrez dans la zone CAP et abattez " .. CAP_GOAL .. " appareils ennemis.", group, true, true)
     op.kills = 0
     op.isTarget = function(unitName) return CapTemplate(unitName) ~= nil end
+    op.briefVoice = "c30"
     OpVoice(op, "c30") -- la voix dit "cinq appareils" : a refaire si CAP_GOAL change
 end
 
@@ -2993,6 +3420,15 @@ function AddMissionMenusForGroup(group, groupName)
     MENU_GROUP_COMMAND:New(group, "Lancer", icpt, IcptLaunch, group)
     MENU_GROUP_COMMAND:New(group, "Appel radio", icpt, IcptCall, group)
     MENU_GROUP_COMMAND:New(group, CAP_LABEL, air, CapLaunch, group)
+    local capture = MENU_GROUP:New(group, "CAPTURE", root)
+    MENU_GROUP_COMMAND:New(group, "Embarquer des troupes", capture, TroopsEmbark, group)
+    MENU_GROUP_COMMAND:New(group, "Debarquer les troupes", capture, TroopsDrop, group)
+    MENU_GROUP_COMMAND:New(group, "Mes credits", capture, ShowCredits, group)
+    for _, b in ipairs({ { "cargo", "Acheter C-130 IA (" .. PRICES.cargo .. " cr)" }, { "helo", "Acheter helico IA (" .. PRICES.helo .. " cr)" },
+                         { "cap", "Acheter CAP alliee (" .. PRICES.cap .. " cr)" } }) do
+        local sub = MENU_GROUP:New(group, b[2], capture)
+        for _, c in ipairs(CAMPAIGN) do MENU_GROUP_COMMAND:New(group, c.base, sub, Buy, group, b[1], c.base) end
+    end
     MENU_GROUP_COMMAND:New(group, "Rappel de mes missions", root, OpRecall, group)
     FillDynMenus(e)
     PlayerDynMenus[groupName] = e

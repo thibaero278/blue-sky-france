@@ -16,6 +16,8 @@ lua = fakedcs.runtime()
 lua.execute('''
 Fake.now = 100
 BSCrew, CrewUnit, SeatUnit, Flights, FlightClosedAt, PlayerLife, UnitPlayer = {}, {}, {}, {}, {}, {}, {}
+PlayerType, AutoBSUnit = {}, {}
+function UnitLabel(u) return u:getTypeName() end
 APACHE = Fake.addGroup({ kind = "HELICOPTER", coal = 2, units = { { name = "apache" } } }).units[1]
 APACHE.air = true
 function SaveScores() end

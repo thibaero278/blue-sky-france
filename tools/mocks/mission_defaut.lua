@@ -46,6 +46,11 @@ return function()
           units = { { name = "Hornet-1", type = "FA-18C_hornet" } } })
     grp({ name = "Hornet Kobuleti 2", kind = "AIRPLANE", coal = 2, client = true, x = -317600, z = 636400,
           units = { { name = "Hornet-2", type = "FA-18C_hornet" } } })
+    -- 23/11 : transport de troupes (capture des bases) et slot Blue Sky (mode Blue Sky d'office, Mozdok dans la .miz)
+    grp({ name = "Mi-8 Sukhumi", kind = "HELICOPTER", coal = 2, client = true, x = -221200, z = 565700,
+          units = { { name = "Mi8-1", type = "Mi-8MT" } } })
+    grp({ name = "Aerobatics Team", kind = "AIRPLANE", coal = 2, client = true, x = -317700, z = 636500,
+          units = { { name = "Aero-1", type = "FA-18C_hornet" } } })
 
     -- Front russe : défense des bases (cibles des missions BASES), à moins de 8 km du centre
     grp({ name = "Gudauta defense", coal = 1, x = -196500, z = 516500, units = {

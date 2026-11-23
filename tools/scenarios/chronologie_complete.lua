@@ -25,14 +25,18 @@ return {
         { t = 120, crew = { pilot = "Dex", seats = { "Dex", "Weefe" } } },
         { t = 140, check = { flying = { "Weefe" }, stats = { Weefe = { points = 0 } } } },
         { t = 150, join = { player = "Weefe", op = "Base Gudauta" } },
-        { t = 151, check = { message = { player = "Weefe", has = "MISSION REJOINTE" } } },
+        { t = 151, check = { message = { player = "Weefe", has = "MISSION REJOINTE" },
+                            sound = { player = "Weefe", file = "c32_gudauta_brief.ogg" } } }, -- 23/11 : briefing aussi pour qui rejoint
         -- kill air-sol à 4 km (Hellfire verrouillé) : 2 pts en attente pour chacun, renforts de Gudauta activés
         { t = 300, kill = { by = "Dex", target = "Gudauta T-72 1", distance = 4000 } },
         { t = 306, check = {
             pending = { Dex = 2, Weefe = 2 },
             message = { { player = "Dex", has = "Distance de tir : 2.2 NM" }, { player = "Weefe", has = "(valides a l'atterrissage)" },
                         { player = "Dex", has = "Base Gudauta : cible detruite, reste 2" } },
-            menu = { player = "Dex", has = { "MISSIONS > CONVOIS > Convoi Gudauta", "MISSIONS > CONVOIS > Convoi Soukhoumi" } } } },
+            menu = { player = "Dex", has = { "MISSIONS > CONVOIS > Convoi Gudauta", "MISSIONS > CONVOIS > Convoi Soukhoumi" } },
+            -- 23/11 : convois annonces a tout le serveur, voix l'une apres l'autre
+            sound = { player = "Dex", file = "c38_convoi_gudauta.ogg" } } },
+        { t = 310, check = { sound = { player = "Dex", file = "c40_convoi_soukhoumi.ogg" } } }, -- apres la 1re (6,1 s), pas par-dessus
         -- zone capturée : le reste de la base (T-72 2 pts + Tor 5 pts) ; prorata 3 kills chacun -> 30 pts chacun
         { t = 400, capture = { base = "Gudauta", by = "Dex", distance = 3000 } },
         { t = 406, check = {
