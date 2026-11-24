@@ -22,6 +22,7 @@
   // 20261106 → « 06/11/2026 » ; pas de date (ancien record ou record cumulé) → vide
   const dateFr = d => d ? `${String(d).slice(6, 8)}/${String(d).slice(4, 6)}/${String(d).slice(0, 4)}` : '';
   const since = d => d ? ' · depuis le ' + dateFr(d) : '';
+  const plane = a => a ? ' · ' + esc(a) : '';  // avion du record (24/11)
   const RECORDS = [
     ['points', 'Le plus de points', p => fmt.n(p.points) + ' pts'],
     ['hours', "Le plus d'heures de vol", p => fmt.h1(p.hours) + ' h'],
@@ -128,7 +129,7 @@
     $('records').innerHTML = RECORDS.map(([k, label, show, lowest]) => {
       const best = bestOf(k, lowest);
       return best
-        ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}${since(best.at[k])}</span></button>`
+        ? `<button class="card kpi" data-id="${best.id}" style="text-align:left; cursor:pointer"><span class="label">${label}</span><b style="font-size:26px; overflow-wrap:anywhere">${esc(best.callsign)}</b><span class="mono" style="font-size:13px; color:#8a91a3">${esc(show(best))}${since(best.at[k])}${plane(best.ac[k])}</span></button>`
         : `<div class="card kpi" style="opacity:.55"><span class="label">${label}</span><b style="font-size:26px">—</b><span class="mono" style="font-size:13px; color:#8a91a3">Pas encore de record</span></div>`;
     }).join('');
 
@@ -173,7 +174,8 @@
     const personal = RECORDS.filter(([k]) => PERSONAL.includes(k)).map(([k, label, show, lowest]) => {
       if (!hasRecord(p, k, lowest)) return `<div><span style="color:#4a556b">${label}</span><span class="mono" style="color:#8a91a3">—</span></div>`;
       const star = bestOf(k, lowest) === p ? '<span title="Record du serveur" aria-label="Record du serveur" style="color:#c9962e">★ </span>' : '';
-      const date = p.at[k] ? `<small style="display:block; font-size:11px; font-weight:400; color:#8a91a3">depuis le ${dateFr(p.at[k])}</small>` : '';
+      const info = [p.at[k] ? 'depuis le ' + dateFr(p.at[k]) : '', p.ac[k] ? esc(p.ac[k]) : ''].filter(Boolean).join(' · ');
+      const date = info ? `<small style="display:block; font-size:11px; font-weight:400; color:#8a91a3">${info}</small>` : '';
       return `<div><span style="color:#4a556b">${label}</span><span class="mono" style="font-weight:600; text-align:right">${star}${esc(show(p))}${date}</span></div>`;
     });
     $('drawerRoot').innerHTML = `

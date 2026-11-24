@@ -25,13 +25,18 @@ const COLS = ['name', 'grade', 'points', 'totalFlightTime', 'completedFlightTime
   'maxFlightTimeAt', 'maxKillsFlightAt', 'maxKillDistanceAt', 'minKillDistanceAt', 'maxAltitudeAt', 'maxSpeedAt',
   'maxRefuel', 'maxRefuelAt',  // ravitaillement le plus long (s) et sa date, ajoutés en fin pour ne pas décaler les colonnes  // dates AAAAMMJJ
   'maxKillDistanceAS', 'minKillDistanceAS', 'maxKillDistanceASAt', 'minKillDistanceASAt',  // kills air-sol, en fin pour la même raison ; maxKillDistance / minKillDistance = air-air
-  'maxKillsFlightAA', 'maxKillsFlightAS', 'maxKillsFlightAAAt', 'maxKillsFlightASAt'];  // kills en un vol séparés ; maxKillsFlight (ancien cumul) n'est plus affiché
+  'maxKillsFlightAA', 'maxKillsFlightAS', 'maxKillsFlightAAAt', 'maxKillsFlightASAt',  // kills en un vol séparés ; maxKillsFlight (ancien cumul) n'est plus affiché
+  // avion de chaque record (texte, vide si inconnu ; 24/11), en fin pour ne pas décaler les colonnes
+  'maxFlightTimeAc', 'maxRefuelAc', 'maxKillsFlightAAAc', 'maxKillsFlightASAc', 'maxKillDistanceAc', 'minKillDistanceAc',
+  'maxKillDistanceASAc', 'minKillDistanceASAc', 'maxAltitudeAc', 'maxSpeedAc'];
 const HEADERS = ['Pilote', 'Niveau', 'Points', 'Heures totales (s)', 'Heures completes (s)', 'Vol le plus long (s)',
   'Vols', 'Kills A/A', 'Kills A/S', 'Kills A/M', 'Appontages', 'Morts', 'Teamkills', 'Ravitaillement (s)', 'Grade', 'Atterrissages',
   'Heures Blue Sky (s)', 'Max kills en un vol', 'Kill air-air le plus loin (m)', 'Kill air-air le plus proche (m)', 'Altitude max (m)', 'Vitesse max (m/s)',
   'Date vol le plus long', 'Date max kills', 'Date kill le plus loin', 'Date kill le plus proche', 'Date altitude max', 'Date vitesse max', 'Ravitaillement le plus long (s)', 'Date ravitaillement le plus long',
   'Kill air-sol le plus loin (m)', 'Kill air-sol le plus proche (m)', 'Date kill air-sol le plus loin', 'Date kill air-sol le plus proche',
-  'Max kills air-air en un vol', 'Max kills air-sol en un vol', 'Date max kills air-air', 'Date max kills air-sol'];
+  'Max kills air-air en un vol', 'Max kills air-sol en un vol', 'Date max kills air-air', 'Date max kills air-sol',
+  'Avion vol le plus long', 'Avion ravitaillement le plus long', 'Avion max kills air-air', 'Avion max kills air-sol', 'Avion kill air-air le plus loin',
+  'Avion kill air-air le plus proche', 'Avion kill air-sol le plus loin', 'Avion kill air-sol le plus proche', 'Avion altitude max', 'Avion vitesse max'];
 
 // « = + - @ » en tête de cellule : Sheets lirait une formule (pseudo DCS « =Demandes!C2 » → une demande RGPD
 // affichée sur le site, tag « =JTF= » → #ERROR!). L'apostrophe force le texte, getValues la retire.
@@ -56,8 +61,9 @@ function doPost(e) {
 
   if (d.type === 'scores' || d.type === 'stats') {
     const sh = sheet_('Pilotes', HEADERS);
-    const rows = (d.pilots || []).map(p => COLS.map(c => cell_(p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : 0))));
+    const rows = (d.pilots || []).map(p => COLS.map(c => cell_(p[c] ?? (c === 'grade' ? 'ROOKIE' : c === 'rang' ? 'Aspirant' : c.endsWith('Ac') ? '' : 0))));
     rows.sort((a, b) => b[2] - a[2]);
+    if (sh.getMaxColumns() < HEADERS.length) sh.insertColumnsAfter(sh.getMaxColumns(), HEADERS.length - sh.getMaxColumns());  // 24/11 : 48 colonnes
     sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);  // en-tetes a jour si une colonne a ete ajoutee
     if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLS.length).clearContent();
     if (rows.length) sh.getRange(2, 1, rows.length, COLS.length).setValues(rows);

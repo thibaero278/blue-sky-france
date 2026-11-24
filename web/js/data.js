@@ -65,6 +65,11 @@
   // ---------- stats serveur (Scores.lua → hook → Apps Script) ----------
   // Un pilote tel qu'exporté par Code.gs : name, grade, points, totalFlightTime, completedFlightTime,
   // maxFlightTime, flights, airair, airsol, airmer, traps, deaths, teamkills, refuelTime, rang, landings, bsFlightTime
+  // clé du site → champ « avion du record » envoyé par le relais
+  const REC_AC = { longest: 'maxFlightTimeAc', maxRefuel: 'maxRefuelAc', flightKillsAA: 'maxKillsFlightAAAc', flightKillsAS: 'maxKillsFlightASAc',
+    farKill: 'maxKillDistanceAc', nearKill: 'minKillDistanceAc', farKillAS: 'maxKillDistanceASAc', nearKillAS: 'minKillDistanceASAc',
+    maxAlt: 'maxAltitudeAc', maxSpeed: 'maxSpeedAc' };
+
   function normPilot(r, i) {
     const n = k => Number(r[k]) || 0;
     const points = n('points');
@@ -84,6 +89,8 @@
       at: { longest: n('maxFlightTimeAt'), flightKillsAA: n('maxKillsFlightAAAt'), flightKillsAS: n('maxKillsFlightASAt'), farKill: n('maxKillDistanceAt'),
             nearKill: n('minKillDistanceAt'), maxAlt: n('maxAltitudeAt'), maxSpeed: n('maxSpeedAt'), maxRefuel: n('maxRefuelAt'),
             farKillAS: n('maxKillDistanceASAt'), nearKillAS: n('minKillDistanceASAt') },
+      // avion de chaque record perso (24/11, nom DCS ; vide = inconnu, records d'avant le 24/11)
+      ac: Object.fromEntries(Object.entries(REC_AC).map(([k, f]) => [k, r[f] ? String(r[f]) : ''])),
       level: r.grade || '', grade: gradeFor(points)
     };
   }
@@ -128,7 +135,13 @@
       const key = cs ? '\u0000' + cs : name;  // groupe d'alias à part : un joueur nommé comme son nom affiché n'y entre pas
       const cur = out.get(key);
       if (!cur) { out.set(key, { ...p, name: cs || name }); return; }
+      // avion d'un record : celui du pseudo qui détient le meilleur des deux (24/11)
+      Object.values(REC_AC).forEach(f => {
+        const k = f.slice(0, -2), a = Number(cur[k]) || 0, b = Number(p[k]) || 0;
+        if (b && (!a || (k.startsWith('min') ? b < a : b > a))) cur[f] = p[f];
+      });
       Object.entries(p).forEach(([k, v]) => {
+        if (k.endsWith('Ac')) return;
         if (typeof v !== 'number') { if (cur[k] == null || cur[k] === 'ROOKIE') cur[k] = v; return; }
         // shortcut: la date d'un record suit le premier pseudo, pas forcément celui qui détient le record
         cur[k] = k.endsWith('At') ? (cur[k] || v)

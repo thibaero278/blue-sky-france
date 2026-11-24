@@ -165,6 +165,9 @@ function SaveScores()
         for _, field in ipairs(SCORE_FIELDS) do
             out[#out + 1] = string.format("        %s = %d,\n", field, math.floor(s[field] or 0))
         end
+        for _, field in ipairs(SCORE_FIELDS) do -- avion de chaque record (texte), s'il est connu
+            if type(s[field .. "Ac"]) == "string" then out[#out + 1] = string.format("        %sAc = %q,\n", field, s[field .. "Ac"]) end
+        end
         out[#out + 1] = string.format("        grade = %q,\n", s.grade or "ROOKIE")
         out[#out + 1] = string.format("        serie = %q,\n", tostring(s.serie or "0"))
         local _, rank = GetRank(s.points)
@@ -284,6 +287,7 @@ function SetRecord(playerName, s, field, value)
         if Better(field, p[field] or 0, best) then holder, best = name, p[field] end
     end
     s[field] = value
+    s[field .. "Ac"] = PlayerType[playerName] -- avion du record (site, 24/11)
     if best > 0 and Better(field, value, best) then
         local label, fmt = RECORDS[field][1], RECORDS[field][2]
         local plane = PlayerType[playerName] -- 23/11 : avion du record
@@ -504,6 +508,7 @@ PlayerScoreMenus = PlayerScoreMenus or {}
 PlayerBSMenus = PlayerBSMenus or {}
 PlayerMissionMenus = PlayerMissionMenus or {}
 PlayerCodeMenus = PlayerCodeMenus or {}
+PlayerLogiMenus = PlayerLogiMenus or {} -- F10 > LOGISTIQUE des transports (24/11)
 
 -- Unites DCS du groupe, lues directement dans DCS : MOOSE (GROUP:GetUnits) ne connait pas
 -- toujours les avions des slots dynamiques des bases
@@ -552,7 +557,7 @@ function ScoreMenuHandler:OnEventBirth(EventData)
             SaveScores()
         end
         PlayerType[playerName] = UnitLabel(dcsUnit)
-        Troops[dcsUnit:getName()] = nil -- avion neuf : pas de troupes a bord
+        Troops[dcsUnit:getName()] = nil -- avion neuf : soute vide
         PlayerLife[playerName] = { dead = false }
         RefuelStart[playerName] = nil
         Flights[playerName] = nil
@@ -615,7 +620,7 @@ function ScoreMenuHandler:OnEventBirth(EventData)
 
         if GroupPlayerName(group) then
             local groupName = group:GetName()
-            for _, menus in ipairs({ PlayerScoreMenus, PlayerBSMenus, PlayerDebugMenus, PlayerMissionMenus, PlayerCodeMenus }) do
+            for _, menus in ipairs({ PlayerScoreMenus, PlayerBSMenus, PlayerDebugMenus, PlayerMissionMenus, PlayerCodeMenus, PlayerLogiMenus }) do
                 if groupName and menus[groupName] then
                     menus[groupName]:Remove()
                     menus[groupName] = nil
@@ -1429,6 +1434,7 @@ function AddScoreMenuForGroup(GroupObject)
     PlayerBSMenus[groupName] = bs
     PlayerDebugMenus[groupName] = dbg
     AddMissionMenusForGroup(GroupObject, groupName)
+    AddLogiMenuForGroup(GroupObject, groupName)
 end
 
 ------------------------------------------------------------
@@ -2845,11 +2851,13 @@ CAPTURE_RADIUS = 3000 -- m du centre de l'aerodrome pour embarquer / debarquer
 CAPTURE_BONUS = 20    -- points pour chaque membre d'equipage qui debarque les troupes
 TROOP_TYPES = { ["Mi-8MT"] = true, ["UH-1H"] = true, ["CH-47Fbl1"] = true, ["Mi-24P"] = true, ["UH-60L"] = true,
                 ["C-130J-30"] = true, ["Hercules"] = true }
+HEAVY_TYPES = { ["C-130J-30"] = true, ["Hercules"] = true } -- vehicules et caisse en plus des troupes (24/11 : CH-47 = troupes seulement)
 PRICES = { cargo = 60, helo = 40, cap = 40 }
 BUY_TIMEOUT_S = 2400  -- transport achete pas pose apres 40 min (coince, detourne) : retire, base de nouveau achetable
 BUY_CAP_S = 1800      -- duree de la patrouille CAP achetee
 BaseState = {}        -- base de la campagne -> "white" | "blue" (absent : rouge)
-Troops = {}           -- unite joueur -> true : troupes a bord
+LoadedAt = {}         -- unite joueur -> heure du chargement (dechargement seulement apres un atterrissage)
+Troops = {}           -- unite joueur -> chargement a bord : "troupes", "vehicules" ou "caisse"
 BuyOrders = {}        -- unite IA achetee -> { base, buyer, kind, group }
 BuyBusy = {}          -- base -> true : un transport achete est deja en route
 CapBusy = {}          -- base -> true : une CAP achetee y tourne deja (pas 10 patrouilles empilees)
@@ -2907,7 +2915,7 @@ do
     function BaseFallen(name)
         SetBaseSide(name, 0)
         MESSAGE:New("COMMANDEMENT : " .. name .. " est neutre (blanche). Capturez-la : debarquez des troupes avec un transport " ..
-            "(F10 > MISSIONS > CAPTURE), ou achetez un cargo IA avec vos credits.", 20):ToAll()
+            "(F10 > LOGISTIQUE), ou achetez un cargo IA avec vos credits (F10 > MISSIONS > CAPTURE).", 20):ToAll()
         env.info("BLUESKY : capture, " .. name .. " blanche")
     end
 
@@ -2952,44 +2960,92 @@ do
     end
 
     local PICKUP = { [Airbase.Category.AIRDROME] = true, [Airbase.Category.HELIPAD] = true, [Airbase.Category.SHIP] = true }
+    local CARGO_LABEL = { troupes = "TROUPES", vehicules = "2 HUMVEE AVENGER", caisse = "CAISSE DE RAVITAILLEMENT" }
+    local DROP_HOW = { troupes = "troupes debarquees", vehicules = "Humvee Avenger decharges", caisse = "caisse dechargee" }
 
-    function TroopsEmbark(group)
+    local function Spawn(kind, base, p)
+        BuyCount = BuyCount + 1
+        local name = "LOGISTIQUE " .. (base or "terrain") .. " " .. BuyCount
+        if kind == "caisse" then
+            -- shortcut: type / forme de caisse pris des scripts de logistique courants, pas verifie en jeu ; echec = capture quand meme
+            local ok, err = pcall(coalition.addStaticObject, country.id.USA, { name = name, type = "container_cargo",
+                category = "Cargos", shape_name = "bw_container_cargo", canCargo = false, mass = 1000, x = p.x + 30, y = p.z, heading = 0 })
+            if not ok then env.warning("BLUESKY : logistique : caisse : " .. tostring(err)) end
+            return
+        end
+        local units = {}
+        if kind == "vehicules" then
+            -- defense antiaerienne (choix de Thibaud du 24/11) : l'Avenger est un Humvee a Stinger
+            for i2 = 1, 2 do units[i2] = { name = name .. "-" .. i2, type = "M1097 Avenger", x = p.x + 40, y = p.z + 15 * i2, heading = 0, skill = "Excellent" } end
+        else
+            for i2 = 1, 4 do units[i2] = { name = name .. "-" .. i2, type = "Soldier M4", x = p.x + 25 + 4 * (i2 % 2), y = p.z + 4 * math.floor(i2 / 3), heading = 0, skill = "Average" } end
+        end
+        local ok, err = pcall(coalition.addGroup, country.id.USA, Group.Category.GROUND, { name = name, task = "Ground Nothing", units = units })
+        if not ok then env.warning("BLUESKY : logistique : " .. tostring(err)) end
+    end
+
+    -- kind : "troupes" (tous les transports), "vehicules" ou "caisse" (C-130 seulement)
+    function LogiLoad(group, kind)
         if not group or not group:IsAlive() then return end
         ForEachPlayerUnit(group, function(u)
-            local why
-            if not TROOP_TYPES[u:getTypeName()] then why = "cet appareil ne transporte pas de troupes (Mi-8, UH-1, CH-47, Mi-24, C-130J)."
+            local why, t = nil, u:getTypeName()
+            if not TROOP_TYPES[t] then why = "cet appareil ne transporte rien (Mi-8, UH-1, CH-47, Mi-24, UH-60, C-130J)."
+            elseif kind ~= "troupes" and not HEAVY_TYPES[t] then why = "vehicules et caisses : C-130 seulement."
             elseif u:inAir() then why = "pose-toi d'abord sur une base bleue (aerodrome, FARP ou PA)."
-            elseif Troops[u:getName()] then why = "troupes deja a bord."
+            elseif Troops[u:getName()] then why = "soute deja pleine (" .. CARGO_LABEL[Troops[u:getName()]] .. ")."
             elseif not NearBase(u, BLUE_SIDE, PICKUP) then why = "il faut etre pose sur une base bleue (aerodrome, FARP ou PA)."
             end
-            if why then MessageToPlayer(u:getID(), "TROUPES : " .. why, 8) return end
-            Troops[u:getName()] = true
-            MessageToPlayer(u:getID(), "TROUPES A BORD.\nPose-toi sur une base blanche et debarque-les : F10 > MISSIONS > CAPTURE.\n" ..
+            if why then MessageToPlayer(u:getID(), "LOGISTIQUE : " .. why, 8) return end
+            Troops[u:getName()], LoadedAt[u:getName()] = kind, timer.getTime()
+            MessageToPlayer(u:getID(), "LOGISTIQUE : " .. CARGO_LABEL[kind] .. " A BORD.\n" ..
+                (kind == "vehicules" and "Decharge-les sur une base blanche pour la capturer, ou n'importe ou au sol comme defense antiaerienne.\n"
+                                      or "Pose-toi sur une base blanche et decharge : F10 > LOGISTIQUE > Decharger.\n") ..
                 "Bases a capturer : " .. WhiteList(), 12)
         end)
     end
 
-    function TroopsDrop(group)
+    function LogiDrop(group)
         if not group or not group:IsAlive() then return end
         ForEachPlayerUnit(group, function(u, pilot)
-            local id = u:getID()
-            if not Troops[u:getName()] then MessageToPlayer(id, "TROUPES : aucune troupe a bord. Embarque-les sur une base bleue.", 8) return end
-            if u:inAir() then MessageToPlayer(id, "TROUPES : pose-toi d'abord.", 8) return end
-            local base = WhiteBaseAt(u)
-            if not base then MessageToPlayer(id, "TROUPES : pas de base blanche ici.\nBases a capturer : " .. WhiteList(), 10) return end
+            local id, kind = u:getID(), Troops[u:getName()]
+            if not kind then MessageToPlayer(id, "LOGISTIQUE : soute vide. Charge sur une base bleue : F10 > LOGISTIQUE.", 8) return end
+            if u:inAir() then MessageToPlayer(id, "LOGISTIQUE : pose-toi d'abord.", 8) return end
+            -- passe casseur du 24/11 : charger / decharger en boucle sans decoller empilait les Avenger (40 en 40 s)
+            if (FlightClosedAt[pilot] or -1) < (LoadedAt[u:getName()] or 0) then
+                MessageToPlayer(id, "LOGISTIQUE : decolle et pose-toi ailleurs avant de decharger.", 8)
+                return
+            end
+            local base, p = WhiteBaseAt(u), u:getPoint()
+            if not base and kind ~= "vehicules" then
+                MessageToPlayer(id, "LOGISTIQUE : pas de base blanche ici.\nBases a capturer : " .. WhiteList(), 10)
+                return
+            end
             Troops[u:getName()] = nil
-            -- les troupes descendent a cote de l'appareil (elles restent sur la base)
-            local p = u:getPoint()
-            BuyCount = BuyCount + 1
-            pcall(coalition.addGroup, country.id.USA, Group.Category.GROUND, {
-                name = "TROUPES " .. base .. " " .. BuyCount, task = "Ground Nothing",
-                units = { { name = "TROUPES " .. base .. " " .. BuyCount .. "-1", type = "Soldier M4", x = p.x + 25, y = p.z, heading = 0, skill = "Average" },
-                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-2", type = "Soldier M4", x = p.x + 25, y = p.z + 4, heading = 0, skill = "Average" },
-                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-3", type = "Soldier M4", x = p.x + 29, y = p.z, heading = 0, skill = "Average" },
-                          { name = "TROUPES " .. base .. " " .. BuyCount .. "-4", type = "Soldier M4", x = p.x + 29, y = p.z + 4, heading = 0, skill = "Average" } },
-            })
-            Capture(base, "troupes debarquees par " .. pilot, Crew(u:getName(), pilot))
+            Spawn(kind, base, p)
+            if base then
+                Capture(base, DROP_HOW[kind] .. " par " .. pilot, Crew(u:getName(), pilot))
+            else
+                MessageToPlayer(id, "LOGISTIQUE : 2 Humvee Avenger (Stinger) decharges ici : defense antiaerienne en place.", 10)
+            end
         end)
+    end
+
+    -- F10 > LOGISTIQUE, seulement dans un groupe ou vole un transport (slots dynamiques compris)
+    function AddLogiMenuForGroup(group, groupName)
+        local heavy, any = false, false
+        for _, u in ipairs(GroupDCSUnits(group)) do
+            local t = u:isExist() and u:getTypeName()
+            if t and TROOP_TYPES[t] then any = true heavy = heavy or HEAVY_TYPES[t] end
+        end
+        if not any then return end
+        local logi = MENU_GROUP:New(group, "LOGISTIQUE")
+        MENU_GROUP_COMMAND:New(group, "Charger des troupes", logi, LogiLoad, group, "troupes")
+        if heavy then
+            MENU_GROUP_COMMAND:New(group, "Charger 2 Humvee Avenger (AA)", logi, LogiLoad, group, "vehicules")
+            MENU_GROUP_COMMAND:New(group, "Charger une caisse", logi, LogiLoad, group, "caisse")
+        end
+        MENU_GROUP_COMMAND:New(group, "Decharger", logi, LogiDrop, group)
+        PlayerLogiMenus[groupName] = logi
     end
 
     function ShowCredits(group)
@@ -3421,8 +3477,6 @@ function AddMissionMenusForGroup(group, groupName)
     MENU_GROUP_COMMAND:New(group, "Appel radio", icpt, IcptCall, group)
     MENU_GROUP_COMMAND:New(group, CAP_LABEL, air, CapLaunch, group)
     local capture = MENU_GROUP:New(group, "CAPTURE", root)
-    MENU_GROUP_COMMAND:New(group, "Embarquer des troupes", capture, TroopsEmbark, group)
-    MENU_GROUP_COMMAND:New(group, "Debarquer les troupes", capture, TroopsDrop, group)
     MENU_GROUP_COMMAND:New(group, "Mes credits", capture, ShowCredits, group)
     for _, b in ipairs({ { "cargo", "Acheter C-130 IA (" .. PRICES.cargo .. " cr)" }, { "helo", "Acheter helico IA (" .. PRICES.helo .. " cr)" },
                          { "cap", "Acheter CAP alliee (" .. PRICES.cap .. " cr)" } }) do

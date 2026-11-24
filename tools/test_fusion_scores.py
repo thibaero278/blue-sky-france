@@ -145,3 +145,13 @@ lua.execute('BS_SCORES_SYNCED = nil')
 lua.eval('dcsbot.bsSetScores')('{"Solo": {"points": 1}}', None, None, None, None)
 assert lua.eval('BS_SCORES_SYNCED') is True and lua.eval('Scores.Solo.points') == 1
 print(f'fusion des scores : OK ({len(parts)} morceaux pour {len(big)} pilotes)')
+
+# 24/11 : l'avion du record (champ texte <record>Ac) suit le record, entre serveurs et entre pseudos
+t = sc.merge({'Dex': {'maxSpeed': 500, 'maxSpeedAc': 'F-15C'}}, {'Dex': {'maxSpeed': 300}},
+             {'Dex': {'maxSpeed': 400, 'maxSpeedAc': 'Su-27'}}, False, {})
+assert t['Dex']['maxSpeedAc'] == 'F-15C'  # record pas battu : l'avion ne change pas
+t = sc.merge(t, {'Dex': {'maxSpeed': 400}}, {'Dex': {'maxSpeed': 600, 'maxSpeedAc': 'MiG-29A'}}, False, {})
+assert t['Dex']['maxSpeed'] == 600 and t['Dex']['maxSpeedAc'] == 'MiG-29A'
+g = sc.group({'Dex': {'maxSpeed': 600, 'maxSpeedAc': 'MiG-29A'}, 'Dex 2': {'maxSpeed': 700, 'maxSpeedAc': 'F-14B'}}, {'Dex 2': 'Dex'})
+assert g['Dex']['maxSpeed'] == 700 and g['Dex']['maxSpeedAc'] == 'F-14B'
+print("avion du record : OK")

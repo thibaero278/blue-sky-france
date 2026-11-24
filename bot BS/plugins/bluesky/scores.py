@@ -99,8 +99,8 @@ def merge(total: dict[str, dict], base: dict[str, dict], new: dict[str, dict], f
             continue  # copie exacte du total (Scores.lua remplacé à la main le 11/11, envoi appliqué sans confirmation) : rien de gagné
         t = out.setdefault(who, {})
         for k, v in p.items():
-            if k == 'rang' or k.endswith('At'):
-                continue
+            if k == 'rang' or k.endswith('At') or k[:-2] in RECORD_FIELDS and k.endswith('Ac'):
+                continue  # date et avion d'un record : suivent le record ci-dessous
             if not isinstance(v, (int, float)):
                 if b is None or b.get(k) != v or k not in t:
                     t[k] = v  # niveau choisi en F10 : la dernière modification gagne
@@ -109,6 +109,8 @@ def merge(total: dict[str, dict], base: dict[str, dict], new: dict[str, dict], f
                     continue  # record déjà lu dans ce fichier : un record effacé sur R2D2 ne revient pas
                 old = t.get(k, 0)
                 t[k] = best(k, old, v)
+                if t[k] != old and p.get(k + 'Ac'):  # avion du record (24/11, affiché sur le site)
+                    t[k + 'Ac'] = p[k + 'Ac']
                 if t[k] != old and not first_read:  # record battu : date du jour (AAAAMMJJ, un nombre passe tel quel dans Sheets)
                     t[k + 'At'] = int(date.today().strftime('%Y%m%d'))
             elif first_read:
@@ -185,15 +187,16 @@ def group(total: dict[str, dict], alias: dict[str, str]) -> dict[str, dict]:
     for name, p in total.items():
         t = out.setdefault(alias.get(name, name), {})
         for k, v in p.items():
-            if k == 'rang' or k.endswith('At'):
-                continue  # date d'un record : suit le record ci-dessous
+            if k == 'rang' or k.endswith('At') or k[:-2] in RECORD_FIELDS and k.endswith('Ac'):
+                continue  # date et avion d'un record : suivent le record ci-dessous
             if k in RECORD_FIELDS:
                 if k not in t or best(k, t[k], v) != t[k]:
                     t[k] = v
-                    if p.get(k + 'At'):
-                        t[k + 'At'] = p[k + 'At']
-                    else:
-                        t.pop(k + 'At', None)
+                    for x in ('At', 'Ac'):
+                        if p.get(k + x):
+                            t[k + x] = p[k + x]
+                        else:
+                            t.pop(k + x, None)
             elif isinstance(v, (int, float)):
                 t[k] = t.get(k, 0) + v
             else:

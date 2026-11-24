@@ -49,6 +49,8 @@ return function()
     -- 23/11 : transport de troupes (capture des bases) et slot Blue Sky (mode Blue Sky d'office, Mozdok dans la .miz)
     grp({ name = "Mi-8 Sukhumi", kind = "HELICOPTER", coal = 2, client = true, x = -221200, z = 565700,
           units = { { name = "Mi8-1", type = "Mi-8MT" } } })
+    grp({ name = "C-130 Kobuleti", kind = "AIRPLANE", coal = 2, client = true, x = -317900, z = 636700,
+          units = { { name = "Herc-1", type = "C-130J-30" } } })
     grp({ name = "Aerobatics Team", kind = "AIRPLANE", coal = 2, client = true, x = -317700, z = 636500,
           units = { { name = "Aero-1", type = "FA-18C_hornet" } } })
 

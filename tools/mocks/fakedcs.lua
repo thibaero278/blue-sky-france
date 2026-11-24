@@ -236,6 +236,12 @@ function coalition.addGroup(countryId, cat, data)
     for _, u in ipairs(g.units) do F.event("Birth", { initiator = u }) end
     return g
 end
+-- Statique créée par le script (24/11 : caisse de la logistique) ; gardée aussi dans Fake.added
+function coalition.addStaticObject(countryId, data)
+    assert(type(data.name) == "string" and data.type and data.x and data.y, "addStaticObject : nom, type et position obligatoires")
+    F.added[#F.added + 1] = { country = countryId, static = true, data = data }
+    return F.addStatic({ name = data.name, type = data.type, x = data.x, z = data.y, coal = countryId == country.id.USA and 2 or 1 })
+end
 function coalition.getGroups(side, cat)
     local list = {}
     for _, g in ipairs(F.groupList) do

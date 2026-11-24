@@ -8,24 +8,24 @@ return {
     scores = { Dex = { points = 100, flights = 0 } },
     steps = {
         { t = 5, spawn = { player = "Dex", slot = "Mi-8 Sukhumi" } },
-        { t = 6, check = { menu = { player = "Dex", has = { "MISSIONS > CAPTURE > Embarquer des troupes",
-            "MISSIONS > CAPTURE > Debarquer les troupes", "MISSIONS > CAPTURE > Mes credits",
+        { t = 6, check = { menu = { player = "Dex", has = { "LOGISTIQUE > Charger des troupes", "LOGISTIQUE > Decharger",
+            "MISSIONS > CAPTURE > Mes credits",
             "MISSIONS > CAPTURE > Acheter C-130 IA (60 cr) > Sochi", "MISSIONS > CAPTURE > Acheter CAP alliee (40 cr) > Anapa" } } } },
-        { t = 8, menu = { player = "Dex", path = "MISSIONS > CAPTURE > Debarquer les troupes" } },
-        { t = 9, check = { message = { player = "Dex", has = "aucune troupe a bord" } } },
-        { t = 10, menu = { player = "Dex", path = "MISSIONS > CAPTURE > Embarquer des troupes" } },
+        { t = 8, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
+        { t = 9, check = { message = { player = "Dex", has = "soute vide" } } },
+        { t = 10, menu = { player = "Dex", path = "LOGISTIQUE > Charger des troupes" } },
         { t = 11, check = { message = { player = "Dex", has = "TROUPES A BORD" } } },
         -- Gudauta encore rouge : debarquer ne capture rien
         { t = 20, takeoff = { player = "Dex", alt = 300, speed = 60 } },
         { t = 100, land = { player = "Dex", at = "Gudauta" } },
-        { t = 101, menu = { player = "Dex", path = "MISSIONS > CAPTURE > Debarquer les troupes" } },
+        { t = 101, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
         { t = 102, check = { message = { player = "Dex", has = "pas de base blanche ici" },
                              ok = function(F) return coal(F, "Gudauta") == 1, "Gudauta pas rouge" end } },
         -- base videe (fin de la mission BASES) : blanche
         { t = 110, lua = function(F, env) env.BaseFallen("Gudauta") end },
         { t = 111, check = { message = { player = "Dex", has = "Gudauta est neutre (blanche)" },
                              ok = function(F) return coal(F, "Gudauta") == 0 and F.airbases["Gudauta"].auto == false, "Gudauta pas blanche" end } },
-        { t = 120, menu = { player = "Dex", path = "MISSIONS > CAPTURE > Debarquer les troupes" } },
+        { t = 120, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
         { t = 121, check = {
             message = { player = "Dex", has = "Gudauta est bleue (troupes debarquees par Dex)" },
             stats = { Dex = { points = 120 } },
@@ -36,8 +36,8 @@ return {
                     "Gudauta : coalition " .. tostring(coal(F, "Gudauta")) .. ", " .. soldiers .. " soldats"
             end } },
         -- troupes deja debarquees : rien a refaire
-        { t = 125, menu = { player = "Dex", path = "MISSIONS > CAPTURE > Debarquer les troupes" } },
-        { t = 126, check = { message = { player = "Dex", has = "aucune troupe a bord" } } },
+        { t = 125, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
+        { t = 126, check = { message = { player = "Dex", has = "soute vide" } } },
         -- achats : Weefe (0 credit) refuse ; Dex (120) achete un C-130 pour Sochi, blanche
         { t = 130, lua = function(F, env) env.BaseFallen("Sochi") end },
         { t = 131, spawn = { player = "Weefe", slot = "Aerobatics Team" } },
