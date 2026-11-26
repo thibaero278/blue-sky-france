@@ -14,7 +14,8 @@
 ------------------------------------------------------------
 -- CONFIG
 ------------------------------------------------------------
-local SAVE_FILE = lfs.writedir() .. "Scores.lua"
+-- nil si MissionScripting.lua d'origine (io et lfs bloques, ex. chez un pote) : scores en memoire seulement
+local SAVE_FILE = lfs and io and (lfs.writedir() .. "Scores.lua")
 
 local CARRIERS = {
     ["CVN-74 John C. Stennis"] = "CVN-74",
@@ -147,6 +148,7 @@ local IGNORED_PLAYERS = { ["player"] = true, ["joueur"] = true, ["new callsign"]
 -- Ecrit d'abord un fichier temporaire puis remplace Scores.lua : un crash pendant l'ecriture
 -- (ou le hook du site qui lit en meme temps) ne tombe jamais sur un fichier a moitie ecrit.
 function SaveScores()
+    if not SAVE_FILE then return end
     local names = {}
     for playerName in pairs(Scores) do
         if not IGNORED_PLAYERS[string.lower(playerName)] then names[#names + 1] = playerName end
@@ -199,6 +201,12 @@ function SaveScores()
 end
 
 function LoadScores()
+    if not SAVE_FILE then
+        Scores = {}
+        env.warning("BLUESKY : io/lfs bloques par MissionScripting.lua : scores non sauvegardes")
+        trigger.action.outText("Scores non sauvegardes sur ce PC (DCS non debloque)", 10)
+        return
+    end
     -- Crash entre la suppression et le renommage : la derniere sauvegarde est restee en .tmp
     if lfs.attributes(SAVE_FILE .. ".tmp") and not lfs.attributes(SAVE_FILE) and os and os.rename then
         os.rename(SAVE_FILE .. ".tmp", SAVE_FILE)

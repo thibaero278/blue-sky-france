@@ -97,7 +97,7 @@ assert sc.merge(total, copy_by_hand, after, False, ALIAS)['WaveOff | BlueSky 1-4
 assert sc.merge(total, base, {'Nouveau': P(5)}, False, ALIAS)['Nouveau']['points'] == 5
 
 # 7. Envoi découpé : chaque message (tel que le bot l'envoie) < 8192 octets, et tout est reconstitué en jeu
-weefe = sc.parse_scores(pathlib.Path(r'C:\Users\thiba\Downloads\Scores (1).lua').read_bytes())
+weefe = sc.parse_scores((ROOT / 'mission' / 'Scores_corrige_2026-11-11.lua').read_bytes())  # hors dépôt (pseudos), avant : Téléchargements, supprimé
 big = {f'{n} #{i}': p for i in range(3) for n, p in weefe.items()}   # 3x les pilotes actuels
 parts = sc.chunks(big)
 msgs = []

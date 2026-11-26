@@ -177,7 +177,7 @@ end
 -- { pilote = points validés }
 function C.points(c)
     for name, v in pairs(c) do
-        local s = F.env.Scores[name]
+        local s = (F.env.Scores or {})[name]
         if (s and s.points) ~= v then fail("points validés de " .. name .. " : " .. tostring(s and s.points) .. " au lieu de " .. v) end
     end
 end
@@ -208,7 +208,7 @@ end
 -- { pilote = { champ = valeur } } dans Scores (en mémoire)
 function C.stats(c)
     for name, fields in pairs(c) do
-        local s = F.env.Scores[name] or {}
+        local s = (F.env.Scores or {})[name] or {}
         for k, v in pairs(fields) do
             if s[k] ~= v then fail("stat " .. k .. " de " .. name .. " : " .. tostring(s[k]) .. " au lieu de " .. tostring(v)) end
         end
