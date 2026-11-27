@@ -73,6 +73,7 @@ close = src[src.index('local function CloseFlight'):src.index('-- MULTI-EQUIPAGE
 lua.execute('''
 AutoBSUnit = {}
 FlightClosedAt, CrewUnit, BSMode, Flights, S = {}, {}, { P = true }, {}, { totalFlightTime = 0, bsFlightTime = 0, flights = 0 }
+BSSince = {}
 function StopRefuel() end
 function InitPlayer() return S end
 function SetRecord() end

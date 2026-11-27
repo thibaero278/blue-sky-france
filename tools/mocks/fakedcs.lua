@@ -102,6 +102,12 @@ function Obj:getDrawArgumentValue() return self.gear or 1 end
 function Obj:getTarget() return self.target end
 function Obj:getCallsign() return self.name end
 function Obj:destroy() self.exists = false end -- comme DCS : aucun événement
+-- 27/11 : attributs DCS de la DCA (les vrais viennent de la base de données du jeu ; ici les types de mission_defaut)
+local SAM, GUN = { ["SAM related"] = true, ["Air Defence"] = true }, { AAA = true, ["Air Defence"] = true }
+local AA_ATTR = { ["Tor 9A331"] = SAM, ["55G6 EWR"] = { EWR = true, ["Air Defence"] = true },
+    ["Soldier stinger"] = { MANPADS = true, ["Air Defence"] = true }, ["ZU-23 Emplacement"] = GUN, ["ZSU-23-4 Shilka"] = GUN,
+    ["KS-19"] = GUN, ["HEMTT_C-RAM_Phalanx"] = GUN }
+function Obj:hasAttribute(a) return (AA_ATTR[self.type] or {})[a] or false end
 -- aérodromes (23/11, capture) : couleur imposée par le script, capture native de DCS coupée
 function Obj:setCoalition(side) self.coal = side end
 function Obj:autoCapture(on) self.auto = on end
@@ -198,6 +204,18 @@ function F.build(M)
     for _, z in ipairs(M.zones) do F.addZone(z) end
     for _, g in ipairs(M.groups) do F.addGroup(g) end
     for _, s in ipairs(M.statics) do F.addStatic(s) end
+    -- 27/11 : env.mission, la table de l'éditeur (seulement les groupes au sol : le script s'en sert pour les recréer)
+    env.mission = { coalition = { red = { country = { { id = country.id.RUSSIA, vehicle = { group = {} } } } },
+                                  blue = { country = { { id = country.id.USA, vehicle = { group = {} } } } } } }
+    for _, g in ipairs(F.groupList) do
+        if g.kind == "GROUND" then
+            local units = {}
+            for i, u in ipairs(g.units) do units[i] = { name = u.name, type = u.type, x = u.x, y = u.z, heading = u.heading, unitId = u.id } end
+            local list = env.mission.coalition[g.coal == 2 and "blue" or "red"].country[1].vehicle.group
+            list[#list + 1] = { name = g.name, groupId = g.id, lateActivation = g.def.late or nil, units = units,
+                                route = { points = { { x = units[1].x, y = units[1].y } } } }
+        end
+    end
 end
 
 ------------------------------------------------------------

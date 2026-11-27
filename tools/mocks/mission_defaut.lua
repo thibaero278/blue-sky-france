@@ -23,6 +23,8 @@ return function()
     ab("Maykop-Khanskaya", -27626, 457048, 1)
     ab("Mineralnye Vody", -52090, 707418, 1)
     ab("Beslan", -148810, 842252, 1)
+    ab("Krasnodar-Center", 11650, 368650, 1) -- 27/11 : suite de la campagne
+    ab("Krasnodar-Pashkovsky", 7700, 387900, 1)
     ab("CVN-75 Harry S. Truman", -350000, 520000, 2, { kind = "SHIP" })
     -- Derricks et plateforme de Petrol Strike : statiques de type héliport = des Airbase pour DCS (pas des StaticObject),
     -- vie à 0 dès le départ (vu en jeu le 10/11)
@@ -69,6 +71,7 @@ return function()
     grp({ name = "hélico sochi convoie", kind = "HELICOPTER", coal = 1, late = true, x = -150000, z = 470000, units = { { type = "Mi-24P" } } })
     grp({ name = "helico sochi", kind = "HELICOPTER", coal = 1, late = true, x = -164474, z = 462236, units = { { type = "Mi-24P" } } })
     grp({ name = "hélico anapa", kind = "HELICOPTER", coal = 1, late = true, x = -4448, z = 244022, units = { { type = "Mi-24P" } } })
+    grp({ name = "KA 50 aanapa", kind = "HELICOPTER", coal = 1, late = true, x = -5229, z = 242808, units = { { type = "Ka-50" }, { type = "Ka-50" } } })
     -- Convois du nord (actifs)
     for i, name in ipairs({ "convoie-1", "convoie-2", "convoie-3", "convoie-4", "convoie-5", "convoie-6", "sochi convoie-1" }) do
         grp({ name = name, coal = 1, x = -40000, z = 600000 + i * 5000, units = { { type = "T-72B3" }, { type = "ZU-23 Emplacement" } } })
@@ -82,7 +85,7 @@ return function()
     grp({ name = "Admiral", kind = "SHIP", coal = 1, late = true, x = -260000, z = 420000, units = {
         { name = "Admiral-1", type = "CV_1143_5" }, { name = "Admiral-2", type = "REZKY" } } })
     -- Factory Strike : site industriel GCI-2 (statiques rouges) + son groupe de défense
-    grp({ name = "GCI-2", coal = 1, x = -33400, z = 587400, units = { { name = "GCI-2-1", type = "55G6 EWR" } } })
+    grp({ name = "Strike 1", coal = 1, x = -33400, z = 587400, units = { { name = "Strike", type = "55G6 EWR" }, { name = "Strike-2", type = "Soldier stinger" } } }) -- ex-GCI-2 (27/11)
     static("Factory tank 1", "Tank 2", -33689, 587000)
     static("Factory tank 2", "Tank 2", -33800, 587250)
     static("Factory ammo", ".Ammunition depot", -33500, 587300)

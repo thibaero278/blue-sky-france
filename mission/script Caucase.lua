@@ -87,6 +87,7 @@ RefuelStart = {}          -- debut du contact ravitaillement par pilote
 UnitPlayer = {}           -- nom d'unite -> pilote (pour les events ou l'unite est deja morte)
 PlayerLife = {}           -- pilote -> { dead = bool } (evite de compter 2 morts)
 BSMode = {}               -- pilote -> true : mode Blue Sky active au sol (lu aussi par la carte live du bot)
+BSSince = {}              -- pilote -> heure d'activation du mode : le temps Blue Sky compte depuis l'activation (27/11)
 PlayerType = {}           -- pilote -> type de son avion (annonce des records, 23/11)
 AutoBSUnit = {}           -- pilote -> unite d'un slot Blue Sky (mode Blue Sky permanent, 23/11)
 BS_AUTO_PREFIX = "Aerobatics Team" -- groupes de la .miz : "Aerobatics Team" et "Aerobatics Team 2" (Mozdok, 8 places)
@@ -374,21 +375,23 @@ local function CloseFlight(playerName)
 
     -- Fin du vol (atterrissage, mort, ejection, changement de slot) : le mode Blue Sky s'arrete aussi.
     -- Apres le test du vol actif : un faux Land au sol (pont du PA) coupait le mode avant le decollage.
-    local bs = BSMode[playerName]
-    BSMode[playerName] = nil
+    local bs, bsAt = BSMode[playerName], BSSince[playerName]
+    BSMode[playerName], BSSince[playerName] = nil, nil
     -- slot Blue Sky (23/11) : le mode reprend tout seul tant que le pilote reste dans l'avion
     local auto = AutoBSUnit[playerName]
     local au = auto and Unit.getByName(auto)
     if au and au:isExist() and au:getPlayerName() == playerName and not (PlayerLife[playerName] and PlayerLife[playerName].dead) then
-        BSMode[playerName] = true
+        BSMode[playerName], BSSince[playerName] = true, timer.getTime()
     end
 
     local elapsed = timer.getTime() - f.startTime
     local s = InitPlayer(playerName)
     s.totalFlightTime = s.totalFlightTime + elapsed
     if bs then
-        s.bsFlightTime = s.bsFlightTime + elapsed
-        f.bsTime = elapsed
+        -- 27/11 (passe casseur du 20/11) : active au sol, vol encore ouvert : seul le temps depuis l'activation compte
+        local t = math.min(elapsed, timer.getTime() - (bsAt or f.startTime))
+        s.bsFlightTime = s.bsFlightTime + t
+        f.bsTime = t
     end
     s.flights = s.flights + 1
     SetRecord(playerName, s, "maxFlightTime", elapsed)
@@ -569,13 +572,13 @@ function ScoreMenuHandler:OnEventBirth(EventData)
         PlayerLife[playerName] = { dead = false }
         RefuelStart[playerName] = nil
         Flights[playerName] = nil
-        BSMode[playerName] = nil -- a reactiver a chaque apparition
+        BSMode[playerName], BSSince[playerName] = nil, nil -- a reactiver a chaque apparition
         -- slots Blue Sky de Mozdok (groupes "Aerobatics Team...") : mode Blue Sky actif d'office, de l'apparition a la sortie de l'avion
         AutoBSUnit[playerName] = nil
         local g = dcsUnit:getGroup()
         if g and g:getName():sub(1, #BS_AUTO_PREFIX) == BS_AUTO_PREFIX then
             AutoBSUnit[playerName] = dcsUnit:getName()
-            BSMode[playerName] = true
+            BSMode[playerName], BSSince[playerName] = true, timer.getTime()
             MessageToPlayer(dcsUnit:getID(), "SLOT BLUE SKY : mode Blue Sky actif d'office.\n" ..
                 "Tous tes vols dans cet avion comptent dans tes heures Blue Sky.", 12)
         end
@@ -699,6 +702,18 @@ local function CheckAirbornePlayers()
                 UnitPlayer[u:getName()] = name
                 StartFlight(name)
                 MessageToPlayer(u:getID(), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
+            end
+            -- 27/11 : atterrissage rate par DCS (vol encore ouvert, avion arrete au sol) : ferme tout seul apres 1 min
+            if name and f and f.active and not u:inAir() then
+                local v = u:getVelocity()
+                if math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) > LAND_CHECK_MAX_MPS then
+                    f.stoppedAt = nil
+                else
+                    f.stoppedAt = f.stoppedAt or now
+                    if now - f.stoppedAt >= STOPPED_CLOSE_S then AutoLand(u, name, now - f.stoppedAt) end
+                end
+            elseif f then
+                f.stoppedAt = nil
             end
             -- equipage monte en vol (ou decollage rate) : son vol commence maintenant
             if name and u:inAir() then
@@ -1359,14 +1374,16 @@ local function SetBlueSkyMode(GroupObject, on)
         if on and u:inAir() then
             MessageToPlayer(id, "MODE BLUE SKY\nA activer au sol, avant le decollage.", 8)
         elseif on and not BSMode[name] then
-            BSMode[name] = true
+            BSMode[name], BSSince[name] = true, timer.getTime()
             env.info("BlueSky : mode Blue Sky active par " .. name)
             MessageToPlayer(id, "MODE BLUE SKY ACTIF (" .. name .. ")\nTon prochain vol compte dans tes heures Blue Sky.\n" ..
                 "Il s'arrete a l'atterrissage, si tu meurs, t'ejectes ou changes de slot.", 10)
         elseif not on and BSMode[name] then
-            -- coupe en vol : le temps deja vole compte
+            -- coupe en vol : le temps deja vole compte, depuis l'activation (27/11 : activer / desactiver en boucle au sol
+            -- avec un vol encore ouvert ajoutait tout le vol a chaque fois)
             local elapsed = GetCurrentFlightTime(name)
-            BSMode[name] = nil
+            if elapsed and BSSince[name] then elapsed = math.min(elapsed, timer.getTime() - BSSince[name]) end
+            BSMode[name], BSSince[name] = nil, nil
             if elapsed then
                 local s = InitPlayer(name)
                 s.bsFlightTime = s.bsFlightTime + elapsed
@@ -1387,6 +1404,24 @@ function DeactivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, false) end
 -- Un vol encore actif au sol = Land manque (sinon CloseFlight l'aurait deja ferme).
 LAND_CHECK_MAX_MPS = 3 -- ~10 km/h
 PlayerDebugMenus = PlayerDebugMenus or {}
+
+-- 27/11 (passe casseur du 20/11) : vol encore ouvert apres STOPPED_CLOSE_S a l'arret au sol = atterrissage rate par DCS.
+-- Ferme comme un atterrissage (comme DEBUG), sans compter l'attente : le parking ne compte plus comme du vol.
+-- shortcut: vitesse absolue, donc jamais sur un porte-avions en route (DEBUG y reste), a revoir si ca arrive en jeu
+STOPPED_CLOSE_S = 60
+function AutoLand(u, pilot, stopped)
+    local base, onField = LandPlace(u)
+    for _, name in ipairs(Crew(u:getName(), pilot)) do
+        local f = Flights[name]
+        if f and f.active then
+            f.startTime = f.startTime + math.min(stopped, timer.getTime() - f.startTime)
+            local elapsed, fl = CloseFlight(name)
+            env.info("BlueSky : atterrissage non vu par DCS, vol ferme apres " .. math.floor(stopped) .. " s a l'arret pour " ..
+                name .. " a " .. base)
+            if elapsed then LandFlight(name, fl, elapsed, base, onField, u, name == pilot) end
+        end
+    end
+end
 
 function DebugRevalidateLanding(GroupObject)
     ForEachGroupPlayer(GroupObject, function(id, name, u)
@@ -1620,7 +1655,10 @@ local BASES = {
     -- "sukumi convoie" : contre-attaque russe partie de Gudauta vers Soukhoumi (11/11 : avant, au premier kill a Soukhoumi)
     { name = "Gudauta",   x = -196500, y = 516500, groups = { "Gudauta convoie", "KA 50 gudauta", "sukumi convoie" } },
     { name = "Sochi",     x = -164000, y = 462000, groups = { "sochi convoie", "hélico sochi convoie", "helico sochi" } },
-    { name = "Anapa",     x = -5000,   y = 243500, groups = { "hélico anapa" } },
+    { name = "Anapa",     x = -5000,   y = 243500, groups = { "hélico anapa", "KA 50 aanapa" } }, -- 27/11 : Ka-50 ajoutes par Thibaud
+    -- 27/11 : suite de la campagne, centres pris des balises du terrain (Beacons.lua), sans renforts
+    { name = "Pashkovsky", x = 7700,   y = 387900, groups = {} },
+    { name = "Krasnodar",  x = 11650,  y = 368650, groups = {} },
 }
 
 local function IsGroundTarget(obj)
@@ -1632,12 +1670,14 @@ local function IsGroundTarget(obj)
 end
 
 function OnGroundTargetKilled(obj)
-    if not IsGroundTarget(obj) then return end
+    if not IsGroundTarget(obj) or HiddenUnits[obj:getName()] then return end -- vehicule retire au chargement : pas un kill
     local p = obj:getPoint()
     for _, base in ipairs(BASES) do
         local dx, dz = p.x - base.x, p.z - base.y
         if not base.done and dx * dx + dz * dz < BASE_RADIUS * BASE_RADIUS then
             base.done = true
+            -- 27/11 : les vehicules de la base apparaissent aussi au premier kill (sinon base videe sans eux)
+            DeployHidden(base.name, base.name .. " attaquee : les forces russes se deploient.")
             for _, name in ipairs(base.groups) do
                 local g = Group.getByName(name)
                 if g then g:activate() else env.warning("BLUESKY : renfort introuvable : " .. name) end
@@ -2587,7 +2627,8 @@ local FACTORY = { x = -33689, z = 587167, r = 969 }
 local FACTORY_TYPES = { ["Tank 2"] = true, [".Ammunition depot"] = true, [".Command Center"] = true, ["FARP Fuel Depot"] = true,
     ["Nodding_Donkey_Pump"] = true, ["Workshop A"] = true, ["Building01_PBR"] = true, ["Building05_PBR"] = true, ["HESCO_generator"] = true }
 
-local function FactoryTargets()
+local function FactoryTargets(group)
+    DeployHidden("Factory Strike", DeployText(group, "Factory Strike")) -- vehicules du site : pas des cibles de la mission
     local list = {}
     for _, o in ipairs(coalition.getStaticObjects(coalition.side.RED) or {}) do
         if FACTORY_TYPES[o:getTypeName()] and Distance2D(o:getPoint(), FACTORY) <= FACTORY.r and TargetAlive(o) then
@@ -2626,7 +2667,7 @@ local STRIKES = {
         voice = { brief = "c28", success = "c29" },
     },
     {
-        label = "Factory Strike", bonus = 30, targets = FactoryTargets, creditGroups = { ["GCI-2"] = true },
+        label = "Factory Strike", bonus = 30, targets = FactoryTargets, creditGroups = { ["Strike 1"] = true }, -- defense du site (ex-GCI-2, renomme le 27/11)
         brief = "COMMANDEMENT : Complexe industriel russe au nord du Caucase, autour du site radar GCI-2, " ..
                 "environ 65 NM a l'ouest-nord-ouest de Mineralnye Vody. Detruisez reservoirs, depots, pompes et ateliers. " ..
                 "Defense antiaerienne sur place.",
@@ -2637,7 +2678,8 @@ local STRIKES = {
 
 ------------------------------------------------------------
 -- BASES ET CONVOIS (11/11) : memes regles que les strikes (cibles = unites, reussie quand tout est detruit, prorata).
--- Bases enchainees : Gudauta, puis Sochi, puis Anapa ; seule la base debloquee apparait dans F10 > MISSIONS > BASES.
+-- Bases enchainees : Gudauta, Sochi, Anapa, puis (27/11) Pashkovsky et Krasnodar ; seule la base debloquee apparait
+-- dans F10 > MISSIONS > BASES.
 -- Progression remise a zero a chaque lancement de la mission serveur (les unites detruites reapparaissent).
 -- Cibles d'une base : unites au sol rouges actives a moins de BASE_RADIUS de son centre, sauf renforts et convois.
 ------------------------------------------------------------
@@ -2649,9 +2691,16 @@ local CAMPAIGN = {
     { base = "Sochi", bonus = 40, voice = "c34", fallen = "c35",
       brief = "COMMANDEMENT : Base aerienne de Sochi, environ 35 NM au nord-ouest de Gudauta. " ..
               "Detruisez toutes les unites au sol de la base. Renforts blindes et helicopteres attendus." },
-    { base = "Anapa", bonus = 60, voice = "c36", fallen = "c37",
-      brief = "COMMANDEMENT : Base aerienne d'Anapa, a l'extremite nord-ouest de la cote. Derniere base russe du front : " ..
+    -- 27/11 : plus de voix pour Anapa, c36 (« derniere base russe du front ») et c37 (« victoire ») ne sont plus vrais
+    { base = "Anapa", bonus = 60,
+      brief = "COMMANDEMENT : Base aerienne d'Anapa, a l'extremite nord-ouest de la cote : " ..
               "plus de 60 vehicules. Detruisez toutes les unites au sol de la base." },
+    { base = "Pashkovsky", bonus = 50,
+      brief = "COMMANDEMENT : Base aerienne de Krasnodar-Pashkovsky, environ 78 NM a l'est d'Anapa. " ..
+              "Detruisez toutes les unites au sol de la base. Defense antiaerienne sur place." },
+    { base = "Krasnodar", bonus = 70,
+      brief = "COMMANDEMENT : Base aerienne de Krasnodar-Center, environ 10 NM a l'ouest de Pashkovsky. Derniere base russe " ..
+              "du front : batteries de DCA lourde et blindes. Detruisez toutes les unites au sol de la base." },
 }
 CampaignStage = 1 -- indice de la base debloquee dans CAMPAIGN (au-dela : campagne finie)
 
@@ -2700,6 +2749,131 @@ for _, b in ipairs(BASES) do for _, name in ipairs(b.groups) do NOT_BASE[name] =
 for _, c in ipairs(CONVOY_MISSIONS) do NOT_BASE[c.group] = true end
 for _, name in ipairs(NORTH_CONVOYS) do NOT_BASE[name] = true end
 
+------------------------------------------------------------
+-- VEHICULES DES MISSIONS (27/11, choix de Thibaud) : retires au chargement, recrees au lancement de leur mission
+-- (bases, Factory Strike, Convoi nord) ou au premier kill dans une base. Statiques, renforts et unites hors mission :
+-- inchanges. Recrees a l'identique depuis env.mission (meme nom, position, route) ; une fois la, ils restent.
+-- Restent en permanence (tri du 27/11 par Thibaud) : tout groupe avec un missile sol-air (SAM, MANPADS) ou un C-RAM,
+-- garde entier ; les ZU-23 seulement s'ils sont la majorite du groupe (un ZU-23 d'escorte suit son convoi) ;
+-- les autres canons (KS-19, ZSU-57, Shilka, Vulcan...) suivent les blindes. Krasnodar : tout apparait avec la mission.
+-- Bloc do ... end : le script est au plafond de Lua 5.1 (200 locales dans le corps principal).
+------------------------------------------------------------
+HiddenGroups = {} -- nom du groupe -> { area, country, data }
+HiddenUnits = {}  -- unites retirees : leur disparition n'est pas un kill (BaseHandler)
+do
+local DEPLOY_ALL = { Krasnodar = true } -- toute sa DCA est la cible de la base (choix de Thibaud du 27/11)
+
+local function Has(u, attribute)
+    local ok, has = pcall(u.hasAttribute, u, attribute)
+    return ok and has
+end
+
+-- secours si un type (unites de mod CHAP_ comprises) n'a pas l'attribut DCS : morceaux de nom des SAM de la .miz du 27/11
+local SAM_WORDS = { "sa-", "s-300", "buk", "kub", "s-125", "s_75", "iris", "nasams", "hawk", "patriot", "pantsir", "torm2",
+    "tor 9a331", "osa 9a33", "tunguska", "2s6", "rapier", "strela", "igla", "stinger", "manpad", "hq-7", "roland", "c-ram" }
+local function IsSAM(u, t)
+    if Has(u, "SAM related") or Has(u, "MANPADS") then return true end
+    for _, w in ipairs(SAM_WORDS) do if t:find(w, 1, true) then return true end end
+    return false
+end
+
+local function KeepsGroup(units)
+    local zu = 0
+    for _, u in ipairs(units) do
+        local t = u:getTypeName():lower()
+        if IsSAM(u, t) then return true end
+        if t:find("zu-23", 1, true) or t:find("zu232", 1, true) then zu = zu + 1 end
+    end
+    return zu * 2 > #units
+end
+
+local function Copy(t)
+    if type(t) ~= "table" then return t end
+    local c = {}
+    for k, v in pairs(t) do c[k] = Copy(v) end
+    return c
+end
+
+-- Groupes au sol de l'editeur (sans eux, rien n'est retire : on ne pourrait pas les recreer)
+local MissionGroups = {}
+for _, side in pairs((env.mission and env.mission.coalition) or {}) do
+    for _, c in ipairs(side.country or {}) do
+        for _, g in ipairs((c.vehicle and c.vehicle.group) or {}) do MissionGroups[g.name] = { country = c.id, data = g } end
+    end
+end
+
+local DEPLOY_AREAS = { ["Factory Strike"] = FACTORY }
+for _, b in ipairs(BASES) do DEPLOY_AREAS[b.name] = { x = b.x, z = b.y, r = BASE_RADIUS } end
+local NORTH_SET = {}
+for _, name in ipairs(NORTH_CONVOYS) do NORTH_SET[name] = true end
+
+local function AreaOf(name, p)
+    if NORTH_SET[name] then return NORTH_LABEL end
+    if NOT_BASE[name] then return nil end
+    for label, a in pairs(DEPLOY_AREAS) do
+        if Distance2D(p, a) <= a.r then return label end
+    end
+end
+
+do
+    local hidden, kept = 0, {}
+    for _, g in ipairs(coalition.getGroups(coalition.side.RED, Group.Category.GROUND) or {}) do
+        local name, units = g:getName(), g:getUnits()
+        local area = units[1] and AreaOf(name, units[1]:getPoint())
+        if area and MissionGroups[name] and units[1]:isActive() then
+            if not DEPLOY_ALL[area] and KeepsGroup(units) then
+                kept[#kept + 1] = name
+            else
+                HiddenGroups[name] = { area = area, country = MissionGroups[name].country, data = MissionGroups[name].data }
+                for _, u in ipairs(units) do HiddenUnits[u:getName()] = true end
+                hidden = hidden + #units
+                g:destroy()
+            end
+        end
+    end
+    local names = {}
+    for name, h in pairs(HiddenGroups) do names[#names + 1] = name .. " (" .. h.area .. ")" end
+    table.sort(names)
+    table.sort(kept)
+    env.info("BLUESKY : vehicules des missions, " .. hidden .. " unites retirees : " .. table.concat(names, ", ") ..
+        " ; gardes (DCA) : " .. table.concat(kept, ", "))
+end
+
+-- Recree les groupes retires d'une zone (ou le seul groupe only) ; message a tous si quelque chose apparait.
+-- Renvoie les unites recreees.
+function DeployHidden(area, text, only)
+    local units, groups = {}, 0
+    for name, h in pairs(HiddenGroups) do
+        if name == only or (not only and h.area == area) then
+            HiddenGroups[name] = nil
+            local data = Copy(h.data)
+            data.groupId, data.lateActivation = nil, nil
+            for _, u in ipairs(data.units or {}) do
+                u.unitId = nil
+                HiddenUnits[u.name] = nil
+                StrikeDead[u.name] = nil
+            end
+            local ok, g = pcall(coalition.addGroup, h.country, Group.Category.GROUND, data)
+            if ok and g then
+                groups = groups + 1
+                for _, u in ipairs(g:getUnits()) do units[#units + 1] = u end
+            else
+                env.warning("BLUESKY : vehicules, " .. name .. " pas recree : " .. tostring(g))
+            end
+        end
+    end
+    if groups > 0 then
+        MESSAGE:New(text, 15):ToAll()
+        env.info("BLUESKY : vehicules, " .. (only or area) .. " : " .. groups .. " groupes, " .. #units .. " unites recrees")
+    end
+    return units
+end
+
+function DeployText(group, label)
+    return (GroupPlayerName(group) or "Un pilote") .. " a lance " .. label .. " : les forces russes se deploient."
+end
+end -- vehicules des missions
+
 local function BaseTargets(baseName)
     local center
     for _, b in ipairs(BASES) do if b.name == baseName then center = { x = b.x, z = b.y } end end
@@ -2745,6 +2919,37 @@ local function WhereIs(p)
         Bearing(best:getPoint(), p), best:getName())
 end
 
+-- MISSION TRAIN (decidee le 13/11, codee le 27/11) : MISSIONS > AIR-SOL. Le groupe pose par Thibaud dans l'editeur,
+-- en activation retardee, apparait au lancement ; reussie quand locomotive et wagons sont detruits (prorata).
+-- Ici et pas dans STRIKES : le briefing a besoin de WhereIs, declare plus haut.
+TRAIN_GROUP = "TRAIN"
+STRIKES[#STRIKES + 1] = {
+    label = "Train", bonus = 20, tab = "AIR-SOL", -- bonus des convois
+    targets = function(group)
+        local g = Group.getByName(TRAIN_GROUP)
+        if not g then -- detruit (deja lance) ou absent de la .miz
+            if not TrainOn then env.warning("BLUESKY : groupe absent de la mission : " .. TRAIN_GROUP) end
+            return {}
+        end
+        if g:getCoalition() ~= coalition.side.RED then -- pose bleu dans l'editeur : jamais une cible (tirs fratricides)
+            env.warning("BLUESKY : " .. TRAIN_GROUP .. " n'est pas rouge dans l'editeur : mission Train impossible")
+            return {}
+        end
+        if not TrainOn then
+            TrainOn = true
+            g:activate()
+            MESSAGE:New((GroupPlayerName(group) or "Un pilote") .. " a lance Train : un train russe se met en route.", 15):ToAll()
+        end
+        local list = {}
+        for _, u in ipairs(g:getUnits()) do if TargetAlive(u) then list[#list + 1] = u end end
+        return list
+    end,
+    brief = function(targets)
+        return "COMMANDEMENT : Train russe en route. Detruisez la locomotive et tous ses wagons." .. WhereIs(targets[1]:getPoint())
+    end,
+    success = "COMMANDEMENT : Train detruit. Mission reussie !",
+}
+
 local function CampaignDone(stage)
     if CampaignStage ~= stage then return end
     CampaignStage = stage + 1
@@ -2760,7 +2965,14 @@ end
 local BASE_DEFS, CONVOY_DEFS = {}, {}
 for i, c in ipairs(CAMPAIGN) do
     BASE_DEFS[i] = { label = "Base " .. c.base, bonus = c.bonus, brief = c.brief, stage = i,
-                     targets = function() return BaseTargets(c.base) end, voice = { brief = c.voice },
+                     targets = function(group)
+                         local deployed = DeployHidden(c.base, DeployText(group, "Base " .. c.base))
+                         local list, seen = BaseTargets(c.base), {}
+                         -- shortcut: vehicules recrees ajoutes a la main si DCS ne les liste pas encore (pas verifiable hors jeu)
+                         for _, o in ipairs(list) do seen[o:getName()] = true end
+                         for _, u in ipairs(deployed) do if not seen[u:getName()] then list[#list + 1] = u end end
+                         return list
+                     end, voice = { brief = c.voice },
                      success = "COMMANDEMENT : Base de " .. c.base .. " detruite. Mission reussie !" }
 end
 for i, c in ipairs(CONVOY_MISSIONS) do
@@ -2770,12 +2982,16 @@ for i, c in ipairs(CONVOY_MISSIONS) do
 end
 local NORTH_DEF = {
     label = NORTH_LABEL, bonus = CONVOY_BONUS,
-    targets = function()
+    targets = function(group)
         local alive = {}
         for _, name in ipairs(NORTH_CONVOYS) do
-            if #GroupTargets({ name }) > 0 then alive[#alive + 1] = name end
+            if HiddenGroups[name] or #GroupTargets({ name }) > 0 then alive[#alive + 1] = name end
         end
-        return #alive > 0 and GroupTargets({ alive[math.random(#alive)] }) or {}
+        if #alive == 0 then return {} end
+        local pick = alive[math.random(#alive)]
+        local deployed = DeployHidden(nil, DeployText(group, NORTH_LABEL), pick)
+        local list = GroupTargets({ pick })
+        return #list > 0 and list or deployed
     end,
     brief = function(targets)
         return "COMMANDEMENT : Convoi russe repere au nord, en zone hostile. Detruisez tous ses vehicules." ..
@@ -2788,7 +3004,7 @@ local NORTH_DEF = {
 function StrikeLaunch(group, def)
     if not group or not group:IsAlive() then return end
     if Ops[def.label] then GroupMsg(group, def.label .. " deja en cours : demande le code a ceux qui l'ont lancee.", 10) return end
-    local targets = def.targets()
+    local targets = def.targets(group)
     if #targets == 0 then
         GroupMsg(group, def.label .. " : objectif deja detruit.", 10)
         if def.stage then CampaignDone(def.stage) RefreshMissionMenus() end -- base videe sans mission : la suivante s'ouvre
@@ -3426,7 +3642,7 @@ PlayerDynMenus = PlayerDynMenus or {} -- groupe -> { group, root, bases, convois
 
 local function NorthAlive()
     for _, name in ipairs(NORTH_CONVOYS) do
-        if #GroupTargets({ name }) > 0 then return true end
+        if HiddenGroups[name] or #GroupTargets({ name }) > 0 then return true end
     end
     return false
 end
@@ -3475,7 +3691,8 @@ function AddMissionMenusForGroup(group, groupName)
     local root = MENU_GROUP:New(group, "MISSIONS")
     local e = { group = group, root = root, bases = MENU_GROUP:New(group, "BASES", root),
                 convois = MENU_GROUP:New(group, "CONVOIS", root) }
-    local tabs = { STRIKE = MENU_GROUP:New(group, "STRIKE", root), NAVAL = MENU_GROUP:New(group, "NAVAL", root) }
+    local tabs = { STRIKE = MENU_GROUP:New(group, "STRIKE", root), NAVAL = MENU_GROUP:New(group, "NAVAL", root),
+                   ["AIR-SOL"] = MENU_GROUP:New(group, "AIR-SOL", root) }
     for _, def in ipairs(STRIKES) do
         MENU_GROUP_COMMAND:New(group, def.label, tabs[def.tab or "STRIKE"], StrikeLaunch, group, def)
     end

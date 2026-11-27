@@ -38,6 +38,7 @@ function CommitFlightKills(name, f) AWARD[name] = (AWARD[name] or 0) + f.points 
 function MessageToPlayer(id, text) SENT[#SENT + 1] = { id = id, text = text } end
 function Crew(_, pilot) return { pilot } end
 function ForEachGroupPlayer(g, fn) for i, n in ipairs(g.players) do fn(i, n) end end
+function GroupPlayerName(g) return g.players[1] end
 function Distance2D(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2) end
 function grp(name, ...)
   local g = { players = { ... } }
@@ -51,7 +52,8 @@ function player(id, name)
            pos = { x = 0, y = 0, z = 0 }, getPoint = function(s) return s.pos end }
 end
 BASES = { { name = "Gudauta", x = 0, y = 0, groups = { "renfort" } }, { name = "Sochi", x = 100000, y = 0, groups = {} },
-          { name = "Anapa", x = 200000, y = 0, groups = {} } }
+          { name = "Anapa", x = 200000, y = 0, groups = {} }, { name = "Pashkovsky", x = 300000, y = 0, groups = {} },
+          { name = "Krasnodar", x = 400000, y = 0, groups = {} } }
 BASE_RADIUS = 8000
 REFRESH = 0
 function RefreshMissionMenus() REFRESH = REFRESH + 1 end
@@ -315,7 +317,10 @@ ev('StrikeLaunch(leader, BASE_DEFS[1])'); assert 'deja detruit' in ev('GMSG.L') 
 # Sochi videe sans mission : son lancement ouvre Anapa ; Anapa vide : victoire
 lua.execute('StrikeDead[SO.units[1]:getName()] = true'); ev('StrikeLaunch(leader, BASE_DEFS[2])')
 assert ev('CampaignStage') == 3 and 'Anapa' in ev('ALL[3]')
-ev('StrikeLaunch(leader, BASE_DEFS[3])'); assert ev('CampaignStage') == 4 and 'victoire' in ev('ALL[5]')
+# 27/11 : Anapa n'est plus la derniere : Pashkovsky puis Krasnodar, victoire a Krasnodar
+ev('StrikeLaunch(leader, BASE_DEFS[3])'); assert ev('CampaignStage') == 4 and 'Pashkovsky' in ev('ALL[5]') and 'victoire' not in ev('ALL[5]')
+ev('StrikeLaunch(leader, BASE_DEFS[4])'); assert ev('CampaignStage') == 5 and 'Krasnodar' in ev('ALL[7]')
+ev('StrikeLaunch(leader, BASE_DEFS[5])'); assert ev('CampaignStage') == 6 and 'victoire' in ev('ALL[9]')
 lua.execute('coalition.getStaticObjects = ORIG_STATICS')
 
 # Convoi de renfort : aucune cible tant qu'il n'est pas active
@@ -348,7 +353,7 @@ lua.execute('''STATICS = { obj("Tank 2", -33689, 587000), obj(".Command Center",
                          obj("Tank 2", -30000, 587167) }''')
 ev('StrikeLaunch(leader, STRIKES[3])')
 assert ev('STRIKES[3].label') == 'Factory Strike' and ev('Ops["Factory Strike"].left') == 2
-lua.execute('OpCredit({ TgtUnitName = "GCI-2-28", TgtGroupName = "GCI-2" }, { "Alpha" })')
+lua.execute('OpCredit({ TgtUnitName = "GCI-2-28", TgtGroupName = "Strike 1" }, { "Alpha" })')
 assert ev('Ops["Factory Strike"].credit.Alpha') == 1
 lua.execute('Ops["Factory Strike"] = nil')
 
@@ -369,13 +374,14 @@ AddMissionMenusForGroup(leader, "L")
 ''')
 assert ev('texts(PlayerDynMenus.L.bases)') == 'Base Gudauta'
 assert ev('texts(PlayerDynMenus.L.convois)') == 'Convoi nord'
-assert ev('texts(PlayerDynMenus.L.root)') == 'BASES|CONVOIS|STRIKE|NAVAL|AIR|CAPTURE|Rappel de mes missions'
+assert ev('texts(PlayerDynMenus.L.root)') == 'BASES|CONVOIS|STRIKE|NAVAL|AIR-SOL|AIR|CAPTURE|Rappel de mes missions'
 assert ev('texts(PlayerDynMenus.L.root.children[3])') == 'Petrol Strike|Factory Strike'
 assert ev('texts(PlayerDynMenus.L.root.children[4])') == 'HOST Naval AERA'
 assert ev('#PlayerCodeMenus.L.children') == 9 and ev('#PlayerCodeMenus.L.children[4].children') == 9 and ev('PlayerCodeMenus.L.children[4].children[7].text') == '47'
 lua.execute('CampaignStage = 2; CV.units[1].active = true; RefreshMissionMenus()')
 assert ev('texts(PlayerDynMenus.L.bases)') == 'Base Sochi' and ev('texts(PlayerDynMenus.L.convois)') == 'Convoi Gudauta|Convoi nord'
-lua.execute('CampaignStage = 4; CV.units[1].active = false; StrikeDead[N1.units[1]:getName()] = true; RefreshMissionMenus()')
+# 27/11 : 5 bases dans la campagne, la 6e etape = campagne terminee
+lua.execute('CampaignStage = 6; CV.units[1].active = false; StrikeDead[N1.units[1]:getName()] = true; RefreshMissionMenus()')
 assert ev('texts(PlayerDynMenus.L.bases)') == 'Campagne terminee' and ev('texts(PlayerDynMenus.L.convois)') == 'Aucun convoi en route'
 # menu remplace (nouvelle apparition) : l'ancienne entree n'est plus mise a jour
 lua.execute('PlayerMissionMenus.L = {}; RefreshMissionMenus()')
@@ -389,10 +395,11 @@ valid = pathlib.Path(__file__).parent.parent.parent / 'voix-ia' / 'validees'
 assert all((valid / f).exists() for f in voix.values())
 assert all((valid / f).exists() for f in re.findall(r'"(c\d\d_\w+\.ogg)"', src))  # voix jouees hors VOIX (accueil)
 # 12/11 : chaque base a sa voix de briefing et de chute, chaque convoi et Factory brief + reussite
-assert [ev(f'BASE_DEFS[{i}].voice.brief') for i in (1, 2, 3)] == ['c32', 'c34', 'c36']
+# 27/11 : Anapa sans voix (c36 / c37 disaient « derniere base » et « victoire »), Pashkovsky et Krasnodar sans voix
+assert [ev(f'BASE_DEFS[{i}].voice.brief') for i in (1, 2, 3, 4, 5)] == ['c32', 'c34', None, None, None]
 assert [ev(f'CONVOY_DEFS[{i}].voice.brief') for i in (1, 2, 3)] == ['c38', 'c39', 'c40'] and ev('CONVOY_DEFS[1].voice.success') == 'c42'
 assert ev('NORTH_DEF.voice.brief') == 'c41' and ev('STRIKES[3].voice.brief') == 'c43' and ev('STRIKES[3].voice.success') == 'c44'
-assert all(f'fallen = "c{n}"' in src for n in (33, 35, 37))
+assert all(f'fallen = "c{n}"' in src for n in (33, 35)) and 'fallen = "c37"' not in src
 # une liste se joue a la suite (duree + 0,5 s), aux seuls membres ; pas de voix = rien (sons relevés dans Fake.sounds)
 lua.execute('''
 CALLS = {}
