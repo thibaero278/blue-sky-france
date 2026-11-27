@@ -84,6 +84,8 @@
     $('nextFill').style.width = (e.slots ? Math.min(100, Math.round(e.registered / e.slots * 100)) : e.registered ? 100 : 0) + '%';
     $('nextReg').textContent = e.slots ? e.registered + ' / ' + e.slots + ' inscrits' : e.registered + ' intéressé' + (e.registered > 1 ? 's' : '') + ' sur Discord';
   }
+  // fond du prochain vol introuvable → ravitaillement B-52 (remplace l'onerror inline, bloqué par la CSP)
+  $('nextBg').addEventListener('error', () => { const fb = 'assets/ravito-b52.webp'; if (!$('nextBg').src.endsWith(fb)) $('nextBg').setAttribute('src', fb); });
   // Tout est relu à chaque rafraîchissement (toutes les 30 s, layout.js) : plus besoin de F5
   load();
   document.addEventListener('bs:refresh', load);

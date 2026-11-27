@@ -1,7 +1,7 @@
 // Page mission : briefing publié depuis #missions-dcs (clic droit > Applications > Publier sur le site).
 // mission.html?id=<id de l'événement Discord>
 (function () {
-  const { C, esc, fmt, loadMission } = window.BS;
+  const { C, esc, safeUrl, fmt, loadMission } = window.BS;
   const $ = id => document.getElementById(id);
   const id = new URLSearchParams(location.search).get('id');
 
@@ -75,12 +75,12 @@
     $('mText').innerHTML = m.text ? markdown(m.text) : '<span style="color:#8a91a3">Pas de texte : voir les photos.</span>';
     // Liens d'images Discord valables environ 24 h, renouvelés par le bot quand il tourne
     $('mPhotos').innerHTML = (m.images || []).map(img =>
-      `<a href="${esc(img.url)}" target="_blank" rel="noopener"><img src="${esc(img.url)}" alt="${esc(img.name || 'Photo du briefing')}" loading="lazy"></a>`).join('');
+      `<a href="${esc(safeUrl(img.url))}" target="_blank" rel="noopener"><img src="${esc(safeUrl(img.url))}" alt="${esc(img.name || 'Photo du briefing')}" loading="lazy"></a>`).join('');
     $('mPhotos').querySelectorAll('img').forEach(el => el.addEventListener('error', () => {
-      el.parentElement.outerHTML = `<a href="${esc(m.messageUrl)}" target="_blank" rel="noopener"><span class="lost">Photo visible sur le Discord →</span></a>`;
+      el.parentElement.outerHTML = `<a href="${esc(safeUrl(m.messageUrl))}" target="_blank" rel="noopener"><span class="lost">Photo visible sur le Discord →</span></a>`;
     }, { once: true }));
-    $('mActs').innerHTML = (m.signupUrl ? `<a class="btn" href="${esc(m.signupUrl)}" target="_blank" rel="noopener">S'inscrire (sondage Discord)</a>` : '') +
-      `<a class="btn outline" href="${esc(m.messageUrl)}" target="_blank" rel="noopener">Voir sur Discord</a>` +
+    $('mActs').innerHTML = (m.signupUrl ? `<a class="btn" href="${esc(safeUrl(m.signupUrl))}" target="_blank" rel="noopener">S'inscrire (sondage Discord)</a>` : '') +
+      `<a class="btn outline" href="${esc(safeUrl(m.messageUrl))}" target="_blank" rel="noopener">Voir sur Discord</a>` +
       '<a class="btn outline" href="evenements.html">Planning</a>';
   });
 

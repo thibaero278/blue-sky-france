@@ -1,6 +1,6 @@
 // Page Événements : planning des vols (événements Discord exportés par le bot), inscrits, prochain vol.
 (function () {
-  const { C, esc, fmt, loadEvents, demoBadge } = window.BS;
+  const { C, esc, safeUrl, fmt, loadEvents, demoBadge } = window.BS;
   const $ = id => document.getElementById(id);
 
   let ev = { list: [] }, loaded = false;
@@ -25,7 +25,7 @@
       const chip = (n, cls, title) => `<span class="${cls}"${title ? ' title="' + title + '"' : ''}>${esc(n)}</span>`;
       const who = s && (s.yes.length || wait.length || s.maybe.length) ? `<div class="who-list">${s.yes.map(n => chip(n, 'yes', e.slots ? 'Retenu' : 'Présent')).join('')}${wait.map(n => chip(n, 'wait', e.slots && !s.yes.length ? 'Candidat : choix du staff à venir' : 'Liste d\'attente')).join('')}${s.maybe.map(n => chip(n, 'maybe', 'Peut-être')).join('')}</div>` : '';
       // Photo de fond : bannière de l'événement Discord, sinon 1re photo du briefing ; lien expiré → carte blanche
-      const bg = e.image ? `<img class="ev-bg" src="${esc(e.image)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-img'); this.remove()">` : '';
+      const bg = e.image ? `<img class="ev-bg" src="${esc(safeUrl(e.image))}" alt="" loading="lazy">` : '';
       return `<div class="card event${e.image ? ' has-img' : ''}">${bg}
         <div class="date"><span class="mono" style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#2a5ca8">${fmt.dayShort(e.date)}</span><b>${e.date.getDate()}</b><span class="mono" style="font-size:11px; text-transform:uppercase; color:#4a556b">${fmt.month(e.date)}</span></div>
         <div style="flex:1 1 280px; display:flex; flex-direction:column; gap:8px; min-width:0">
@@ -39,12 +39,16 @@
         </div>
         <div class="ev-actions">
           ${e.mission && e.id ? '<a class="btn outline" href="mission.html?id=' + esc(e.id) + '">Voir la mission</a>'
-            : e.link ? '<a class="btn outline" href="' + esc(e.link) + '" target="_blank" rel="noopener">' + (/discord\.com\/channels\//.test(e.link) ? 'Voir le salon' : 'Ouvrir le lien') + '</a>' : ''}
+            : e.link ? '<a class="btn outline" href="' + esc(safeUrl(e.link)) + '" target="_blank" rel="noopener">' + (/discord\.com\/channels\//.test(e.link) ? 'Voir le salon' : 'Ouvrir le lien') + '</a>' : ''}
           ${full && !s ? '<span class="btn muted">Complet</span>'
-            : '<a class="btn' + (full ? ' outline' : '') + '" href="' + esc(signupUrl(e)) + '" target="_blank" rel="noopener">' + (full ? 'Liste d\'attente' : 'S\'inscrire') + '</a>'}
+            : '<a class="btn' + (full ? ' outline' : '') + '" href="' + esc(safeUrl(signupUrl(e))) + '" target="_blank" rel="noopener">' + (full ? 'Liste d\'attente' : 'S\'inscrire') + '</a>'}
         </div>
       </div>`;
     }).join('') || '<div class="card empty">Aucun vol prévu pour le moment. Les annonces arrivent sur le Discord.</div>';
+    // bannière Discord expirée : on retire l'image et la classe (remplace l'ancien onerror inline, bloqué par la CSP)
+    $('events').querySelectorAll('img.ev-bg').forEach(img => img.addEventListener('error', () => {
+      const card = img.closest('.event'); if (card) card.classList.remove('has-img'); img.remove();
+    }, { once: true }));
     const ne = list[0];
     $('nTitle').textContent = ne ? ne.title : 'Rien de prévu';
     $('nWhen').textContent = ne ? [fmt.dateLong(ne.date), fmt.hour(ne.date), ne.map].filter(Boolean).join(' · ') : '';
@@ -72,6 +76,8 @@
     else if (ev.source === 'discord') $('evNote').textContent = 'Événements du Discord · inscription par sondage dans #inscriptions';
     renderEvents(); tick();
   });
+  // fond du prochain vol introuvable → ravitaillement B-52 (remplace l'onerror inline, bloqué par la CSP)
+  $('nBg').addEventListener('error', () => { const fb = 'assets/ravito-b52.webp'; if (!$('nBg').src.endsWith(fb)) $('nBg').setAttribute('src', fb); });
   load();
   document.addEventListener('bs:refresh', load);   // inscrits / nouveaux événements sans F5
   setInterval(tick, 1000);

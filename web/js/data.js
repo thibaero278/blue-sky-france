@@ -32,6 +32,9 @@
     g.marks.map(m => m.star ? '<span class="s" style="color:' + m.color + '">★</span>' : '<i class="b" style="background:' + m.color + '"></i>').join('') + '</span>';
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // URL sûre pour un href/src venant du relais ou de Discord : esc() échappe les guillemets mais pas le schéma,
+  // donc « javascript: » / « data: » passeraient (clic = exécution). On n'autorise que http(s) et mailto, sinon '#'.
+  const safeUrl = u => /^(?:https?:|mailto:)/i.test(String(u ?? '').trim()) ? String(u).trim() : '#';
   const pad = n => String(n).padStart(2, '0');
   const fmt = {
     n: x => Number(x).toLocaleString('fr-FR'),
@@ -391,5 +394,5 @@
   // Affiche un nombre (compteur animé si motion.js est chargé)
   const num = (el, n, opts) => window.BSMotion ? window.BSMotion.count(el, n, opts) : (el.textContent = fmt.n(n));
 
-  window.BS = { C, refresh, num, GRADES, gradeFor, insignia, esc, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadTrails, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
+  window.BS = { C, refresh, num, GRADES, gradeFor, insignia, esc, safeUrl, fmt, loadStats, loadDiscord, loadVoiceLive, loadActivity, events, loadEvents, loadMission, airfields, loadLive, loadTrails, loadServer, serverLabel, loadStaff, roleBadge, roleLabel, demoBadge };
 })();
