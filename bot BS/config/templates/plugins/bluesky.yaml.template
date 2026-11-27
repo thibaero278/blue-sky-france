@@ -25,7 +25,7 @@ DEFAULT:
   mission_channel: 1419768783282896987   # salon des briefings (#missions-dcs) ; -1 = n'importe quel salon
   signup_channel: 1562459201618452540    # salon où le bot poste le sondage d'inscription
   publish_role: DCS Admin                # qui peut publier une mission
-  voice_stats: true                      # temps passé en vocal (total par jour, sans nom) pour le site
+  voice_stats: true                      # temps par jour où au moins un vocal est occupé (sans nom) pour le site
   voice_delay: 30                        # s : après une entrée/sortie de vocal, mise à jour de « En vocal maintenant » sur le site
   vote_delay: 1                          # min : délai d'envoi au site après un vote (votes groupés)
   # Commandes masquées : voir hide_commands / hide_chat_commands dans plugins\bluesky\commands.py (DEFAULTS).

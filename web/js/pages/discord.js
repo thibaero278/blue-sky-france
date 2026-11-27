@@ -95,7 +95,7 @@
   function renderVoice() {
     const V = A.voice;
     $('vLabel').innerHTML = 'Salons vocaux' + (V.demo ? ' ' + demoBadge() : '') +
-      (!V.demo && V.since ? ' <span class="mono" style="font-size:11px; color:#8a91a3; text-transform:none; letter-spacing:0">· tous membres confondus, compté par le bot depuis le ' + fmt.dateShort(V.since) + '</span>' : '');
+      (!V.demo && V.since ? ' <span class="mono" style="font-size:11px; color:#8a91a3; text-transform:none; letter-spacing:0">· temps où au moins un salon est occupé, compté par le bot depuis le ' + fmt.dateShort(V.since) + '</span>' : '');
     voiceChart.set(V.days);
   }
 
