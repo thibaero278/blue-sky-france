@@ -29,7 +29,7 @@ return {
         { t = 211, check = { message = { player = "Dex", has = "Petrol Strike : objectif deja detruit." }, ops = { ["Petrol Strike"] = false } } },
         -- 380 s de vol : +1 pt de temps ; posé à Kobuleti
         { t = 400, land = { player = "Dex", at = "Kobuleti" } },
-        { t = 401, check = { points = { Dex = 21, Weefe = 20 }, message = { player = "Dex", has = "Bienvenue a Kobuleti" },
+        { t = 411, check = { points = { Dex = 21, Weefe = 20 }, message = { player = "Dex", has = "Bienvenue a Kobuleti" },
                              scores_file = { Dex = { points = 21, landings = 1, flights = 1 }, Weefe = { points = 20, flights = 0 } } } },
     },
 }

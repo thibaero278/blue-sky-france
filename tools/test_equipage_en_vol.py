@@ -22,7 +22,7 @@ APACHE = Fake.addGroup({ kind = "HELICOPTER", coal = 2, units = { { name = "apac
 APACHE.air = true
 function SaveScores() end
 function MessageToPlayer() end
-function StartFlight(n) Flights[n] = { active = true } end
+function StartFlight(n) Flights[n] = { active = true } return "" end
 function CloseFlight(n) CrewUnit[n] = nil; local f = Flights[n]; Flights[n] = nil; return f and f.active end
 function ResetStreak() end
 ''' + cut('local function Crew(', 'local function EventUnitName') +

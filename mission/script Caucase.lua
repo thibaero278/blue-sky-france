@@ -68,13 +68,16 @@ local KIND_LABEL = { airair = "A/A", airsol = "A/S", airmer = "A/M" }
 
 local TIME_PTS_S = 300 -- 1 point de score par tranche de 5 min de vol
 
--- SERIE (20/11) : chaque vol valable (>= STREAK_MIN_S ou 1 kill, pose propre, puis moteur coupe) ajoute STREAK_STEP
--- au multiplicateur du vol suivant : x1, x1,5, x2, x2,5, x3 (plafond, 5e vol), sur les points de combat (kills, missions)
--- seulement, pas sur ceux du temps de vol (20/11 : un vol AFK a x3 rapportait triple). Remise a zero : mort, crash,
--- ejection, slot quitte en vol. Pose hors aeroport / train casse sur PA : vol neutre (pas de bonus, serie inchangee).
+-- SERIE (20/11, v2 du 28/11, choix de Thibaud du 27/11) : chaque vol valable (>= STREAK_MIN_S ou 1 kill, atterrissage
+-- valide sur une base, voir CheckLandings) ajoute STREAK_STEP au multiplicateur du vol suivant, des l'atterrissage (plus de
+-- coupure moteur) : x1, x1,5, x2, x2,5, x3 (plafond, 5e vol). Bonus sur les points de combat (kills, missions) et sur ceux
+-- du temps de vol de la 1re heure du vol (STREAK_TIME_S ; au-dela : x1). Redecoller moins de STREAK_GROUND_S apres
+-- l'atterrissage : ce vol-la est neutre. Remise a zero : mort, crash, ejection, slot quitte en vol. Pose hors aeroport /
+-- train casse sur PA : vol neutre (pas de bonus, serie inchangee).
 -- s.serie est une chaine : le bot (scores.py, merge) garde la derniere valeur au lieu d'additionner les gains.
 STREAK_STEP, STREAK_MAX, STREAK_MIN_S = 0.5, 3, 300
-StreakPending = {} -- pilote -> true : vol valable pose, attend la coupure moteur
+STREAK_TIME_S, STREAK_GROUND_S = 3600, 120
+StreakLandedAt = {} -- pilote -> heure de son dernier atterrissage valide
 local TRACK_INTERVAL = 0.05
 local IP_DISTANCE = 50
 
@@ -113,7 +116,6 @@ function MultText(m) return (string.format("x%g", m):gsub("%.", ",")) end
 
 -- Serie perdue : renvoie true s'il y en avait une
 function ResetStreak(playerName)
-    StreakPending[playerName] = nil
     local s = InitPlayer(playerName)
     local had = (tonumber(s.serie) or 0) > 0
     s.serie = "0"
@@ -343,7 +345,12 @@ local function StartFlight(playerName)
     f.active = true
     f.startTime = timer.getTime()
     Flights[playerName] = f
-    StreakPending[playerName] = nil -- redecolle sans couper le moteur : vol precedent pas compte dans la serie
+    -- serie v2 : redecolle trop vite apres l'atterrissage -> ce vol est neutre ; renvoie la ligne d'alerte (sinon "")
+    local ground = StreakLandedAt[playerName] and f.startTime - StreakLandedAt[playerName]
+    if not ground or ground >= STREAK_GROUND_S then return "" end
+    f.streakNeutral = true
+    return string.format("\nRedecolle apres %d s : ce vol ne compte pas pour la serie (%d min au sol entre deux vols).",
+        ground, STREAK_GROUND_S / 60)
 end
 
 -- Termine un contact ravitaillement en cours, renvoie sa duree
@@ -440,7 +447,7 @@ end
 -- Valide les kills/points d'un vol dans le total.
 -- elapsed (atterrissage uniquement) : ajoute au temps de vol complete.
 -- divisor (atterrissage hors aeroport, 13/11) : les points du vol sont divises, f.offFieldLoss = points perdus
--- mult (atterrissage propre) : multiplicateur de serie, sur les points de combat seulement (pas le temps de vol),
+-- mult (atterrissage propre) : multiplicateur de serie, sur les points de combat et ceux de la 1re heure de vol,
 -- f.streakBonus = points gagnes
 local function CommitFlightKills(playerName, f, elapsed, divisor, mult)
     if not f then return end
@@ -455,10 +462,13 @@ local function CommitFlightKills(playerName, f, elapsed, divisor, mult)
         f.offFieldLoss = f.points - math.floor(f.points / divisor)
         f.points = f.points - f.offFieldLoss
     end
-    local combat = f.points - (f.timePts or 0)
-    if mult and mult > 1 and combat > 0 then
-        f.streakBonus = math.floor(combat * (mult - 1))
-        f.points = f.points + f.streakBonus
+    if mult and mult > 1 then
+        local tp = f.timePts or 0
+        local b = math.max(0, f.points - tp) + math.min(tp, math.floor(STREAK_TIME_S / TIME_PTS_S))
+        if b > 0 then
+            f.streakBonus = math.floor(b * (mult - 1))
+            f.points = f.points + f.streakBonus
+        end
     end
     s.points = s.points + f.points
     -- records : le plus de kills valides sur un seul vol, air-air d'un cote, air-sol (bateaux compris) de l'autre
@@ -490,20 +500,23 @@ local function FlightSummary(f, elapsed)
            (f.streakLine or "")
 end
 
--- Serie a l'atterrissage : multiplicateur a appliquer (nil si pose rate) et ligne du message (dans f.streakLine)
+-- Serie a l'atterrissage valide : multiplicateur a appliquer (nil si vol neutre), serie +1 si le vol est valable,
+-- ligne du message dans f.streakLine
 function LandStreak(playerName, f, elapsed, clean)
     local s = InitPlayer(playerName)
-    if not clean then
-        f.streakLine = "\nSerie : pose rate, vol neutre (" .. s.serie .. " vol(s), " .. MultText(StreakMult(s)) .. ")"
+    if not clean or f.streakNeutral then
+        f.streakLine = "\nSerie : " .. (clean and "redecolle trop tot" or "pose rate") .. ", vol neutre (" .. s.serie ..
+            " vol(s), " .. MultText(StreakMult(s)) .. ")"
         return nil
     end
     local mult = StreakMult(s)
-    local valid = elapsed >= STREAK_MIN_S or (f.airair + f.airsol + f.airmer) > 0
-    StreakPending[playerName] = valid or nil
-    local nextMult = MultText(math.min(STREAK_MAX, mult + STREAK_STEP))
-    f.streakLine = "\nSerie : " .. MultText(mult) ..
-        (valid and ("\nCoupe le moteur pour valider ce vol dans la serie (prochain vol " .. nextMult .. ")")
-               or "\nVol trop court pour la serie (5 min ou 1 kill)")
+    if elapsed < STREAK_MIN_S and f.airair + f.airsol + f.airmer == 0 then
+        f.streakLine = "\nSerie : " .. MultText(mult) .. "\nVol trop court pour la serie (5 min ou 1 kill)"
+        return mult
+    end
+    s.serie = tostring((tonumber(s.serie) or 0) + 1)
+    f.streakLine = "\nSerie : " .. MultText(mult) .. "\nSerie validee : " .. s.serie .. " vol(s) d'affilee, prochain vol " ..
+        MultText(StreakMult(s)) .. " (reste " .. STREAK_GROUND_S / 60 .. " min au sol)"
     return mult
 end
 
@@ -662,8 +675,8 @@ function TakeoffHandler:OnEventTakeoff(EventData)
         local f = Flights[name]
         if not (f and f.active) then -- sinon deja lance par la detection ci-dessous
             if i == 1 then
-                StartFlight(name)
-                MessageToPlayer(UnitIDFromEvent(EventData), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
+                MessageToPlayer(UnitIDFromEvent(EventData), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0." ..
+                    StartFlight(name), 8)
             else
                 StartCrewFlight(name, unitName)
             end
@@ -700,20 +713,7 @@ local function CheckAirbornePlayers()
             if name and u:inAir() and not (f and f.active) and not (PlayerLife[name] and PlayerLife[name].dead)
                and now - (FlightClosedAt[name] or -100) > 10 then
                 UnitPlayer[u:getName()] = name
-                StartFlight(name)
-                MessageToPlayer(u:getID(), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0.", 5)
-            end
-            -- 27/11 : atterrissage rate par DCS (vol encore ouvert, avion arrete au sol) : ferme tout seul apres 1 min
-            if name and f and f.active and not u:inAir() then
-                local v = u:getVelocity()
-                if math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) > LAND_CHECK_MAX_MPS then
-                    f.stoppedAt = nil
-                else
-                    f.stoppedAt = f.stoppedAt or now
-                    if now - f.stoppedAt >= STOPPED_CLOSE_S then AutoLand(u, name, now - f.stoppedAt) end
-                end
-            elseif f then
-                f.stoppedAt = nil
+                MessageToPlayer(u:getID(), "DECOLLAGE DETECTE\nTimer de vol lance.\nScore de vol remis a 0." .. StartFlight(name), 8)
             end
             -- equipage monte en vol (ou decollage rate) : son vol commence maintenant
             if name and u:inAir() then
@@ -819,20 +819,18 @@ local TROLL_MESSAGES = {
     "AIRBOSS : Le train a demissionne en voyant ton approche.",
 }
 
+-- Serie v2 (28/11) : l'event Land ne valide plus rien (rebond, touch-and-go : le vol continue, voir CheckLandings).
+-- Il garde seulement la base donnee par DCS (aeroport, FARP, navire) pour l'atterrissage valide qui suivra.
 CarrierHandler = EVENTHANDLER:New()
 CarrierHandler:HandleEvent(EVENTS.Land)
 
 function CarrierHandler:OnEventLand(EventData)
-    local playerName = EventData.IniPlayerName
-    local dcsUnit = EventData.IniDCSUnit
-    if not playerName or not dcsUnit then return end
-
-    local base, onField = LandPlace(dcsUnit, EventData.Place)
-    for i, name in ipairs(Crew(dcsUnit:getName(), playerName)) do
-        local elapsed, f = CloseFlight(name)
-        -- Pas de vol en cours : faux Land envoye par DCS au spawn (pont du PA en multi), on ignore
-        if elapsed then LandFlight(name, f, elapsed, base, onField, dcsUnit, i == 1) end
-    end
+    local f = EventData.IniPlayerName and Flights[EventData.IniPlayerName]
+    if not (f and f.active) then return end -- sans vol : faux Land au spawn (pont du PA), ignore
+    f.landPlace, f.groundAt = EventData.Place, f.groundAt or timer.getTime()
+    -- deja lent au toucher (helico) : les LAND_HOLD_S comptent d'ici, pas du prochain passage de CheckLandings
+    local u = EventData.IniDCSUnit
+    if u and u:isExist() and DeckSpeed(u) <= LAND_MAX_MPS then f.groundSince = f.groundSince or timer.getTime() end
 end
 
 -- ATTERRISSAGE HORS AEROPORT (13/11) : points du vol divises par OFFFIELD_DIVISOR si pose ni sur une base
@@ -854,52 +852,113 @@ function LandPlace(dcsUnit, place)
     return best or "terrain", runway or (bestD ~= nil and bestD < LAND_FIELD_M)
 end
 
--- Atterrissage d'un membre de l'equipage (sound : son joue une seule fois par avion)
+-- Atterrissage valide d'un membre de l'equipage (sound : son joue une seule fois par avion).
+-- Porte-avions : train casse = message troll, vol neutre, pas d'appontage compte.
 function LandFlight(playerName, f, elapsed, base, onField, dcsUnit, sound)
     local unitID = dcsUnit:getID()
     local s = InitPlayer(playerName)
     local carrier = CARRIERS[base]
+    local troll = carrier and IsGearStateSuspicious(dcsUnit)
     local function Sound(file) if sound then trigger.action.outSoundForUnit(unitID, file) end end
 
-    -- Base terrestre : on valide tout de suite
-    if not carrier then
-        CommitFlightKills(playerName, f, elapsed, not onField and OFFFIELD_DIVISOR or nil, LandStreak(playerName, f, elapsed, onField))
-        StreakBonusLine(f)
+    CommitFlightKills(playerName, f, elapsed, not onField and OFFFIELD_DIVISOR or nil,
+        LandStreak(playerName, f, elapsed, onField and not troll))
+    StreakBonusLine(f)
+    StreakLandedAt[playerName] = timer.getTime()
+    if troll then
+        SaveScores()
+        MessageToPlayer(unitID, TROLL_MESSAGES[math.random(#TROLL_MESSAGES)] .. FlightSummary(f, elapsed), 10)
+        Sound("troll.ogg")
+    elseif carrier then
+        s.traps = s.traps + 1
+        SaveScores()
+        MessageToPlayer(unitID, "AIRBOSS - " .. carrier .. "\nBienvenue a bord, " .. playerName ..
+            "\nAppontages total : " .. s.traps .. FlightSummary(f, elapsed), 10)
+        Sound("PA.ogg")
+    else
         s.landings = s.landings + 1
         SaveScores()
         MessageToPlayer(unitID, (onField and ("Bienvenue a " .. base) or ("Pose hors aeroport (pres de " .. base .. ")")) ..
-            ", " .. playerName ..
-            "\nAtterrissages total : " .. s.landings .. FlightSummary(f, elapsed), 10)
+            ", " .. playerName .. "\nAtterrissages total : " .. s.landings .. FlightSummary(f, elapsed), 10)
         Sound("PA.ogg")
-        return
     end
-
-    -- Porte-avions : on attend 1 s pour verifier l'etat du train
-    local life = PlayerLife[playerName]
-    timer.scheduleFunction(function()
-        -- Mort entre-temps (crash sur le pont) : rien n'est valide
-        if life and life.dead then return nil end
-
-        local troll = IsGearStateSuspicious(dcsUnit)
-        CommitFlightKills(playerName, f, elapsed, nil, LandStreak(playerName, f, elapsed, not troll))
-        StreakBonusLine(f)
-
-        if troll then
-            SaveScores()
-            MessageToPlayer(unitID, TROLL_MESSAGES[math.random(#TROLL_MESSAGES)] .. FlightSummary(f, elapsed), 10)
-            Sound("troll.ogg")
-            return nil
-        end
-
-        s.traps = s.traps + 1
-        SaveScores()
-        MessageToPlayer(unitID,
-            "AIRBOSS - " .. carrier .. "\nBienvenue a bord, " .. playerName ..
-            "\nAppontages total : " .. s.traps .. FlightSummary(f, elapsed), 10)
-        Sound("PA.ogg")
-        return nil
-    end, nil, timer.getTime() + 1)
 end
+
+------------------------------------------------------------
+-- ATTERRISSAGE VALIDE (serie v2 du 28/11, choix de Thibaud du 27/11) : au sol, sous LAND_MAX_KT (par rapport au
+-- navire sur un pont) pendant LAND_HOLD_S d'affilee, sans crash ni mort. Seule regle pour les points, les records,
+-- les atterrissages et la serie. Remplace la validation a l'event Land (rebonds) et la fermeture apres 1 min a l'arret.
+------------------------------------------------------------
+LAND_MAX_KT, LAND_HOLD_S, SHIP_DECK_M = 50, 10, 300
+LAND_MAX_MPS = LAND_MAX_KT * 0.514444
+
+-- Vitesse au sol (m/s), par rapport au navire si l'avion est sur un pont (a moins de SHIP_DECK_M de son centre)
+function DeckSpeed(u)
+    local v, p = u:getVelocity(), u:getPoint()
+    for _, ab in ipairs(world.getAirbases() or {}) do
+        local ok, d = pcall(ab.getDesc, ab)
+        local q = ok and d and d.category == Airbase.Category.SHIP and ab:getPoint()
+        if q and (q.x - p.x) ^ 2 + (q.z - p.z) ^ 2 < SHIP_DECK_M ^ 2 then
+            local okv, w = pcall(ab.getVelocity, ab)
+            if okv and w then v = { x = v.x - w.x, y = v.y - w.y, z = v.z - w.z } end
+            break
+        end
+    end
+    return math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+end
+
+-- Ferme le vol de l'equipage comme un atterrissage ; ground (s) : temps au sol pas encore retire par CheckLandings
+function AutoLand(u, pilot, ground)
+    local pf = Flights[pilot]
+    local base, onField = LandPlace(u, pf and pf.landPlace)
+    local held = math.floor(pf and pf.groundSince and timer.getTime() - pf.groundSince or 0)
+    for i, name in ipairs(Crew(u:getName(), pilot)) do
+        local f = Flights[name]
+        if f and f.active then
+            f.startTime = f.startTime + math.min(ground, timer.getTime() - f.startTime)
+            local elapsed, fl = CloseFlight(name)
+            env.info("BlueSky : atterrissage valide pour " .. name .. " a " .. base .. " (" .. held .. " s au sol sous " .. LAND_MAX_KT .. " kt)")
+            if elapsed then LandFlight(name, fl, elapsed, base, onField, u, i == 1) end
+        end
+    end
+end
+
+function CheckLandings()
+    local now = timer.getTime()
+    for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
+        for _, u in ipairs(coalition.getPlayers(side) or {}) do
+            local name = u:isExist() and u:getPlayerName()
+            local f = name and Flights[name]
+            if f and f.active then
+                -- passe casseur du 28/11 : le temps au sol ne compte jamais comme du vol (rouler vite le gardait ouvert)
+                for _, c in ipairs(Crew(u:getName(), name)) do
+                    local fc = Flights[c]
+                    if fc and fc.active then
+                        if u:inAir() then fc.groundAt = nil
+                        else
+                            if fc.groundAt then fc.startTime = math.min(now, fc.startTime + now - fc.groundAt) end
+                            fc.groundAt = now
+                        end
+                    end
+                end
+                if u:inAir() then
+                    f.groundSince, f.landPlace = nil, nil
+                elseif DeckSpeed(u) > LAND_MAX_MPS then
+                    f.groundSince = nil
+                else
+                    f.groundSince = f.groundSince or now
+                    if now - f.groundSince >= LAND_HOLD_S then AutoLand(u, name, 0) end
+                end
+            end
+        end
+    end
+end
+
+timer.scheduleFunction(function()
+    local ok, err = pcall(CheckLandings)
+    if not ok then env.warning("BlueSky : detection atterrissage : " .. tostring(err)) end
+    return timer.getTime() + 1
+end, nil, timer.getTime() + 1)
 
 ------------------------------------------------------------
 -- MORT / CRASH / EJECTION / DECONNEXION
@@ -947,6 +1006,11 @@ function LifeHandler:OnEventPlayerLeaveUnit(EventData)
     local pilot = PlayerFromEvent(EventData)
     if not pilot then return end
 
+    -- serie v2 : au sol sous LAND_MAX_KT = atterrissage valide, meme pendant les LAND_HOLD_S (choix de Thibaud)
+    local u, pf = EventData.IniDCSUnit, Flights[pilot]
+    if pf and pf.active and u and u:isExist() and not u:inAir() and DeckSpeed(u) <= LAND_MAX_MPS then
+        AutoLand(u, pilot, pf.groundAt and timer.getTime() - pf.groundAt or 0)
+    end
     -- l'equipage descend avec le pilote (DCS vide l'avion)
     for _, playerName in ipairs(Crew(EventUnitName(EventData), pilot)) do
         if CloseFlight(playerName) then ResetStreak(playerName); SaveScores() end
@@ -956,25 +1020,6 @@ function LifeHandler:OnEventPlayerLeaveUnit(EventData)
     end
     -- L'avion abandonne ne doit plus etre attribue au pilote
     if EventData.IniUnitName and UnitPlayer[EventData.IniUnitName] == pilot then UnitPlayer[EventData.IniUnitName] = nil end
-end
-
--- Moteur coupe au sol apres un vol valable : +1 a la serie
-StreakHandler = EVENTHANDLER:New()
-StreakHandler:HandleEvent(EVENTS.EngineShutdown)
-
-function StreakHandler:OnEventEngineShutdown(EventData)
-    local pilot, u = EventData.IniPlayerName, EventData.IniDCSUnit
-    if not pilot or not u or not u:isExist() or u:inAir() then return end
-    for _, name in ipairs(Crew(u:getName(), pilot)) do
-        if StreakPending[name] then
-            StreakPending[name] = nil
-            local s = InitPlayer(name)
-            s.serie = tostring((tonumber(s.serie) or 0) + 1)
-            SaveScores()
-            MessageToPlayer(u:getID(), "Serie validee, " .. name .. " : " .. s.serie .. " vol(s) d'affilee, prochain vol " ..
-                MultText(StreakMult(s)), 8)
-        end
-    end
 end
 
 -- Fin de mission : temps de vol des pilotes en l'air ajoute
@@ -1404,24 +1449,6 @@ function DeactivateBlueSky(GroupObject) SetBlueSkyMode(GroupObject, false) end
 -- Un vol encore actif au sol = Land manque (sinon CloseFlight l'aurait deja ferme).
 LAND_CHECK_MAX_MPS = 3 -- ~10 km/h
 PlayerDebugMenus = PlayerDebugMenus or {}
-
--- 27/11 (passe casseur du 20/11) : vol encore ouvert apres STOPPED_CLOSE_S a l'arret au sol = atterrissage rate par DCS.
--- Ferme comme un atterrissage (comme DEBUG), sans compter l'attente : le parking ne compte plus comme du vol.
--- shortcut: vitesse absolue, donc jamais sur un porte-avions en route (DEBUG y reste), a revoir si ca arrive en jeu
-STOPPED_CLOSE_S = 60
-function AutoLand(u, pilot, stopped)
-    local base, onField = LandPlace(u)
-    for _, name in ipairs(Crew(u:getName(), pilot)) do
-        local f = Flights[name]
-        if f and f.active then
-            f.startTime = f.startTime + math.min(stopped, timer.getTime() - f.startTime)
-            local elapsed, fl = CloseFlight(name)
-            env.info("BlueSky : atterrissage non vu par DCS, vol ferme apres " .. math.floor(stopped) .. " s a l'arret pour " ..
-                name .. " a " .. base)
-            if elapsed then LandFlight(name, fl, elapsed, base, onField, u, name == pilot) end
-        end
-    end
-end
 
 function DebugRevalidateLanding(GroupObject)
     ForEachGroupPlayer(GroupObject, function(id, name, u)
@@ -3234,6 +3261,11 @@ do
             local id, kind = u:getID(), Troops[u:getName()]
             if not kind then MessageToPlayer(id, "LOGISTIQUE : soute vide. Charge sur une base bleue : F10 > LOGISTIQUE.", 8) return end
             if u:inAir() then MessageToPlayer(id, "LOGISTIQUE : pose-toi d'abord.", 8) return end
+            if Flights[pilot] and Flights[pilot].active then
+                MessageToPlayer(id, "LOGISTIQUE : atterrissage pas encore valide (" .. LAND_HOLD_S .. " s au sol sous " ..
+                    LAND_MAX_KT .. " noeuds), reessaie.", 8)
+                return
+            end
             -- passe casseur du 24/11 : charger / decharger en boucle sans decoller empilait les Avenger (40 en 40 s)
             if (FlightClosedAt[pilot] or -1) < (LoadedAt[u:getName()] or 0) then
                 MessageToPlayer(id, "LOGISTIQUE : decolle et pose-toi ailleurs avant de decharger.", 8)
@@ -3751,3 +3783,15 @@ local MenuTankers = MENU_COALITION:New(BLUE, "TANKERS")
 for _, t in ipairs(TANKERS) do
     MENU_COALITION_COMMAND:New(BLUE, t.label, MenuTankers, SpawnTanker, t.template)
 end
+
+-- 27/11 : en solo, l'avion du joueur existe avant le script et son apparition n'est jamais vue (pote : ni menus de
+-- groupe, ni accueil). On la rejoue pour les joueurs deja assis ; en multi, personne n'est encore dans un slot.
+timer.scheduleFunction(function()
+    for _, side in ipairs({ coalition.side.RED, coalition.side.BLUE, coalition.side.NEUTRAL }) do
+        for _, u in ipairs(coalition.getPlayers(side) or {}) do
+            if u:isExist() and not UnitPlayer[u:getName()] then
+                ScoreMenuHandler:OnEventBirth({ IniDCSUnit = u, IniPlayerName = u:getPlayerName() })
+            end
+        end
+    end
+end, nil, timer.getTime() + 1)

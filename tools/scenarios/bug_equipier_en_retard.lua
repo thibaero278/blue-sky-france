@@ -19,7 +19,7 @@ return {
                                                                            { player = "Weefe", has = "Distance de tir : 2.7 NM" } } } },
         -- posé à Sukhumi après ~9 min (Dex) et ~8 min 30 (Weefe) : +1 pt de temps chacun
         { t = 600, land = { player = "Dex", at = "Sukhumi-Babushara" } },
-        { t = 601, check = {
+        { t = 611, check = {
             points = { Dex = 3, Weefe = 3 },
             message = { { player = "Dex", has = "Bienvenue a Sukhumi-Babushara, Dex" }, { player = "Weefe", has = "Bienvenue a Sukhumi-Babushara, Weefe" } },
             scores_file = { Dex = { points = 3, airsol = 1, landings = 1, flights = 1 },

@@ -12,7 +12,7 @@ return {
         { t = 60, takeoff = { player = "Dex", alt = 300, speed = 70 } },
         { t = 100, kill = { by = "Dex", target = "Gudauta T-72 1", distance = 4000 } },
         { t = 660, land = { player = "Dex", at = "Kobuleti" } },
-        { t = 661, check = { points = { Dex = 4 } } },
+        { t = 671, check = { points = { Dex = 4 } } },
         { t = 700, mission_end = true },
     },
 }

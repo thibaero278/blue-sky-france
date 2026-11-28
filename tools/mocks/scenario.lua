@@ -305,6 +305,8 @@ function Sc.run(def, M, chunk, writedir)
     F.build(M)
     if def.scores then F.writeScores(def.scores) end
     Sc.failures, Sc.msgMark, Sc.soundMark = {}, 0, 0
+    -- at_start = { { player, slot } } : en solo, l'avion du joueur existe avant le script (son Birth n'est vu par personne)
+    for _, s in ipairs(def.at_start or {}) do A.spawn(s) end
 
     local ok, err = F.loadScript(chunk)
     if def.load_error then

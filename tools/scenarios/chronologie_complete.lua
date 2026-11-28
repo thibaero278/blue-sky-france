@@ -49,7 +49,9 @@ return {
             ok = function(F, env) return env.CampaignStage == 2, "CampaignStage = " .. tostring(env.CampaignStage) end } },
         -- pose dans l'herbe à 25 km de Gudauta : vol de 900 s (Dex) -> 39 + 3 = 42, ÷ 2 = 21 ; Weefe 39 + 2 = 41 -> 20
         { t = 960, land = { player = "Dex", at = { x = -205000, z = 540000 } } },
-        { t = 961, check = {
+        -- serie v2 : valide apres 10 s au sol sous 50 noeuds
+        { t = 965, check = { flying = { "Dex", "Weefe" }, points = { Dex = 0 } } },
+        { t = 971, check = {
             points = { Dex = 21, Weefe = 20 },
             message = { { player = "Dex", has = "Pose hors aeroport (pres de Gudauta), Dex" }, { player = "Dex", has = "points divises par 2 (-21)" },
                         { player = "Weefe", has = "points divises par 2 (-21)" }, { player = "Dex", has = "Mode Blue Sky : +15:00" } },

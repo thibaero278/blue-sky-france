@@ -18,7 +18,7 @@ function InitPlayer(n) STATS[n] = STATS[n] or { points = 0, airair = 0, airsol =
     completedFlightTime = 0, serie = "0" } return STATS[n] end
 function GetRank() return 1, { name = "x" } end
 function SetRecord() end
-StreakPending, STREAK_MIN_S, STREAK_STEP, STREAK_MAX = {}, 300, 0.5, 3
+StreakLandedAt, STREAK_MIN_S, STREAK_STEP, STREAK_MAX, STREAK_GROUND_S, STREAK_TIME_S = {}, 300, 0.5, 3, 120, 3600
 function StreakMult() return 1 end
 function MultText(m) return "x" .. m end
 function SaveScores() end
@@ -35,7 +35,7 @@ end
 function ForEachGroupPlayer(g, fn) fn(1, "Alpha", g.u) end
 function fly(pts) local f = NewFlight(); f.active = true; f.points = pts; Flights.Alpha = f end
 ''' + cut('-- divisor (atterrissage hors', '-- NAISSANCE (spawn') +
-    cut('-- ATTERRISSAGE HORS AEROPORT', '-- Porte-avions : on attend') + 'end\n' +  # fin de LandFlight (branche porte-avions coupee)
+    cut('-- ATTERRISSAGE HORS AEROPORT', '-- ATTERRISSAGE VALIDE (serie v2') +
     cut('-- DEBUG (13/11)', '-- MENU F10 STATISTIQUES') + 'DestroyWatch = {}\n' +
     'Fake.addZone({ name = "Destroy cap", quad = { { 1000, -1e7 }, { 1000, 1e7 }, { 1e7, 1e7 }, { 1e7, -1e7 } } })\n' +
     'Fake.addZone({ name = "Destroy cap-2", x = -1e7, z = 0, r = 1 })\n' +

@@ -17,7 +17,10 @@ return {
         { t = 11, check = { message = { player = "Dex", has = "TROUPES A BORD" } } },
         -- Gudauta encore rouge : debarquer ne capture rien
         { t = 20, takeoff = { player = "Dex", alt = 300, speed = 60 } },
-        { t = 100, land = { player = "Dex", at = "Gudauta" } },
+        { t = 90, land = { player = "Dex", at = "Gudauta" } },
+        -- serie v2 : decharger avant les 10 s au sol = atterrissage pas encore valide
+        { t = 91, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
+        { t = 92, check = { message = { player = "Dex", has = "atterrissage pas encore valide (10 s au sol sous 50 noeuds)" } } },
         { t = 101, menu = { player = "Dex", path = "LOGISTIQUE > Decharger" } },
         { t = 102, check = { message = { player = "Dex", has = "pas de base blanche ici" },
                              ok = function(F) return coal(F, "Gudauta") == 1, "Gudauta pas rouge" end } },
@@ -82,14 +85,14 @@ return {
         { t = 2600, move = { player = "Weefe", speed = 1150 } },
         { t = 2605, move = { player = "Weefe", speed = 200 } },
         { t = 3110, land = { player = "Weefe", at = "Kobuleti" } },
-        { t = 3111, check = { stats = { Weefe = { bsFlightTime = 600, maxSpeed = 200 } },
+        { t = 3121, check = { stats = { Weefe = { bsFlightTime = 600, maxSpeed = 200 } },
                               message = { player = "Dex", has = "Vol le plus long : Weefe (FA-18C_hornet)" }, -- avion du record
                               ok = function(F, env) return env.BSMode.Weefe == true, "mode Blue Sky pas repris apres l'atterrissage" end } },
         -- Spawn ENI : desactiver efface les avions ENI en l'air
-        { t = 3120, menu = { player = "Dex", path = "SPAWN > Spawn ENI > Activer" } },
-        { t = 3200, check = { ok = function(F, env) return #env.EniGroups > 0 and env.EniGroups[1]:IsAlive(), "aucune vague ENI" end } },
-        { t = 3210, menu = { player = "Dex", path = "SPAWN > Spawn ENI > Desactiver" } },
-        { t = 3211, check = { message = { player = "Dex", has = "ENI retire(s)" },
+        { t = 3130, menu = { player = "Dex", path = "SPAWN > Spawn ENI > Activer" } },
+        { t = 3210, check = { ok = function(F, env) return #env.EniGroups > 0 and env.EniGroups[1]:IsAlive(), "aucune vague ENI" end } },
+        { t = 3220, menu = { player = "Dex", path = "SPAWN > Spawn ENI > Desactiver" } },
+        { t = 3221, check = { message = { player = "Dex", has = "ENI retire(s)" },
                               ok = function(F, env)
                                   for _, g in ipairs(F.groupList) do
                                       if g.name:find("#", 1, true) and g:isExist() and g.coal == 1 and g.kind == "AIRPLANE" then return false, "encore en l'air : " .. g.name end
