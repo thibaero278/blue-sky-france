@@ -16,6 +16,10 @@ body[data-page="ops"] ::selection { background: var(--accent); color: var(--acce
 [data-page="ops"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 [data-page="ops"] main img { width: 100%; height: 100%; object-fit: cover; }
 
+/* bouton « remonter en haut » : --ink est clair ici, on reprend le style du bouton « Ouvrir le dossier » */
+[data-page="ops"] .totop { border-radius: 0; background: var(--field); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
+[data-page="ops"] .totop:hover { background: var(--accent); color: var(--accent-ink); }
+
 /* ---------- nav et pied de page du site, passés au noir ---------- */
 [data-page="ops"] .nav { background: #0b100dee; border-color: transparent; box-shadow: 0 0 0 transparent; } /* taste-skill-ignore : efface l'ombre de la nav du site */
 [data-page="ops"] .navwrap *, [data-page="ops"] .footer * { font-family: var(--f-text); letter-spacing: 0; text-transform: none; }

@@ -111,6 +111,15 @@
       clearTimeout(b._t); b._t = setTimeout(() => (lbl.textContent = 'Copier'), 1800);
     });
   });
+
+  // Bouton « remonter en haut » : apparaît une fois descendu d'un écran
+  const toTop = document.createElement('button');
+  toTop.className = 'totop';
+  toTop.setAttribute('aria-label', 'Remonter en haut de la page');
+  toTop.textContent = '↑';
+  toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  addEventListener('scroll', () => toTop.classList.toggle('on', scrollY > innerHeight), { passive: true });
+  document.body.append(toTop);
 })();
 
 // App installable (bouton « Installer » du navigateur) : nécessite le service worker
